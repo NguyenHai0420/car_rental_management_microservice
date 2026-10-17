@@ -1,0 +1,24 @@
+# Dependencies
+**/node_modules/
+
+# Environment variables
+**/.env
+**/.env.*
+!.env.example
+
+# Build outputs
+**/dist/
+
+# Backup Git metadata
+**/.git_backup/
+
+# Java / Maven
+**/target/
+**/.idea/
+**/*.iml
+
+# Logs
+*.log
+
+# IDE
+.vscode/

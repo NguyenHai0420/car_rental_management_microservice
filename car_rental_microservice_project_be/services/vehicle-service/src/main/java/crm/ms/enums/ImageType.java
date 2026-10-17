@@ -1,0 +1,5 @@
+package crm.ms.enums;
+
+public enum ImageType {
+    EXTERIOR_FRONT, EXTERIOR_REAR, EXTERIOR_SIDE, INTERIOR, DASHBOARD, TRUNK, LICENSE_PLATE, OTHER
+}

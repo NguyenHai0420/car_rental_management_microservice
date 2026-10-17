@@ -1,0 +1,5 @@
+package crm.ms.enums;
+
+public enum PaymentItemType {
+    RENTAL_FEE, SURCHARGE, DISCOUNT, INSURANCE, LATE_FEE, MILEAGE_OVERAGE, DAMAGE_FEE, DEPOSIT, TAX, OTHER
+}

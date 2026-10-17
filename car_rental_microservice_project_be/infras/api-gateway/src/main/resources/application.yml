@@ -1,0 +1,50 @@
+server:
+  port: 8080
+
+  spring:
+    application:
+      name: api-gateway
+    cloud:
+      gateway:
+        routes:
+          - id: vehicle-service
+            uri: http://localhost:8081
+            predicates:
+              - Path=/vehicle/**
+          - id: customer-service
+            uri: http://localhost:8082
+            predicates:
+              - Path=/customer/**
+          - id: booking-service
+            uri: http://localhost:8083
+            predicates:
+              - Path=/booking/**
+          - id: payment-service
+            uri: http://localhost:8084
+            predicates:
+              - Path=/payment/**
+          - id: maintenance-service
+            uri: http://localhost:8085
+            predicates:
+              - Path=/maintenance/**
+          - id: notification-service
+            uri: http://localhost:8086
+            predicates:
+              - Path=/notification/**
+              -
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
+            scope:
+              - openid
+              - profile
+              - email
+
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://localhost:8761/eureka/

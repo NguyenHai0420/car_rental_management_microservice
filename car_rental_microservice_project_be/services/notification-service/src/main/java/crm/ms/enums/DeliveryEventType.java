@@ -1,0 +1,5 @@
+package crm.ms.enums;
+
+public enum DeliveryEventType {
+    ACCEPTED, QUEUED, SENT, DELIVERED, OPENED, CLICKED, BOUNCED, COMPLAINED, UNSUBSCRIBED, FAILED
+}

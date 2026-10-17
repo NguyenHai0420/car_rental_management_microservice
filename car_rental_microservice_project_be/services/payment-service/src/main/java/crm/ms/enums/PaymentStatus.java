@@ -1,0 +1,5 @@
+package crm.ms.enums;
+
+public enum PaymentStatus {
+    PENDING, DEPOSIT_PAID, PARTIALLY_PAID, FULLY_PAID, REFUND_PENDING, REFUNDED, FAILED, CANCELLED
+}
