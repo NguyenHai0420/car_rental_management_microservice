@@ -20,6 +20,7 @@ public class SecurityConfig {
                 .authorizeExchange(auth -> auth
                         .pathMatchers("/actuator/**", "/public/**").permitAll()
                         .pathMatchers(HttpMethod.OPTIONS).permitAll()
+                        .pathMatchers("/api/v1/vehicles/*/documents", "/api/v1/vehicles/*/documents/**").authenticated()
                         .pathMatchers(HttpMethod.GET, "/api/v1/vehicles/**").permitAll()
                         .anyExchange().authenticated()
                 )

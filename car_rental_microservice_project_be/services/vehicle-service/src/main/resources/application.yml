@@ -4,13 +4,13 @@ service:
     version: 1.0.0
     port: 8081
 
-Spring:
+spring:
     application:
         name: vehicle-service
     datasource:
-        url: jdbc:mysql://localhost:3306/vehicle_db
-        username: root
-        password: 1234
+        url: ${DB_URL:jdbc:mysql://localhost:3306/vehicle_db}
+        username: ${DB_USERNAME:root}
+        password: ${DB_PASSWORD:1234}
         driver-class-name: com.mysql.cj.jdbc.Driver
     jpa:
         hibernate:
@@ -22,6 +22,29 @@ Spring:
             hibernate:
               format_sql: true
               dialect: org.hibernate.dialect.MySQL8Dialect
+    servlet:
+        multipart:
+            max-file-size: 10MB
+            max-request-size: 12MB
 
 server:
   port: ${service.port}
+
+file-service:
+  url: ${FILE_SERVICE_URL:http://localhost:8087}
+  service-name: vehicle-service
+  api-key: ${FILE_SERVICE_VEHICLE_API_KEY:local-vehicle-file-service-key}
+  connect-timeout: ${FILE_SERVICE_CONNECT_TIMEOUT:3s}
+  request-timeout: ${FILE_SERVICE_REQUEST_TIMEOUT:60s}
+
+media:
+  management-roles: ${VEHICLE_MEDIA_MANAGEMENT_ROLES:ADMIN,STAFF}
+  storage:
+    image-bucket: ${VEHICLE_IMAGE_BUCKET:${MINIO_IMAGE_BUCKET:vehicle-images}}
+    document-bucket: ${VEHICLE_DOCUMENT_BUCKET:${MINIO_DOCUMENT_BUCKET:vehicle-documents}}
+    presign-expiry: ${VEHICLE_PRESIGN_EXPIRY:${MINIO_PRESIGN_EXPIRY:10m}}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka/}

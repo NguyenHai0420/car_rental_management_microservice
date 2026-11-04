@@ -1,0 +1,42 @@
+server:
+  address: ${FILE_SERVICE_BIND_ADDRESS:127.0.0.1}
+  port: ${FILE_SERVICE_PORT:8087}
+
+spring:
+  application:
+    name: minio-service
+
+minio:
+  endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+  public-endpoint: ${MINIO_PUBLIC_ENDPOINT:http://localhost:9000}
+  access-key: ${MINIO_ACCESS_KEY:minioadmin}
+  secret-key: ${MINIO_SECRET_KEY:minioadmin123}
+
+storage:
+  max-file-size: ${FILE_SERVICE_MAX_FILE_SIZE:10MB}
+  max-presign-expiry: ${FILE_SERVICE_MAX_PRESIGN_EXPIRY:10m}
+  public-buckets: ${FILE_SERVICE_PUBLIC_BUCKETS:vehicle-images}
+  clients:
+    vehicle-service:
+      api-key: ${FILE_SERVICE_VEHICLE_API_KEY:local-vehicle-file-service-key}
+      buckets: ${VEHICLE_IMAGE_BUCKET:${MINIO_IMAGE_BUCKET:vehicle-images}},${VEHICLE_DOCUMENT_BUCKET:${MINIO_DOCUMENT_BUCKET:vehicle-documents}}
+      key-prefix: vehicles/
+    customer-service:
+      api-key: ${FILE_SERVICE_CUSTOMER_API_KEY:local-customer-file-service-key}
+      buckets: ${CUSTOMER_IMAGE_BUCKET:customer-images}
+      key-prefix: customers/
+
+eureka:
+  client:
+    enabled: ${EUREKA_CLIENT_ENABLED:true}
+    service-url:
+      defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka/}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
