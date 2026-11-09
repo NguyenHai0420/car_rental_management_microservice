@@ -9,7 +9,7 @@
     <version>1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
     <modules>
-        <module>infras/minio-service</module>
+        <module>services/minio-service</module>
         <module>services/vehicle-service</module>
         <module>services/customer-service</module>
         <module>services/booking-service</module>
