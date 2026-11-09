@@ -48,6 +48,7 @@ payment:
       return-url: http://localhost:5173/payment/callback
       cancel-url: http://localhost:5173/payment/cancel
     vietqr:
-      bank-id: ${VIETQR_BANK_ID:MB}
-      account-no: ${VIETQR_ACCOUNT_NO:0987654321}
-      account-name: ${VIETQR_ACCOUNT_NAME:NGUYEN VAN A}
+      bank-id: ${VIETQR_BANK_ID:ICB}
+      bank-name-display: ${VIETQR_BANK_NAME:VietinBank}
+      account-no: ${VIETQR_ACCOUNT_NO:0376359204}
+      account-name: ${VIETQR_ACCOUNT_NAME:HOANG TU UYEN}

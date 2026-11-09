@@ -1,10 +1,24 @@
 import React, { useState, useEffect } from "react";
 import { PaymentPage } from "../features/payments/pages/PaymentPage";
 import { PaymentCallbackPage } from "../features/payments/pages/PaymentCallbackPage";
+import { PricingCalculator } from "../features/payments/components/PricingCalculator";
 import "../style/App.css";
 
 function App() {
-  const [currentPath, setCurrentPath] = useState(window.location.pathname);
+  const [currentPath, setCurrentPath] = useState(() => {
+    const path = window.location.pathname;
+    return path === "/" || path === "" ? "/rent" : path;
+  });
+
+  const [customOrder, setCustomOrder] = useState(() => {
+    const saved = sessionStorage.getItem("current_rental_payment");
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return null;
+  });
 
   useEffect(() => {
     const handlePopState = () => {
@@ -19,56 +33,96 @@ function App() {
     setCurrentPath(path);
   };
 
+  const handleProceedToPayment = (order) => {
+    setCustomOrder(order);
+    sessionStorage.setItem("current_rental_payment", JSON.stringify(order));
+    navigateTo("/payment");
+  };
+
+  const isRentScreen = currentPath === "/rent" || currentPath === "/pricing" || currentPath === "/";
+  const isCallbackScreen = currentPath.includes("/payment/callback");
+  const isPaymentScreen = currentPath.startsWith("/payment") && !isCallbackScreen;
+
   return (
-    <div className="app-container">
-      {/* Thanh Điều Hướng Đơn Giản */}
+    <div className="app-container" style={{ minHeight: "100vh", backgroundColor: "#f1f5f9" }}>
+      {/* Thanh Điều Hướng Header */}
       <header style={{
-        background: "#1e293b",
+        background: "#0f172a",
         color: "#fff",
-        padding: "14px 24px",
+        padding: "16px 28px",
         display: "flex",
         justifyContent: "space-between",
         alignItems: "center",
+        boxShadow: "0 2px 10px rgba(0,0,0,0.15)",
       }}>
-        <div style={{ fontWeight: "bold", fontSize: "18px", display: "flex", alignItems: "center", gap: "8px" }}>
-          🚗 Car Rental CRM — Payment Portal
+        <div style={{ fontWeight: "800", fontSize: "19px", display: "flex", alignItems: "center", gap: "10px" }}>
+          🚗 CAR RENTAL CRM — CỔNG TÀI CHÍNH & THANH TOÁN
         </div>
-        <nav style={{ display: "flex", gap: "16px" }}>
+        <nav style={{ display: "flex", gap: "12px" }}>
+          {/* Nút 1: Thuê Xe */}
+          <button
+            onClick={() => navigateTo("/rent")}
+            style={{
+              background: isRentScreen ? "#2563eb" : "#1e293b",
+              color: "#fff",
+              border: "1px solid #334155",
+              padding: "8px 18px",
+              borderRadius: "8px",
+              cursor: "pointer",
+              fontWeight: "700",
+              fontSize: "14px",
+              transition: "all 0.2s",
+            }}
+          >
+            🚗 1. Thuê Xe
+          </button>
+
+          {/* Nút 2: Thanh Toán VietQR */}
           <button
             onClick={() => navigateTo("/payment")}
             style={{
-              background: currentPath.startsWith("/payment") && !currentPath.includes("callback") ? "#3b82f6" : "transparent",
+              background: isPaymentScreen ? "#16a34a" : "#1e293b",
               color: "#fff",
-              border: "none",
-              padding: "6px 14px",
-              borderRadius: "6px",
+              border: "1px solid #334155",
+              padding: "8px 18px",
+              borderRadius: "8px",
               cursor: "pointer",
+              fontWeight: "700",
+              fontSize: "14px",
+              transition: "all 0.2s",
             }}
           >
-            Thanh Toán
+            💳 2. Thanh Toán VietQR
           </button>
+
+          {/* Nút 3: Kết Quả Giao Dịch */}
           <button
-            onClick={() => navigateTo("/payment/callback?code=00&method=MOCK&txnId=DEMO123")}
+            onClick={() => navigateTo("/payment/callback?code=00&method=PAYOS&depositPaid=5000000")}
             style={{
-              background: currentPath.includes("callback") ? "#3b82f6" : "transparent",
+              background: isCallbackScreen ? "#2563eb" : "#1e293b",
               color: "#fff",
-              border: "none",
-              padding: "6px 14px",
-              borderRadius: "6px",
+              border: "1px solid #334155",
+              padding: "8px 18px",
+              borderRadius: "8px",
               cursor: "pointer",
+              fontWeight: "700",
+              fontSize: "14px",
+              transition: "all 0.2s",
             }}
           >
-            Mẫu Kết Quả Callback
+            ✓ 3. Kết Quả Giao Dịch
           </button>
         </nav>
       </header>
 
-      {/* Điều phối Trang */}
-      <main>
-        {currentPath.includes("/payment/callback") ? (
+      {/* Điều phối các màn hình */}
+      <main style={{ padding: "26px 16px" }}>
+        {isRentScreen ? (
+          <PricingCalculator onProceedToPayment={handleProceedToPayment} />
+        ) : isCallbackScreen ? (
           <PaymentCallbackPage />
         ) : (
-          <PaymentPage />
+          <PaymentPage customOrder={customOrder} />
         )}
       </main>
     </div>

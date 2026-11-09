@@ -14,10 +14,10 @@ import java.math.BigDecimal;
 @Builder
 public class CheckoutRequest {
     @NotNull(message = "Loại giao dịch (txnType) không được để trống")
-    private TransactionType txnType; // DEPOSIT_CHARGE, CHARGE
+    private TransactionType txnType;
 
     @NotNull(message = "Phương thức thanh toán (method) không được để trống")
-    private TransactionMethod method; // VNPAY, PAYOS, MOCK, BANK_TRANSFER
+    private TransactionMethod method;
 
     @NotNull(message = "Số tiền thanh toán không được để trống")
     private BigDecimal amount;

@@ -34,7 +34,7 @@ export const paymentService = {
   },
 
   /**
-   * Khởi tạo phiên thanh toán (VNPAY, PayOS VietQR, Mock)
+   * Khởi tạo phiên thanh toán VietQR
    */
   processCheckout: async (paymentId, payload) => {
     const response = await apiClient.post(`/api/v1/payments/${paymentId}/checkout`, payload);
@@ -44,9 +44,33 @@ export const paymentService = {
   /**
    * Xác thực kết quả thanh toán sau khi cổng thanh toán redirect về
    */
-  verifyPaymentCallback: async (params, gateway = "mock") => {
+  verifyPaymentCallback: async (params, gateway = "payos") => {
     const query = new URLSearchParams(params).toString();
     const response = await apiClient.get(`/api/v1/payments/callback/verify?gateway=${gateway}&${query}`);
+    return response.data?.data;
+  },
+
+  /**
+   * Ghi nhận phụ thu / phạt phát sinh (trả muộn, trầy xước)
+   */
+  addPenaltyFee: async (paymentId, penaltyData) => {
+    const response = await apiClient.post(`/api/v1/payments/${paymentId}/penalties`, penaltyData);
+    return response.data?.data;
+  },
+
+  /**
+   * Hoàn tiền cọc cho khách hàng
+   */
+  refundDeposit: async (paymentId, refundData) => {
+    const response = await apiClient.post(`/api/v1/payments/${paymentId}/refund`, refundData);
+    return response.data?.data;
+  },
+
+  /**
+   * Mô phỏng khách vừa chuyển khoản xong (dùng cho Demo & Test tính năng tự động nhảy trang)
+   */
+  simulatePaymentSuccess: async (paymentId) => {
+    const response = await apiClient.post(`/api/v1/payments/${paymentId}/simulate-success`);
     return response.data?.data;
   },
 };

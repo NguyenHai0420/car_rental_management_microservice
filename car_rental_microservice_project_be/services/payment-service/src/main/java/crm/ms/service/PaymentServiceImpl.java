@@ -60,6 +60,7 @@ public class PaymentServiceImpl implements PaymentService {
                 .discountAmount(request.getDiscountAmount() != null ? request.getDiscountAmount() : BigDecimal.ZERO)
                 .penaltyAmount(request.getPenaltyAmount() != null ? request.getPenaltyAmount() : BigDecimal.ZERO)
                 .totalAmount(request.getTotalAmount())
+                .depositRequired(request.getDepositRequired() != null ? request.getDepositRequired() : BigDecimal.ZERO)
                 .depositPaid(BigDecimal.ZERO)
                 .depositRefunded(BigDecimal.ZERO)
                 .amountPaid(BigDecimal.ZERO)
@@ -78,6 +79,21 @@ public class PaymentServiceImpl implements PaymentService {
                 }
                 payment.getPaymentItems().add(item);
             }
+        }
+
+        // Tự động bổ sung mục tiền cọc nếu chưa có trong danh sách items
+        boolean hasDepositItem = payment.getPaymentItems().stream()
+                .anyMatch(it -> it.getItemType() == crm.ms.enums.PaymentItemType.DEPOSIT);
+        if (!hasDepositItem && payment.getDepositRequired() != null && payment.getDepositRequired().compareTo(BigDecimal.ZERO) > 0) {
+            PaymentItem depositItem = PaymentItem.builder()
+                    .payment(payment)
+                    .itemType(crm.ms.enums.PaymentItemType.DEPOSIT)
+                    .description("Tiền cọc giữ xe bắt buộc")
+                    .quantity(1)
+                    .unitPrice(payment.getDepositRequired())
+                    .amount(payment.getDepositRequired())
+                    .build();
+            payment.getPaymentItems().add(depositItem);
         }
 
         Payment saved = paymentRepository.save(payment);
@@ -162,7 +178,6 @@ public class PaymentServiceImpl implements PaymentService {
         String gatewayTxnId = strategy.extractGatewayTxnId(callbackParams);
         boolean isSuccess = strategy.isSuccessful(callbackParams);
 
-        // Lấy transaction mới nhất đang PENDING của payment này
         List<PaymentTransaction> txns = paymentTransactionRepository.findByPaymentIdOrderByCreatedAtDesc(payment.getId());
         PaymentTransaction targetTxn = txns.stream()
                 .filter(t -> t.getStatus() == TransactionStatus.PENDING)
@@ -212,6 +227,80 @@ public class PaymentServiceImpl implements PaymentService {
         paymentTransactionRepository.save(targetTxn);
         Payment updatedPayment = paymentRepository.save(payment);
         return paymentMapper.toResponse(updatedPayment);
+    }
+
+    @Override
+    @Transactional
+    public PaymentResponse addPenaltyFee(UUID paymentId, AddPenaltyRequest request) {
+        log.info("Adding penalty fee for paymentId={}, amount={}, reason={}", paymentId, request.getAmount(), request.getDescription());
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new BusinessException(1, 404, "Không tìm thấy hóa đơn: " + paymentId));
+
+        PaymentItem penaltyItem = PaymentItem.builder()
+                .payment(payment)
+                .itemType(request.getItemType())
+                .description(request.getDescription())
+                .quantity(1)
+                .unitPrice(request.getAmount())
+                .amount(request.getAmount())
+                .build();
+
+        payment.getPaymentItems().add(penaltyItem);
+        payment.setPenaltyAmount(payment.getPenaltyAmount().add(request.getAmount()));
+        payment.setTotalAmount(payment.getTotalAmount().add(request.getAmount()));
+        payment.setAmountDue(payment.getAmountDue().add(request.getAmount()));
+
+        Payment saved = paymentRepository.save(payment);
+        return paymentMapper.toResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public PaymentResponse processDepositRefund(UUID paymentId, RefundDepositRequest request) {
+        log.info("Processing deposit refund for paymentId={}, refundAmount={}", paymentId, request.getRefundAmount());
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new BusinessException(1, 404, "Không tìm thấy hóa đơn: " + paymentId));
+
+        if (payment.getDepositPaid().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException(1, 400, "Đơn này chưa thanh toán tiền cọc, không thể hoàn cọc");
+        }
+
+        BigDecimal remainingDeposit = payment.getDepositPaid().subtract(payment.getDepositRefunded());
+        if (request.getRefundAmount().compareTo(remainingDeposit) > 0) {
+            throw new BusinessException(1, 400, "Số tiền hoàn cọc vượt quá tiền cọc còn lại khả dụng (" + remainingDeposit + " VND)");
+        }
+
+        payment.setDepositRefunded(payment.getDepositRefunded().add(request.getRefundAmount()));
+        payment.setStatus(PaymentStatus.REFUNDED);
+
+        PaymentTransaction refundTxn = PaymentTransaction.builder()
+                .payment(payment)
+                .txnType(TransactionType.DEPOSIT_REFUND)
+                .txnMethod(TransactionMethod.BANK_TRANSFER)
+                .amount(request.getRefundAmount())
+                .currency(payment.getCurrency())
+                .status(TransactionStatus.SUCCESS)
+                .gatewayTxnId("REFUND-" + System.currentTimeMillis())
+                .gatewayResponse(String.format("Hoàn cọc %s VND về STK %s - %s (%s). Lý do: %s",
+                        request.getRefundAmount(),
+                        request.getCustomerBankAccount(),
+                        request.getCustomerAccountName(),
+                        request.getCustomerBankName(),
+                        request.getReason()))
+                .processedAt(LocalDateTime.now())
+                .build();
+
+        paymentTransactionRepository.save(refundTxn);
+        Payment saved = paymentRepository.save(payment);
+        return paymentMapper.toResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public PaymentResponse processDepositRefundByBookingId(UUID bookingId, RefundDepositRequest request) {
+        Payment payment = paymentRepository.findByBookingId(bookingId)
+                .orElseThrow(() -> new BusinessException(1, 404, "Không tìm thấy hóa đơn cho đơn đặt xe: " + bookingId));
+        return processDepositRefund(payment.getId(), request);
     }
 
     private PaymentGatewayStrategy findGatewayStrategy(TransactionMethod method) {

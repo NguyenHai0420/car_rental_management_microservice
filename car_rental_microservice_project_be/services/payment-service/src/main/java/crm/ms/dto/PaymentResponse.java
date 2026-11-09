@@ -25,6 +25,7 @@ public class PaymentResponse {
     private BigDecimal discountAmount;
     private BigDecimal penaltyAmount;
     private BigDecimal totalAmount;
+    private BigDecimal depositRequired;
     private BigDecimal depositPaid;
     private BigDecimal depositRefunded;
     private BigDecimal amountPaid;
