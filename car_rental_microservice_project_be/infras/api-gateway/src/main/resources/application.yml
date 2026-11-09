@@ -1,4 +1,4 @@
-﻿server:
+server:
   port: ${SERVER_PORT:8080}
 
 spring:
@@ -28,7 +28,7 @@ spring:
         - id: payment-service
           uri: lb://payment-service
           predicates:
-            - Path=/api/v1/payments/**
+            - Path=/api/v1/payments/**, /api/v1/pricing/**
         - id: maintenance-service
           uri: lb://maintenance-service
           predicates:

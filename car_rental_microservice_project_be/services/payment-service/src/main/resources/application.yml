@@ -4,13 +4,13 @@ service:
   version: 1.0.0
   port: 8084
 
-Spring:
+spring:
   application:
     name: payment-service
   datasource:
-    url: jdbc:mysql://localhost:3306/payment_db
-    username: root
-    password: 1234
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/payment_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true}
+    username: ${SPRING_DATASOURCE_USERNAME:root}
+    password: ${SPRING_DATASOURCE_PASSWORD:1234}
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:
@@ -25,3 +25,29 @@ Spring:
 
 server:
   port: ${service.port}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka/}
+
+payment:
+  gateway:
+    mock:
+      enabled: true
+      return-base-url: http://localhost:5173/payment/callback
+    vnpay:
+      tmn-code: ${VNPAY_TMN_CODE:DEMOVNPAY}
+      hash-secret: ${VNPAY_HASH_SECRET:DEMOHASHSECRET1234567890}
+      pay-url: https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
+      return-url: http://localhost:5173/payment/callback
+    payos:
+      client-id: ${PAYOS_CLIENT_ID:your-payos-client-id}
+      api-key: ${PAYOS_API_KEY:your-payos-api-key}
+      checksum-key: ${PAYOS_CHECKSUM_KEY:your-payos-checksum-key}
+      return-url: http://localhost:5173/payment/callback
+      cancel-url: http://localhost:5173/payment/cancel
+    vietqr:
+      bank-id: ${VIETQR_BANK_ID:MB}
+      account-no: ${VIETQR_ACCOUNT_NO:0987654321}
+      account-name: ${VIETQR_ACCOUNT_NAME:NGUYEN VAN A}
