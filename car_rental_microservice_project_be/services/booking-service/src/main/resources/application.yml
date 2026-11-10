@@ -24,11 +24,6 @@ spring:
       resourceserver:
         jwt:
           issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/car-rental-realm}
-  rabbitmq:
-    host: ${RABBITMQ_HOST:localhost}
-    port: ${RABBITMQ_PORT:5672}
-    username: ${RABBITMQ_USER:guest}
-    password: ${RABBITMQ_PASSWORD:guest}
   cloud:
     openfeign:
       client:
@@ -47,7 +42,7 @@ eureka:
 booking:
   expiration-minutes: 15
   deposit-rate: 0.30
-  mock-external-services: ${BOOKING_MOCK_EXTERNAL:false}
+  mock-external-services: ${BOOKING_MOCK_EXTERNAL:true}
 
 server:
   port: ${service.port}

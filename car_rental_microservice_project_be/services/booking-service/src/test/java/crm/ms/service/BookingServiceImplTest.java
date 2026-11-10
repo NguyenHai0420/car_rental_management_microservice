@@ -1,14 +1,13 @@
 package crm.ms.service;
 
 import crm.ms.client.ExternalValidationService;
+import crm.ms.client.NotificationClient;
 import crm.ms.client.VehicleClient;
 import crm.ms.dto.*;
 import crm.ms.entity.Booking;
 import crm.ms.enums.BookingStatus;
-import crm.ms.event.EmailNotificationCommand;
 import crm.ms.exception.BusinessException;
 import crm.ms.mapper.BookingMapper;
-import crm.ms.messaging.NotificationRabbitPublisher;
 import crm.ms.repository.BookingRepository;
 import crm.ms.repository.RentalSlotRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -43,7 +42,7 @@ class BookingServiceImplTest {
     @Mock
     private VehicleClient vehicleClient;
     @Mock
-    private NotificationRabbitPublisher notificationRabbitPublisher;
+    private NotificationClient notificationClient;
 
     private BookingServiceImpl bookingService;
 
@@ -55,7 +54,7 @@ class BookingServiceImplTest {
                 rentalSlotRepository,
                 externalValidationService,
                 vehicleClient,
-                notificationRabbitPublisher,
+                notificationClient,
                 mapper
         );
         ReflectionTestUtils.setField(bookingService, "depositRate", new BigDecimal("0.30"));
@@ -189,7 +188,7 @@ class BookingServiceImplTest {
         BookingResponse res = bookingService.confirmBooking(bookingId, "PAY-001", "payment-service");
 
         assertThat(res.getStatus()).isEqualTo(BookingStatus.CONFIRMED);
-        verify(notificationRabbitPublisher).sendEmailCommand(any(EmailNotificationCommand.class));
+        verify(notificationClient).sendNotification(any(NotificationRequest.class));
     }
 
     @Test

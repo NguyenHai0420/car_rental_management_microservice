@@ -1,4 +1,4 @@
-package crm.ms.event;
+package crm.ms.dto;
 
 import lombok.*;
 
@@ -10,11 +10,13 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class EmailNotificationCommand {
+public class NotificationRequest {
     private String templateCode;
     private String channel;
     private String recipient;
     private String recipientName;
+    private String subject;
+    private String body;
     private Map<String, String> placeholders;
     private String sourceService;
     private String sourceEvent;

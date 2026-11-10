@@ -1,6 +1,7 @@
 package crm.ms.service;
 
 import crm.ms.client.ExternalValidationService;
+import crm.ms.client.NotificationClient;
 import crm.ms.client.VehicleClient;
 import crm.ms.dto.*;
 import crm.ms.entity.Booking;
@@ -8,10 +9,8 @@ import crm.ms.entity.BookingStatusHistory;
 import crm.ms.entity.RentalSlot;
 import crm.ms.enums.BookingStatus;
 import crm.ms.enums.SlotStatus;
-import crm.ms.event.EmailNotificationCommand;
 import crm.ms.exception.BusinessException;
 import crm.ms.mapper.BookingMapper;
-import crm.ms.messaging.NotificationRabbitPublisher;
 import crm.ms.repository.BookingRepository;
 import crm.ms.repository.RentalSlotRepository;
 import lombok.RequiredArgsConstructor;
@@ -43,7 +42,7 @@ public class BookingServiceImpl implements BookingService {
     private final RentalSlotRepository rentalSlotRepository;
     private final ExternalValidationService externalValidationService;
     private final VehicleClient vehicleClient;
-    private final NotificationRabbitPublisher notificationRabbitPublisher;
+    private final NotificationClient notificationClient;
     private final BookingMapper bookingMapper;
 
     @Value("${booking.deposit-rate:0.30}")
@@ -390,11 +389,12 @@ public class BookingServiceImpl implements BookingService {
             return;
         }
         String formattedTotal = NumberFormat.getNumberInstance(Locale.US).format(booking.getEstimatedTotal());
-        EmailNotificationCommand cmd = EmailNotificationCommand.builder()
+        NotificationRequest req = NotificationRequest.builder()
                 .templateCode("BOOKING_CONFIRMED")
                 .channel("EMAIL")
                 .recipient(booking.getCustomerEmail())
                 .recipientName(booking.getCustomerName() != null ? booking.getCustomerName() : "Quý khách")
+                .subject("Xác nhận đơn đặt xe #" + booking.getBookingCode())
                 .placeholders(Map.of(
                         "customer_name", booking.getCustomerName() != null ? booking.getCustomerName() : "Quý khách",
                         "booking_code", booking.getBookingCode(),
@@ -409,9 +409,11 @@ public class BookingServiceImpl implements BookingService {
                 .referenceId(booking.getId())
                 .build();
         try {
-            notificationRabbitPublisher.sendEmailCommand(cmd);
+            notificationClient.sendNotification(req);
+            log.info("Sent booking confirmed notification via Feign REST to notification-service [code={}, recipient={}]",
+                    booking.getBookingCode(), booking.getCustomerEmail());
         } catch (Exception e) {
-            log.warn("Failed to publish booking confirmed email command to RabbitMQ: {}", e.getMessage());
+            log.warn("Failed to notify notification-service via Feign REST: {}", e.getMessage());
         }
     }
 

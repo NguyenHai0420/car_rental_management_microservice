@@ -36,10 +36,17 @@ export function AuthProvider({ children }) {
 
     setAccessTokenProvider(async () => {
       if (!keycloak?.authenticated) return null
-      try {
-        await keycloak.updateToken(30)
-      } catch {
-        keycloak.clearToken()
+      if (keycloak.token && !keycloak.isTokenExpired(30)) {
+        return keycloak.token
+      }
+      if (keycloak.refreshToken) {
+        try {
+          await keycloak.updateToken(30)
+        } catch {
+          if (keycloak.isTokenExpired(0)) {
+            keycloak.clearToken()
+          }
+        }
       }
       return keycloak.token
     })

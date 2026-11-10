@@ -21,17 +21,26 @@ apiClient.interceptors.request.use(
   async (config) => {
     let token = await tokenProvider()
     if (!token && keycloak?.authenticated) {
-      try {
-        await keycloak.updateToken(30)
-      } catch {
-        keycloak.clearToken()
+      if (keycloak.token && !keycloak.isTokenExpired(30)) {
+        token = keycloak.token
+      } else if (keycloak.refreshToken) {
+        try {
+          await keycloak.updateToken(30)
+        } catch {
+          // ignore
+        }
+        token = keycloak.token
+      } else {
+        token = keycloak.token
       }
-      token = keycloak.token
     }
     if (token) {
-      config.headers.set
-        ? config.headers.set('Authorization', `Bearer ${token}`)
-        : (config.headers.Authorization = `Bearer ${token}`)
+      if (typeof config.headers?.set === 'function') {
+        config.headers.set('Authorization', `Bearer ${token}`)
+      } else {
+        config.headers = config.headers || {}
+        config.headers['Authorization'] = `Bearer ${token}`
+      }
     }
     return config
   },

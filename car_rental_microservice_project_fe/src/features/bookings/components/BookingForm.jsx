@@ -54,8 +54,9 @@ export const BookingForm = ({
   const handleOk = async () => {
     const values = await form.validateFields();
     const [pickupDatetime, returnDatetime] = values.dateRange;
+    const resolvedVehicleId = vehicle?.vehicleId || vehicle?.id;
     await onSubmit({
-      vehicleId: vehicle.vehicleId,
+      vehicleId: resolvedVehicleId,
       pickupDatetime,
       returnDatetime,
       pickupLocation: values.pickupLocation,
@@ -64,11 +65,15 @@ export const BookingForm = ({
     });
   };
 
+  const displayPlate = vehicle?.licensePlate || vehicle?.plate;
+  const displaySeats = vehicle?.seatCount || vehicle?.seats || 4;
+  const displayFuel = vehicle?.fuelType || vehicle?.fuel || "Xăng";
+
   return (
     <Modal
       title={
         vehicle
-          ? `Đặt thuê xe: ${vehicle.brand || ""} ${vehicle.modelName || ""} (${vehicle.licensePlate || ""})`
+          ? `Đặt thuê xe: ${vehicle.brand || ""} ${vehicle.modelName || ""}${displayPlate ? ` (${displayPlate})` : ""}`
           : "Tạo đơn đặt xe"
       }
       open={open}
@@ -81,7 +86,7 @@ export const BookingForm = ({
       destroyOnHidden
     >
       {vehicle && (
-        <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
+        <Space direction="vertical" size="middle" style={{ width: "100%" }}>
           <Descriptions
             bordered
             size="small"
@@ -99,12 +104,16 @@ export const BookingForm = ({
               {
                 key: "plate",
                 label: "Biển số",
-                children: <Tag color="geekblue">{vehicle.licensePlate}</Tag>,
+                children: displayPlate ? (
+                  <Tag color="geekblue">{displayPlate}</Tag>
+                ) : (
+                  <Text type="secondary">Chưa cập nhật</Text>
+                ),
               },
               {
                 key: "specs",
                 label: "Thông số",
-                children: `${vehicle.seatCount || 4} chỗ • ${vehicle.fuelType || "Xăng"}`,
+                children: `${displaySeats} chỗ • ${displayFuel}`,
               },
               {
                 key: "rate",

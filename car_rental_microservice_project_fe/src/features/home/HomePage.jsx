@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useVehicleQuery } from '../vehicles/hooks/useVehicleQuery'
 import { listShowroom, vehicleError } from '../vehicles/services/vehicle'
 import { BrandLogo } from './BrandLogo'
@@ -20,6 +20,21 @@ export function HomePage() {
   const [category, setCategory] = useState('')
   const [term, setTerm] = useState('')
   const [selected, setSelected] = useState(null)
+
+  useEffect(() => {
+    const hash = window.location.hash
+    if (hash) {
+      const id = hash.replace('#', '')
+      if (id === 'top') {
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+      } else {
+        const el = document.getElementById(id)
+        if (el) {
+          setTimeout(() => el.scrollIntoView({ behavior: 'smooth' }), 150)
+        }
+      }
+    }
+  }, [])
   const cars = showroom.data?.content
   const brands = useMemo(() => group(cars ?? [], (car) => car.brand), [cars])
   const categories = useMemo(() => [...new Map((cars ?? []).map((car) => [car.categoryId, car.categoryName])).entries()], [cars])
