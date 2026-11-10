@@ -26,66 +26,113 @@ const VEHICLES = [
   },
 ];
 
+export const calculateRentalPricing = (vehicle, pickupDateStr, returnDateStr) => {
+  const start = new Date(pickupDateStr);
+  const end = new Date(returnDateStr);
+
+  // Tính số giờ chênh lệch thực tế
+  const diffMs = Math.max(0, end - start);
+  const totalHours = Math.max(1, Math.round(diffMs / (1000 * 60 * 60)));
+  // Làm tròn số ngày thuê (nếu lấn qua mốc giờ thì tính thêm 1 ngày như chuẩn quốc tế)
+  const rentalDays = Math.max(1, Math.ceil(totalHours / 24));
+
+  let weekdayCount = 0;
+  let weekendCount = 0;
+
+  // Quét từng ngày thuê để phân tách chính xác ngày thường vs ngày cuối tuần (Thứ 7 & Chủ Nhật)
+  for (let i = 0; i < rentalDays; i++) {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    const dayOfWeek = d.getDay(); // 0 = Chủ Nhật, 6 = Thứ Bảy
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+      weekendCount++;
+    } else {
+      weekdayCount++;
+    }
+  }
+
+  const weekdayRate = vehicle.baseDailyRate;
+  const weekendRate = vehicle.weekendRate || vehicle.baseDailyRate;
+
+  const weekdayTotal = weekdayCount * weekdayRate;
+  const weekendTotal = weekendCount * weekendRate;
+  const subtotal = weekdayTotal + weekendTotal;
+  const taxAmount = Math.round(subtotal * 0.1);
+  const estimatedTotal = subtotal + taxAmount;
+  const depositRequired = vehicle.depositAmount;
+
+  const formatVnd = (num) => new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(num || 0);
+
+  const breakdownItems = [];
+  if (weekdayCount > 0) {
+    breakdownItems.push({
+      description: `Giá ngày thường (${weekdayCount} ngày x ${formatVnd(weekdayRate)})`,
+      amount: weekdayTotal,
+      isWeekend: false,
+    });
+  }
+  if (weekendCount > 0) {
+    breakdownItems.push({
+      description: `Giá ngày cuối tuần Thứ 7 & CN (${weekendCount} ngày x ${formatVnd(weekendRate)})`,
+      amount: weekendTotal,
+      isWeekend: true,
+    });
+  }
+
+  return {
+    categoryId: vehicle.id,
+    tierName: vehicle.name,
+    rentalDays,
+    weekdayCount,
+    weekendCount,
+    baseDailyRate: weekdayRate,
+    weekendRate,
+    subtotal,
+    taxAmount,
+    discountAmount: 0,
+    estimatedTotal,
+    depositRequired,
+    currency: "VND",
+    breakdownItems,
+  };
+};
+
 export const PricingCalculator = ({ onProceedToPayment }) => {
-  const [selectedCategory, setSelectedCategory] = useState(VEHICLES[0].id);
-  const [pickupDate, setPickupDate] = useState("2026-11-10T08:00");
-  const [returnDate, setReturnDate] = useState("2026-11-13T20:00");
+  const [selectedCategory, setSelectedCategory] = useState(VEHICLES[1].id); // Mặc định SUV 7 chỗ
+  const [pickupDate, setPickupDate] = useState("2026-11-14T08:00");
+  const [returnDate, setReturnDate] = useState("2026-11-16T20:00");
   const [result, setResult] = useState(null);
-  const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(amount || 0);
   };
 
-  const currentVehicle = VEHICLES.find((v) => v.id === selectedCategory) || VEHICLES[0];
+  const currentVehicle = VEHICLES.find((v) => v.id === selectedCategory) || VEHICLES[1];
 
   const calculateForCategory = async (catId, pDate, rDate) => {
-    setLoading(true);
     const vehicle = VEHICLES.find((v) => v.id === catId) || VEHICLES[0];
-    const payload = {
-      categoryId: catId,
-      pickupDatetime: pDate + ":00",
-      returnDatetime: rDate + ":00",
-    };
+    
+    // 1. Tính toán chuẩn xác theo thuật toán phân tách ngày cuối tuần & ngày thường
+    const localCalculated = calculateRentalPricing(vehicle, pDate, rDate);
+    setResult(localCalculated);
 
+    // 2. Nếu backend bật, gọi đồng bộ thêm từ backend
     try {
-      const data = await paymentService.calculatePrice(payload);
-      if (data) {
+      const data = await paymentService.calculatePrice({
+        categoryId: catId,
+        pickupDatetime: pDate + ":00",
+        returnDatetime: rDate + ":00",
+      });
+      if (data && data.estimatedTotal) {
         setResult(data);
-        return;
       }
     } catch (err) {
-      console.warn("Backend API calculation fallback to client pricing engine:", err);
+      // Dùng kết quả localCalculated đã phân tách cuối tuần chuẩn xác
     }
-
-    // Fallback tính toán chính xác theo đúng cấu trúc giá của hệ thống
-    const days = 3;
-    const baseDaily = vehicle.baseDailyRate;
-    const subtotal = baseDaily * days;
-    const tax = Math.round(subtotal * 0.1);
-    const deposit = vehicle.depositAmount;
-
-    setResult({
-      categoryId: catId,
-      tierName: vehicle.name,
-      rentalDays: days,
-      baseDailyRate: baseDaily,
-      subtotal: subtotal,
-      taxAmount: tax,
-      discountAmount: 0,
-      estimatedTotal: subtotal + tax,
-      depositRequired: deposit,
-      currency: "VND",
-      breakdownItems: [
-        { description: `Giá thuê ngày thường (2 ngày x ${formatCurrency(baseDaily)})`, amount: baseDaily * 2 },
-        { description: `Giá thuê ngày cuối tuần (1 ngày x ${formatCurrency(vehicle.weekendRate)})`, amount: vehicle.weekendRate },
-      ],
-    });
-    setLoading(false);
   };
 
-  // Tự động tính toán khi người dùng đổi xe hoặc đổi ngày
+  // Tự động tính toán lại ngay lập tức khi đổi xe hoặc đổi ngày nhận/trả
   useEffect(() => {
     calculateForCategory(selectedCategory, pickupDate, returnDate);
   }, [selectedCategory, pickupDate, returnDate]);
@@ -94,10 +141,11 @@ export const PricingCalculator = ({ onProceedToPayment }) => {
     if (!result) return;
     setSubmitting(true);
 
-    const isSuv = selectedCategory.includes("2222");
     const uniquePaymentCode = `PAY-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Math.floor(100 + Math.random() * 900)}`;
     const uniqueBookingId = `bk-${Date.now()}`;
     const vehicleName = currentVehicle.name;
+
+    const totalInvoiceAmount = result.estimatedTotal + result.depositRequired;
 
     const customOrder = {
       id: `pay-${Date.now()}`,
@@ -111,24 +159,25 @@ export const PricingCalculator = ({ onProceedToPayment }) => {
       taxAmount: result.taxAmount,
       discountAmount: result.discountAmount || 0,
       penaltyAmount: 0,
-      totalAmount: result.estimatedTotal,
+      rentalAmount: result.estimatedTotal,
       depositRequired: result.depositRequired,
+      totalAmount: totalInvoiceAmount,
       depositPaid: 0,
       depositRefunded: 0,
       amountPaid: 0,
-      amountDue: result.estimatedTotal,
+      amountDue: totalInvoiceAmount,
       currency: "VND",
       dueDate: "Trong 24 giờ",
-      notes: `Đơn thuê ${vehicleName} (${result.rentalDays} ngày)`,
+      notes: `Đơn thuê ${vehicleName} (${result.rentalDays} ngày: ${result.weekdayCount || 0} ngày thường, ${result.weekendCount || 0} ngày cuối tuần)`,
       paymentItems: [
-        {
-          id: "item-rent-fee",
+        ...(result.breakdownItems || []).map((b, idx) => ({
+          id: `item-rent-${idx}`,
           itemType: "RENTAL_FEE",
-          description: `Tiền thuê ${vehicleName} (${result.rentalDays} ngày)`,
-          quantity: result.rentalDays,
-          unitPrice: result.baseDailyRate,
-          amount: result.subtotal,
-        },
+          description: b.description,
+          quantity: 1,
+          unitPrice: b.amount,
+          amount: b.amount,
+        })),
         {
           id: "item-tax",
           itemType: "TAX",
@@ -160,10 +209,10 @@ export const PricingCalculator = ({ onProceedToPayment }) => {
         taxAmount: result.taxAmount,
         totalAmount: result.estimatedTotal,
         depositRequired: result.depositRequired,
-        notes: `Đơn thuê ${vehicleName}`,
+        notes: customOrder.notes,
       });
     } catch (e) {
-      // Backend có thể chưa chạy hoặc lỗi network, vẫn điều hướng mượt mà
+      // Backend có thể chưa chạy, client fallback mượt mà
     }
 
     if (onProceedToPayment) {
@@ -181,7 +230,7 @@ export const PricingCalculator = ({ onProceedToPayment }) => {
           🚗 Đặt & Thuê Xe Trực Tuyến
         </h1>
         <p style={{ color: "#64748b", margin: 0, fontSize: "15px" }}>
-          Chọn dòng xe mong muốn, hệ thống tự động tính giá thuê và tiền cọc minh bạch
+          Hệ thống tự động tính cước ngày thường vs <strong>giá cuối tuần (Thứ 7 & CN)</strong> và tiền cọc minh bạch
         </p>
       </div>
 
@@ -234,8 +283,8 @@ export const PricingCalculator = ({ onProceedToPayment }) => {
                   <strong style={{ color: "#0f172a" }}>{formatCurrency(v.baseDailyRate)}/ngày</strong>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", marginBottom: "6px" }}>
-                  <span style={{ color: "#64748b" }}>Giá cuối tuần:</span>
-                  <strong style={{ color: "#0f172a" }}>{formatCurrency(v.weekendRate)}/ngày</strong>
+                  <span style={{ color: "#b45309", fontWeight: "600" }}>🔥 Giá cuối tuần (T7, CN):</span>
+                  <strong style={{ color: "#b45309" }}>{formatCurrency(v.weekendRate)}/ngày</strong>
                 </div>
                 <div style={{
                   display: "flex",
@@ -266,7 +315,7 @@ export const PricingCalculator = ({ onProceedToPayment }) => {
         marginBottom: "22px",
       }}>
         <h3 style={{ margin: "0 0 14px 0", fontSize: "16px", color: "#0f172a", fontWeight: "700" }}>
-          📅 Thời Gian Thuê Xe
+          📅 Thời Gian Thuê Xe (Tự động nhận diện Thứ Bảy & Chủ Nhật)
         </h3>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
           <div>
@@ -349,38 +398,95 @@ export const PricingCalculator = ({ onProceedToPayment }) => {
             border: "1px solid #e2e8f0",
             marginBottom: "20px",
           }}>
-            <div style={{ display: "flex", justifyContent: "space-between", color: "#475569" }}>
-              <span>Tiền thuê xe ({result.rentalDays} ngày):</span>
-              <strong>{formatCurrency(result.subtotal)}</strong>
+            {/* Tổng tiền thuê trước thuế */}
+            <div style={{ display: "flex", justifyContent: "space-between", color: "#0f172a", fontWeight: "700" }}>
+              <span>Tiền thuê trước thuế ({result.rentalDays} ngày):</span>
+              <strong style={{ fontSize: "15px" }}>{formatCurrency(result.subtotal)}</strong>
             </div>
+
+            {/* BẢNG BÓC TÁCH CHI TIẾT NGÀY THƯỜNG VÀ CUỐI TUẦN */}
+            {result.breakdownItems && result.breakdownItems.length > 0 && (
+              <div style={{
+                background: "#ffffff",
+                border: "1px solid #e2e8f0",
+                borderRadius: "8px",
+                padding: "8px 12px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "6px",
+              }}>
+                {result.breakdownItems.map((item, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      fontSize: "13px",
+                      color: item.isWeekend ? "#b45309" : "#475569",
+                      fontWeight: item.isWeekend ? "700" : "500",
+                      background: item.isWeekend ? "#fef3c7" : "transparent",
+                      padding: item.isWeekend ? "4px 8px" : "2px 4px",
+                      borderRadius: "6px",
+                    }}
+                  >
+                    <span>{item.isWeekend ? "🔥 " : "• "}{item.description}</span>
+                    <span>{formatCurrency(item.amount)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <div style={{ display: "flex", justifyContent: "space-between", color: "#475569" }}>
               <span>Thuế giá trị gia tăng (VAT 10%):</span>
               <span>{formatCurrency(result.taxAmount)}</span>
             </div>
+
             <hr style={{ border: "none", borderTop: "1px dashed #cbd5e1", margin: "4px 0" }} />
             
-            {/* Tổng tiền thuê xe */}
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "16px", color: "#0f172a" }}>
-              <strong>Tổng tiền thuê xe ({result.rentalDays} ngày):</strong>
-              <strong style={{ color: "#2563eb", fontSize: "18px" }}>
+            {/* Tổng tiền thuê xe sau thuế */}
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "14px", color: "#1e40af" }}>
+              <span>Tổng tiền thuê xe ({result.rentalDays} ngày đã gồm VAT):</span>
+              <strong style={{ fontSize: "15px" }}>
                 {formatCurrency(result.estimatedTotal)}
               </strong>
             </div>
 
-            {/* Tiền cọc giữ xe */}
+            {/* Tiền cọc giữ xe bắt buộc */}
             <div style={{
               display: "flex",
               justifyContent: "space-between",
-              fontSize: "16px",
+              alignItems: "center",
+              fontSize: "14px",
               color: "#15803d",
-              background: "#dcfce7",
+              background: "#f0fdf4",
               padding: "10px 14px",
               borderRadius: "8px",
+              border: "1px solid #bbf7d0",
               marginTop: "4px",
             }}>
-              <strong>Tiền cọc giữ xe bắt buộc:</strong>
-              <strong style={{ fontSize: "18px" }}>
+              <div>
+                <strong>Tiền cọc giữ xe bắt buộc:</strong>
+                <span style={{ display: "block", fontSize: "12px", color: "#15803d" }}>(Sẽ hoàn trả khi trả xe)</span>
+              </div>
+              <strong style={{ fontSize: "16px" }}>
                 {formatCurrency(result.depositRequired)}
+              </strong>
+            </div>
+
+            <hr style={{ border: "none", borderTop: "2px dashed #cbd5e1", margin: "10px 0" }} />
+
+            {/* TỔNG SỐ TIỀN THANH TOÁN TOÀN BỘ ĐƠN HÀNG */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <strong style={{ fontSize: "16px", color: "#0f172a", display: "block" }}>
+                  TỔNG CỘNG HÓA ĐƠN (Thuê + Cọc):
+                </strong>
+                <span style={{ fontSize: "12px", color: "#64748b" }}>
+                  Thanh toán chung 1 lần qua VietQR
+                </span>
+              </div>
+              <strong style={{ color: "#16a34a", fontSize: "20px", fontWeight: "900" }}>
+                {formatCurrency(result.estimatedTotal + result.depositRequired)}
               </strong>
             </div>
           </div>
@@ -407,7 +513,7 @@ export const PricingCalculator = ({ onProceedToPayment }) => {
               gap: "8px",
             }}
           >
-            {submitting ? "Đang chuẩn bị đơn thanh toán..." : `👉 Đặt Xe & Tiến Hành Thanh Toán Đơn Này (${formatCurrency(result.depositRequired)} cọc) →`}
+            {submitting ? "Đang chuẩn bị đơn thanh toán..." : `👉 Đặt Xe & Thanh Toán Hóa Đơn (${formatCurrency(result.estimatedTotal + result.depositRequired)}) →`}
           </button>
         </div>
       )}

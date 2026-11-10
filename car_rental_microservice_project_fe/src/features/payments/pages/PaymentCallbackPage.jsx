@@ -11,12 +11,18 @@ export const PaymentCallbackPage = () => {
     const params = Object.fromEntries(searchParams.entries());
     const method = params.method || "PAYOS";
 
-    if (params.code === "00" || params.status === "DEPOSIT_PAID") {
+    if (params.code === "00" || params.status === "DEPOSIT_PAID" || params.status === "FULLY_PAID") {
+      const dep = params.depositPaid ? Number(params.depositPaid) : 5000000;
+      const rent = params.rentalPaid ? Number(params.rentalPaid) : 3960000;
+      const amt = params.amountPaid ? Number(params.amountPaid) : (dep + rent);
+
       setResult({
         paymentCode: params.paymentCode || "PAY-20261109-001",
-        depositPaid: params.depositPaid ? Number(params.depositPaid) : 5000000,
+        depositPaid: dep,
+        rentalPaid: rent,
+        amountPaid: amt,
         vehicleName: params.vehicleName ? decodeURIComponent(params.vehicleName) : "Xe Thuê Trực Tuyến",
-        status: "DEPOSIT_PAID",
+        status: "FULLY_PAID",
       });
       return;
     }
@@ -112,9 +118,21 @@ export const PaymentCallbackPage = () => {
                   <strong style={{ color: "#1d4ed8" }}>{result.vehicleName}</strong>
                 </div>
               )}
+              {result.rentalPaid > 0 && (
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: "#64748b" }}>Tiền thuê xe (gồm VAT):</span>
+                  <strong style={{ color: "#0f172a" }}>{formatCurrency(result.rentalPaid)}</strong>
+                </div>
+              )}
               <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "#64748b" }}>Tiền cọc đã ghi nhận:</span>
-                <strong style={{ color: "#16a34a", fontSize: "16px" }}>{formatCurrency(result.depositPaid)}</strong>
+                <span style={{ color: "#64748b" }}>Tiền cọc xe:</span>
+                <strong style={{ color: "#0f172a" }}>{formatCurrency(result.depositPaid)}</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px dashed #cbd5e1", paddingTop: "8px" }}>
+                <span style={{ color: "#0f172a", fontWeight: "700" }}>Tổng số tiền đã thanh toán:</span>
+                <strong style={{ color: "#16a34a", fontSize: "17px", fontWeight: "800" }}>
+                  {formatCurrency(result.amountPaid || (result.rentalPaid + result.depositPaid))}
+                </strong>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <span style={{ color: "#64748b" }}>Phương thức:</span>
@@ -130,7 +148,7 @@ export const PaymentCallbackPage = () => {
                   fontWeight: "700",
                   fontSize: "12px",
                 }}>
-                  ĐÃ ĐẶT CỌC (CONFIRMED)
+                  ĐÃ THANH TOÁN & ĐẶT CỌC (CONFIRMED)
                 </span>
               </div>
             </div>
