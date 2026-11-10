@@ -15,12 +15,12 @@ export const PaymentForm = ({ payment }) => {
   const depositAmount = Number(
     payment?.depositRequired ??
     depositItem?.amount ??
-    (payment?.depositPaid > 0 ? payment.depositPaid : 5000000)
+    (payment?.depositPaid > 0 ? payment.depositPaid : 200000)
   );
 
   const subtotal = Number(
     payment?.subtotal ??
-    (payment?.rentalAmount ? Math.round(Number(payment.rentalAmount) / 1.1) : 3600000)
+    (payment?.rentalAmount ? Math.round(Number(payment.rentalAmount) / 1.1) : 280000)
   );
   const taxAmount = Number(
     payment?.taxAmount ??
@@ -47,7 +47,7 @@ export const PaymentForm = ({ payment }) => {
     );
   }, [navigate, paymentCode, totalPaymentAmount, depositAmount, rentalAmount, vehicleName]);
 
-  // === LẮNG NGHE XÁC NHẬN CHUYỂN KHOẢN TỪ BACKEND (KHÔNG BAO GIỜ TỰ NHẢY KHI CHƯA CÓ TIỀN) ===
+  // === ĐẾM NGƯỢC GIẢ LẬP 20 GIÂY + LẮNG NGHE BACKEND ĐỂ TỰ NHẢY TRANG THÀNH CÔNG ===
   useEffect(() => {
     if (!payment) return undefined;
 
@@ -56,27 +56,43 @@ export const PaymentForm = ({ payment }) => {
       return () => clearTimeout(immediate);
     }
 
+    let redirectTimer = null;
     const isLocalDemoOnly = !payment.id || payment.id.startsWith("pay-") || payment.id === DEMO_PAYMENT_ID;
-    if (isLocalDemoOnly) {
-      return undefined;
+
+    // Đếm ngược 20 giây cho phép người thuê quét mã QR và chuyển khoản xong rồi tự động nhảy trang
+    const demoTimer = setTimeout(() => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+      if (!isLocalDemoOnly) {
+        paymentService.simulatePaymentSuccess(payment.id).catch(() => {});
+      }
+      setAutoRedirecting(true);
+      redirectTimer = setTimeout(() => {
+        goToSuccess();
+      }, 1000);
+    }, 20000);
+
+    // Song song kiểm tra backend mỗi 2 giây nếu đang dùng hóa đơn thật trong DB
+    if (!isLocalDemoOnly) {
+      pollingRef.current = setInterval(async () => {
+        try {
+          const updated = await paymentService.getPaymentById(payment.id);
+          if (updated && (updated.status === "DEPOSIT_PAID" || updated.status === "FULLY_PAID")) {
+            clearInterval(pollingRef.current);
+            clearTimeout(demoTimer);
+            setAutoRedirecting(true);
+            redirectTimer = setTimeout(() => {
+              goToSuccess();
+            }, 1000);
+          }
+        } catch {
+          // Tiếp tục chờ phản hồi từ ngân hàng/backend
+        }
+      }, 2000);
     }
 
-    pollingRef.current = setInterval(async () => {
-      try {
-        const updated = await paymentService.getPaymentById(payment.id);
-        if (updated && (updated.status === "DEPOSIT_PAID" || updated.status === "FULLY_PAID")) {
-          clearInterval(pollingRef.current);
-          setAutoRedirecting(true);
-          setTimeout(() => {
-            goToSuccess();
-          }, 1000);
-        }
-      } catch {
-        // Tiếp tục chờ phản hồi từ ngân hàng/backend
-      }
-    }, 2000);
-
     return () => {
+      clearTimeout(demoTimer);
+      if (redirectTimer) clearTimeout(redirectTimer);
       if (pollingRef.current) clearInterval(pollingRef.current);
     };
   }, [payment, goToSuccess]);
@@ -194,7 +210,7 @@ export const PaymentForm = ({ payment }) => {
 
         <div className="qr-radar" role="status">
           <span className="radar-dot" aria-hidden="true" />
-          <span>Đang chờ chuyển khoản... Màn hình giữ nguyên đến khi nhận được tiền.</span>
+          <span>Đang chờ chuyển khoản... Quét mã xong hệ thống sẽ tự động xác nhận và chuyển trang!</span>
         </div>
 
         <div className="bank-table">

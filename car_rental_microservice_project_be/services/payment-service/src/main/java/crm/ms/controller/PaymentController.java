@@ -130,14 +130,18 @@ public class PaymentController {
         Payment payment = paymentRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(1, 404, "Không tìm thấy hóa đơn: " + id));
 
-        payment.setDepositPaid(payment.getDepositPaid().add(new BigDecimal("5000000.00")));
+        BigDecimal depositToPay = (payment.getDepositRequired() != null && payment.getDepositRequired().compareTo(BigDecimal.ZERO) > 0)
+                ? payment.getDepositRequired()
+                : new BigDecimal("200000.00");
+
+        payment.setDepositPaid(payment.getDepositPaid().add(depositToPay));
         payment.setStatus(PaymentStatus.DEPOSIT_PAID);
 
         PaymentTransaction txn = PaymentTransaction.builder()
                 .payment(payment)
                 .txnType(TransactionType.DEPOSIT_CHARGE)
                 .txnMethod(TransactionMethod.PAYOS)
-                .amount(new BigDecimal("5000000.00"))
+                .amount(depositToPay)
                 .currency(payment.getCurrency())
                 .status(TransactionStatus.SUCCESS)
                 .gatewayTxnId("VIETINBANK-" + System.currentTimeMillis())

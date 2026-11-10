@@ -1,57 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
-import { useLocation, useSearchParams, Link } from "react-router";
+import { useEffect, useState } from "react";
+import { useLocation, useSearchParams, useNavigate, Link } from "react-router";
 import { SiteHeader, SiteFooter } from "../../home/HomePage";
 import { usePayment } from "../hooks/payment";
 import { PaymentForm } from "../components/PaymentForm";
-
-const DEMO_PAYMENT = {
-  id: "e4b3c2a1-0000-0000-0000-000000000001",
-  paymentCode: "PAY-20261109-001",
-  bookingId: "a1b2c3d4-1111-2222-3333-444455556666",
-  customerId: "c7d8e9f0-9999-8888-7777-666655554444",
-  status: "PENDING",
-  vehicleName: "Xe Sedan (4-5 chỗ) - Mazda CX-5",
-  subtotal: 3600000,
-  taxAmount: 360000,
-  discountAmount: 0,
-  penaltyAmount: 0,
-  rentalAmount: 3960000,
-  depositRequired: 5000000,
-  totalAmount: 8960000,
-  depositPaid: 0,
-  depositRefunded: 0,
-  amountPaid: 0,
-  amountDue: 8960000,
-  currency: "VND",
-  dueDate: "Trong 24 giờ",
-  notes: "Đơn thuê xe Mazda CX-5 (3 ngày)",
-  paymentItems: [
-    {
-      id: "demo-item-1",
-      itemType: "RENTAL_FEE",
-      description: "Tiền thuê xe Mazda CX-5 (3 ngày)",
-      quantity: 3,
-      unitPrice: 1200000,
-      amount: 3600000,
-    },
-    {
-      id: "demo-item-2",
-      itemType: "TAX",
-      description: "Thuế VAT 10%",
-      quantity: 1,
-      unitPrice: 360000,
-      amount: 360000,
-    },
-    {
-      id: "demo-item-3",
-      itemType: "DEPOSIT",
-      description: "Tiền cọc giữ xe bắt buộc",
-      quantity: 1,
-      unitPrice: 5000000,
-      amount: 5000000,
-    },
-  ],
-};
 
 function readSavedOrder() {
   const saved = sessionStorage.getItem("current_rental_payment");
@@ -65,13 +16,14 @@ function readSavedOrder() {
 
 export const PaymentPage = ({ bookingId: propBookingId, customOrder: propOrder }) => {
   const location = useLocation();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { loading, error, fetchPaymentByBooking } = usePayment();
   const [fetchedBooking, setFetchedBooking] = useState(null);
+  const [savedOrder, setSavedOrder] = useState(() => readSavedOrder());
 
   const stateOrder = propOrder || location.state?.customOrder || null;
   const currentBookingId = propBookingId || searchParams.get("bookingId");
-  const savedOrder = useMemo(() => readSavedOrder(), []);
 
   useEffect(() => {
     if (stateOrder || !currentBookingId) return undefined;
@@ -84,7 +36,7 @@ export const PaymentPage = ({ bookingId: propBookingId, customOrder: propOrder }
         }
       })
       .catch(() => {
-        // Fallback sử dụng đơn đã lưu hoặc đơn mẫu
+        // Giữ null để hiển thị thông báo lỗi hoặc trạng thái chưa có hóa đơn
       });
 
     return () => {
@@ -95,10 +47,13 @@ export const PaymentPage = ({ bookingId: propBookingId, customOrder: propOrder }
   const activePayment =
     stateOrder ||
     (currentBookingId && fetchedBooking?.bookingId === currentBookingId ? fetchedBooking.data : null) ||
-    savedOrder ||
-    DEMO_PAYMENT;
+    (!currentBookingId ? savedOrder : null);
 
-  const isRealUserOrder = Boolean(activePayment?.isCustomOrder || (currentBookingId && fetchedBooking?.bookingId === currentBookingId));
+  const handleClearOrder = () => {
+    sessionStorage.removeItem("current_rental_payment");
+    setSavedOrder(null);
+    navigate("/payment", { replace: true, state: null });
+  };
 
   return (
     <div className="site">
@@ -112,18 +67,25 @@ export const PaymentPage = ({ bookingId: propBookingId, customOrder: propOrder }
               Thanh toán an toàn qua VietinBank Napas247 — Tài khoản <strong>HOANG TU UYEN</strong>
             </p>
           </div>
-          <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
-            {isRealUserOrder ? (
+          {activePayment && (
+            <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
               <span className="order-pill">
                 🚘 Đang thanh toán: {activePayment.vehicleName || `Đơn #${activePayment.paymentCode}`}
               </span>
-            ) : (
-              <span className="order-pill demo">ℹ️ Đang hiển thị đơn mẫu trải nghiệm</span>
-            )}
-            <Link to="/pricing" style={{ fontSize: "13px", fontWeight: 700 }}>
-              ← Đổi xe / tính lại giá
-            </Link>
-          </div>
+              <Link to="/pricing" style={{ fontSize: "13px", fontWeight: 700 }}>
+                ← Đổi xe / tính lại giá
+              </Link>
+              {!currentBookingId && (
+                <button
+                  type="button"
+                  className="secondary copy-btn"
+                  onClick={handleClearOrder}
+                >
+                  ✕ Hủy đơn này
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {loading && !activePayment && (
@@ -134,7 +96,34 @@ export const PaymentPage = ({ bookingId: propBookingId, customOrder: propOrder }
           <p className="notice error" role="alert">{error}</p>
         )}
 
-        <PaymentForm payment={activePayment} />
+        {activePayment ? (
+          <PaymentForm payment={activePayment} />
+        ) : (
+          !loading && (
+            <section className="result-card" aria-label="Chưa có hóa đơn thanh toán">
+              <div style={{ fontSize: "48px", lineHeight: 1 }} aria-hidden="true">🧾</div>
+              <div>
+                <p className="eyebrow">CHƯA CÓ ĐƠN ĐẶT XE</p>
+                <h2 style={{ fontSize: "22px", marginTop: "6px" }}>Chưa có hóa đơn cần thanh toán</h2>
+                <p className="hint" style={{ fontSize: "14px", marginTop: "8px" }}>
+                  Bạn chưa chọn xe để đặt. Vui lòng chọn xe từ Trang chủ hoặc vào mục Tính giá &amp; Thuê xe để tạo hóa đơn thanh toán VietQR mới.
+                </p>
+              </div>
+              <div className="result-actions">
+                <Link to="/pricing">
+                  <button type="button" style={{ width: "100%" }}>
+                    🚗 Chọn xe &amp; Tính giá ngay →
+                  </button>
+                </Link>
+                <Link to="/">
+                  <button type="button" className="secondary" style={{ width: "100%" }}>
+                    ← Xem xe tại Trang chủ
+                  </button>
+                </Link>
+              </div>
+            </section>
+          )
+        )}
       </main>
       <SiteFooter />
     </div>

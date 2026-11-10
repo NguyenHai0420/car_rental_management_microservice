@@ -8,7 +8,7 @@ export const PricingCalculator = ({ showroomCar, onProceedToPayment }) => {
 
   const vehicles = useMemo(() => {
     if (!showroomCar) return DEFAULT_VEHICLES;
-    const rate = Number(showroomCar.dailyRate) > 0 ? Number(showroomCar.dailyRate) : 900000;
+    const rate = Number(showroomCar.dailyRate) > 0 ? Number(showroomCar.dailyRate) : 90000;
     const isLarge = Number(showroomCar.seatCount) >= 7 || String(showroomCar.categoryName || "").toLowerCase().includes("suv");
     const customCar = {
       id: `showroom-${showroomCar.id}`,
@@ -20,7 +20,7 @@ export const PricingCalculator = ({ showroomCar, onProceedToPayment }) => {
       icon: isLarge ? "🚙" : "🚗",
       baseDailyRate: rate,
       weekendRate: Math.round(rate * 1.25),
-      depositAmount: isLarge ? 10000000 : 5000000,
+      depositAmount: 200000,
       isDefaultTier: false,
     };
     return [customCar, ...DEFAULT_VEHICLES];

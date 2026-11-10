@@ -21,8 +21,8 @@ export const PaymentCallbackPage = () => {
     const amountParam = searchParams.get("amountPaid");
     const vehicleParam = searchParams.get("vehicleName");
 
-    const dep = depositParam ? Number(depositParam) : 5000000;
-    const rent = rentalParam ? Number(rentalParam) : 3960000;
+    const dep = depositParam ? Number(depositParam) : 200000;
+    const rent = rentalParam ? Number(rentalParam) : 308000;
     const amt = amountParam ? Number(amountParam) : dep + rent;
 
     return {
@@ -58,6 +58,12 @@ export const PaymentCallbackPage = () => {
   }, [instantResult, searchParams, verifyCallback]);
 
   const result = instantResult || verifiedData;
+
+  useEffect(() => {
+    if (result) {
+      sessionStorage.removeItem("current_rental_payment");
+    }
+  }, [result]);
 
   return (
     <div className="site">
