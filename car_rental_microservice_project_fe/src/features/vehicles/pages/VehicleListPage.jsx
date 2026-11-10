@@ -7,6 +7,14 @@ import { listVehicles } from '../services/vehicle'
 import { formatVehicleNumber, modelLabel, vehicleStatuses } from '../vehicle-fields'
 
 const PAGE_SIZE = 10
+const dots = { AVAILABLE: 'var(--ok)', RESERVED: 'var(--info)', RENTED: 'var(--violet)', IN_MAINTENANCE: 'var(--warn)' }
+
+// One size=1 request per status: the page metadata carries the exact total.
+async function loadCounts(signal) {
+  const keys = Object.keys(vehicleStatuses)
+  const pages = await Promise.all(keys.map((status) => listVehicles({ status, size: 1 }, signal)))
+  return Object.fromEntries(keys.map((key, i) => [key, pages[i].page.totalElements]))
+}
 
 export function VehicleListPage() {
   const [params, setParams] = useSearchParams()
@@ -23,6 +31,7 @@ export function VehicleListPage() {
   }, signal), [q, status, categoryId, modelId, page])
   const vehicles = useVehicleQuery(load)
   const catalog = useVehicleCatalog()
+  const counts = useVehicleQuery(loadCounts, () => '').data
 
   function filter(event) {
     event.preventDefault()
@@ -50,6 +59,11 @@ export function VehicleListPage() {
       </div>
       <Link to="/vehicles/new" className="fleet-button">Thêm xe</Link>
     </div>
+    {counts && <div className="stats">
+      {Object.entries(vehicleStatuses).map(([key, label]) => <button key={key} className="stat" aria-pressed={status === key}
+        onClick={() => setParams(status === key ? {} : { status: key })}>
+        <span><i style={{ background: dots[key] }} />{label}</span><strong>{counts[key]}</strong></button>)}
+    </div>}
     {state?.notice && <p className="notice success" role="status">{state.notice}</p>}
     <form className="fleet-filters" key={JSON.stringify([q, status, categoryId, modelId])} onSubmit={filter}>
       <label>Biển số hoặc VIN<input name="q" type="search" defaultValue={q} /></label>

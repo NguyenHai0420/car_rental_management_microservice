@@ -5,6 +5,8 @@ const base = (vehicleId) => `${vehicles}/${encodeURIComponent(vehicleId)}`
 const data = (response) => response.data.data
 
 export const listVehicles = (params, signal) => apiClient.get(vehicles, { params, signal }).then(data)
+// Public: AVAILABLE vehicles with their MinIO cover image, no login needed.
+export const listShowroom = (params, signal) => apiClient.get(`${vehicles}/showroom`, { params, signal }).then(data)
 export const getVehicle = (vehicleId, signal) => apiClient.get(base(vehicleId), { signal }).then(data)
 export const createVehicle = (fields) => apiClient.post(vehicles, fields).then(data)
 export const updateVehicle = (vehicleId, fields) => apiClient.put(base(vehicleId), fields).then(data)

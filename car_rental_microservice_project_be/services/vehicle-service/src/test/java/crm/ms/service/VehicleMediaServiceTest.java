@@ -8,6 +8,7 @@ import crm.ms.mapper.VehicleMediaMapper;
 import crm.ms.repository.VehicleDocumentRepository;
 import crm.ms.repository.VehicleImageRepository;
 import crm.ms.repository.VehicleRepository;
+import crm.ms.service.impl.VehicleMediaServiceImpl;
 import crm.ms.service.storage.FileStorage;
 import crm.ms.service.storage.MediaFile;
 import crm.ms.service.storage.MediaFileValidator;

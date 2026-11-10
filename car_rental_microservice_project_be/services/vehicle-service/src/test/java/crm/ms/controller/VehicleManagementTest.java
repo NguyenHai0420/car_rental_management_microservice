@@ -40,6 +40,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -129,6 +130,30 @@ class VehicleManagementTest {
 
         mvc.perform(staff(delete(BASE + "/" + id))).andExpect(status().isOk());
         mvc.perform(get(lookup).param("licensePlate", plate)).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void anonymousShowroomListsOnlyAvailableVehiclesWithPrimaryCover() throws Exception {
+        when(storage.publicUrl(anyString(), anyString())).thenAnswer(call -> "http://cdn/" + call.getArgument(1));
+        ObjectNode payload = newPayload();
+        String categoryId = payload.path("categoryId").asText();
+        JsonNode shown = create(payload);
+        JsonNode rented = create(newPayload().put("categoryId", categoryId));
+        mvc.perform(staff(transition(BASE + "/" + rented.path("id").asText(), "RESERVED", null))).andExpect(status().isOk());
+        var vehicle = vehicles.findById(UUID.fromString(shown.path("id").asText())).orElseThrow();
+        images.save(crm.ms.entity.VehicleImage.builder().vehicle(vehicle).imageType(crm.ms.enums.ImageType.OTHER)
+                .objectKey("gallery").contentType("image/png").sortOrder(0).isPrimary(false).build());
+        images.save(crm.ms.entity.VehicleImage.builder().vehicle(vehicle).imageType(crm.ms.enums.ImageType.EXTERIOR_FRONT)
+                .objectKey("cover").contentType("image/png").sortOrder(5).isPrimary(true).build());
+
+        mvc.perform(get(BASE + "/showroom").param("categoryId", categoryId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(1))
+                .andExpect(jsonPath("$.data.content[0].id").value(shown.path("id").asText()))
+                .andExpect(jsonPath("$.data.content[0].brand").value("Toyota"))
+                .andExpect(jsonPath("$.data.content[0].imageUrl").value("http://cdn/cover"))
+                .andExpect(jsonPath("$.data.content[0].vin").doesNotExist());
+        mvc.perform(get(BASE + "/showroom").param("size", "49")).andExpect(status().isBadRequest());
     }
 
     @Test

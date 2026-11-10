@@ -30,12 +30,12 @@ export function VehicleMediaPage() {
     setSearch(plate ? { plate } : null)
   }
 
-  return <main>
+  return <main className="lookup-page">
     <header className="page-header">
-      <div><p className="eyebrow">CAR RENTAL / QUẢN LÝ ĐỘI XE</p>
+      <div><p className="eyebrow">CAR RENTAL / TRA CỨU XE</p>
         <h1>Hồ sơ hình ảnh & giấy tờ</h1>
         <p className="subtitle">Xem hình ảnh và quản lý hồ sơ của từng xe trong đội xe.</p>
-        <Link className="fleet-link" to="/vehicles">Quản lý xe</Link>
+        <div className="fleet-actions" style={{ marginTop: 10 }}><Link to="/">← Trang chủ</Link>{auth.canManageFleet && <Link to="/vehicles">Quản lý xe</Link>}</div>
       </div>
       <div className="account">
         {auth.authenticated ? <><span>{auth.name}</span><button className="secondary" onClick={auth.logout}>Đăng xuất</button></>

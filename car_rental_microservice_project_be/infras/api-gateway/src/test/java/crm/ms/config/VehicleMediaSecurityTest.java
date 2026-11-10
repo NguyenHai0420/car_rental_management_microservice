@@ -44,6 +44,12 @@ class VehicleMediaSecurityTest {
     }
 
     @Test
+    void onlyGetIsPublicOnShowroom() {
+        client.get().uri("/api/v1/vehicles/showroom?page=0").exchange().expectStatus().isOk();
+        client.post().uri("/api/v1/vehicles/showroom").exchange().expectStatus().isUnauthorized();
+    }
+
+    @Test
     void onlyGetIsPublicOnVehicleLookup() {
         client.get().uri("/api/v1/vehicles/lookup?licensePlate=51H-780.01").exchange().expectStatus().isOk();
         client.post().uri("/api/v1/vehicles/lookup").exchange().expectStatus().isUnauthorized();

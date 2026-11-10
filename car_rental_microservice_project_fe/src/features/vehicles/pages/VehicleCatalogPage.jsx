@@ -2,16 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router'
 import { useVehicleCatalog } from '../hooks/useVehicleQuery'
 import { createVehicleCategory, createVehicleModel, vehicleError } from '../services/vehicle'
-import { modelLabel } from '../vehicle-fields'
-
-const sizes = {
-  COMPACT: 'Cỡ nhỏ', MIDSIZE: 'Cỡ trung', FULLSIZE: 'Cỡ lớn',
-  SUV: 'SUV', LUXURY: 'Xe sang', VAN: 'Van', TRUCK: 'Xe tải', EV: 'Xe điện',
-}
-const fuels = {
-  GASOLINE: 'Xăng', DIESEL: 'Dầu diesel', ELECTRIC: 'Điện', HYBRID: 'Hybrid', PLUGIN_HYBRID: 'Hybrid cắm sạc',
-}
-const transmissions = { AUTOMATIC: 'Tự động', MANUAL: 'Số sàn', CVT: 'CVT' }
+import { fuelTypes as fuels, modelLabel, sizeClasses as sizes, transmissions } from '../vehicle-fields'
 
 function CatalogEnum({ name, options }) {
   return <select name={name} defaultValue="" required>

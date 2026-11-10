@@ -6,8 +6,9 @@ import { VehicleDetailPage } from '../features/vehicles/pages/VehicleDetailPage'
 import { VehicleFormPage } from '../features/vehicles/pages/VehicleFormPage'
 import { VehicleListPage } from '../features/vehicles/pages/VehicleListPage'
 import { VehicleMediaPage } from '../features/vehicles/pages/VehicleMediaPage'
-import '../style/vehicle-media.css'
-import '../style/vehicle-management.css'
+import { HomePage } from '../features/home/HomePage'
+import '../style/home.css'
+import '../style/admin.css'
 
 export default function App() {
   return <AuthProvider><BrowserRouter>
@@ -19,7 +20,8 @@ export default function App() {
         <Route path=":id" element={<VehicleDetailPage />} />
         <Route path=":id/edit" element={<VehicleFormPage />} />
       </Route>
-      <Route path="*" element={<VehicleMediaPage />} />
+      <Route path="/lookup" element={<VehicleMediaPage />} />
+      <Route path="*" element={<HomePage />} />
     </Routes>
   </BrowserRouter></AuthProvider>
 }

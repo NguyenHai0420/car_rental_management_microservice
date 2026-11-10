@@ -1,4 +1,4 @@
-package crm.ms.service;
+package crm.ms.service.impl;
 
 import crm.ms.dto.VehicleRequest;
 import crm.ms.dto.VehicleResponse;
@@ -13,6 +13,7 @@ import crm.ms.repository.VehicleCategoryRepository;
 import crm.ms.repository.VehicleModelRepository;
 import crm.ms.repository.VehicleRepository;
 import crm.ms.repository.VehicleStatusHistoryRepository;
+import crm.ms.service.VehicleService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
