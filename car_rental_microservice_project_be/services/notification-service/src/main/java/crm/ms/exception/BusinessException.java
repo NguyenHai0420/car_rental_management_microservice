@@ -4,7 +4,7 @@ import lombok.Getter;
 
 @Getter
 public class BusinessException extends RuntimeException {
-    private int type;
+    private final int type;
     private final int code;
     private final String message;
 
@@ -13,5 +13,9 @@ public class BusinessException extends RuntimeException {
         this.type = type;
         this.code = code;
         this.message = message;
+    }
+
+    public BusinessException(int code, String message) {
+        this(0, code, message);
     }
 }

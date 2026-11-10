@@ -4,24 +4,62 @@ service:
   version: 1.0.0
   port: 8085
 
-Spring:
+server:
+  port: ${SERVER_PORT:${service.port}}
+
+spring:
   application:
     name: maintenance-service
   datasource:
-    url: jdbc:mysql://localhost:3306/maintenance_db
-    username: root
-    password: 1234
+    url: ${MAINTENANCE_DB_URL}
+    username: ${MAINTENANCE_DB_USERNAME}
+    password: ${MAINTENANCE_DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
+    open-in-view: false
     hibernate:
-      ddl-auto: update
+      ddl-auto: ${JPA_DDL_AUTO:validate}
       naming:
         physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
         format_sql: true
-        dialect: org.hibernate.dialect.MySQL8Dialect
+        jdbc:
+          time_zone: UTC
+  jackson:
+    time-zone: UTC
 
-server:
-  port: ${service.port}
+eureka:
+  instance:
+    prefer-ip-address: ${EUREKA_PREFER_IP_ADDRESS:true}
+  client:
+    service-url:
+      defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka/}
+
+maintenance:
+  clients:
+    vehicle-service:
+      base-url: ${VEHICLE_SERVICE_URL:http://vehicle-service}
+    booking-service:
+      base-url: ${BOOKING_SERVICE_URL:http://booking-service}
+    connect-timeout-ms: ${CLIENT_CONNECT_TIMEOUT_MS:3000}
+    read-timeout-ms: ${CLIENT_READ_TIMEOUT_MS:5000}
+  sync:
+    scheduler:
+      enabled: ${MAINTENANCE_SYNC_SCHEDULER_ENABLED:true}
+    interval-ms: ${MAINTENANCE_SYNC_INTERVAL_MS:60000}
+    max-retries: ${MAINTENANCE_SYNC_MAX_RETRIES:5}
+    retry-delay-seconds: ${MAINTENANCE_SYNC_RETRY_DELAY_SECONDS:30}
+  security:
+    enabled: ${MAINTENANCE_SECURITY_ENABLED:true}
+    require-gateway-secret: ${MAINTENANCE_REQUIRE_GATEWAY_SECRET:true}
+    gateway-secret: ${MAINTENANCE_GATEWAY_SECRET:}
+    internal-token: ${MAINTENANCE_INTERNAL_TOKEN:}
+    allowed-roles: ${MAINTENANCE_ALLOWED_ROLES:ADMIN,STAFF,SYSTEM,SERVICE}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
