@@ -29,7 +29,7 @@ export function SiteHeader() {
           <li className="nav-item"><a className="nav-link" href="/#hang-xe" onClick={() => setOpen(false)}>Hãng xe</a></li>
           <li className="nav-item"><a className="nav-link" href="/#xe" onClick={() => setOpen(false)}>Xe cho thuê</a></li>
           <li className="nav-item"><Link className="nav-link" to="/pricing" aria-current={isPricing ? 'page' : undefined} onClick={() => setOpen(false)}>Tính giá &amp; Thuê xe</Link></li>
-          <li className="nav-item"><Link className="nav-link" to="/payment" aria-current={isPayment ? 'page' : undefined} onClick={() => setOpen(false)}>Thanh toán VietQR</Link></li>
+          <li className="nav-item"><Link className="nav-link" to="/payment" aria-current={isPayment ? 'page' : undefined} onClick={() => setOpen(false)}>Thanh toán</Link></li>
           <li className="nav-item"><a className="nav-link" href="/#lien-he" onClick={() => setOpen(false)}>Liên hệ</a></li>
           {auth.canManageFleet && <li className="nav-item"><Link className="nav-link" to="/vehicles" onClick={() => setOpen(false)}>Quản trị</Link></li>}
         </ul>
