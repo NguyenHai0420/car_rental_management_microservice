@@ -50,39 +50,50 @@ public class Payment {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
+    @Builder.Default
     private PaymentStatus status = PaymentStatus.PENDING;
 
     /** Tổng phụ (ngày × giá + rules) */
     @Column(nullable = false, precision = 12, scale = 2)
+    @Builder.Default
     private BigDecimal subtotal = BigDecimal.ZERO;
 
     /** Thuế VAT */
     @Column(name = "tax_amount", nullable = false, precision = 12, scale = 2)
+    @Builder.Default
     private BigDecimal taxAmount = BigDecimal.ZERO;
 
     @Column(name = "discount_amount", nullable = false, precision = 12, scale = 2)
+    @Builder.Default
     private BigDecimal discountAmount = BigDecimal.ZERO;
 
     /** Phí phạt (trả muộn, hư hỏng, ...) */
     @Column(name = "penalty_amount", nullable = false, precision = 12, scale = 2)
+    @Builder.Default
     private BigDecimal penaltyAmount = BigDecimal.ZERO;
 
     @Column(name = "total_amount", nullable = false, precision = 12, scale = 2)
+    @Builder.Default
     private BigDecimal totalAmount = BigDecimal.ZERO;
 
     @Column(name = "deposit_paid", nullable = false, precision = 12, scale = 2)
+    @Builder.Default
     private BigDecimal depositPaid = BigDecimal.ZERO;
 
     @Column(name = "deposit_refunded", nullable = false, precision = 12, scale = 2)
+    @Builder.Default
     private BigDecimal depositRefunded = BigDecimal.ZERO;
 
     @Column(name = "amount_paid", nullable = false, precision = 12, scale = 2)
+    @Builder.Default
     private BigDecimal amountPaid = BigDecimal.ZERO;
 
     @Column(name = "amount_due", nullable = false, precision = 12, scale = 2)
+    @Builder.Default
     private BigDecimal amountDue = BigDecimal.ZERO;
 
     @Column(nullable = false, length = 3)
+    @Builder.Default
     private String currency = "VND";
 
     @Column(name = "due_date")

@@ -23,10 +23,10 @@ public class LoggingFilter implements GlobalFilter, Ordered {
 
         log.info("correlatioId: {}", correlatioId);
 
-        ServerHttpRequest mutateRequest = null;
+        ServerHttpRequest mutateRequest = request;
 
         if (correlatioId == null || correlatioId.isEmpty()) {
-            mutateRequest= request.mutate().header(Constants.CORRELATION_ID, UUID.randomUUID().toString()).build();
+            mutateRequest = request.mutate().header(Constants.CORRELATION_ID, UUID.randomUUID().toString()).build();
         }
 
         return gatewayFilterChain.filter(exchange.mutate().request(mutateRequest).build());

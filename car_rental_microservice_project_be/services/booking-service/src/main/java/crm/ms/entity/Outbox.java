@@ -2,14 +2,16 @@ package crm.ms.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 /**
  * Transactional Outbox Pattern.
- * Events: BookingCreated, BookingConfirmed, BookingCompleted,
- *         BookingCancelled, VehiclePickedUp, VehicleReturned
+ * Events: BookingCreated, BookingConfirmed, BookingCancelled,
+ *         BookingPickedUp, BookingReturned
  */
 @Entity
 @Table(name = "outbox", indexes = {
@@ -25,25 +27,28 @@ public class Outbox {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(nullable = false, updatable = false)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(nullable = false, updatable = false, length = 36)
     private UUID id;
 
     @Column(name = "aggregate_type", nullable = false, length = 100)
     private String aggregateType;
 
-    @Column(name = "aggregate_id", nullable = false)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(name = "aggregate_id", nullable = false, length = 36)
     private UUID aggregateId;
 
     @Column(name = "event_type", nullable = false, length = 100)
     private String eventType;
 
-    @Column(nullable = false, columnDefinition = "JSON")
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String payload;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @Column(name = "is_published", nullable = false)
+    @Builder.Default
     private Boolean isPublished = false;
 
     @Column(name = "published_at")

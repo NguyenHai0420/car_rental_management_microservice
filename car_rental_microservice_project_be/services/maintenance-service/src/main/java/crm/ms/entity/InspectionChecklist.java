@@ -43,6 +43,7 @@ public class InspectionChecklist {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 15)
+    @Builder.Default
     private InspectionResult result = InspectionResult.NOT_CHECKED;
 
     /** Giá trị đo (e.g. "3.2mm", "32 PSI") */

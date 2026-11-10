@@ -58,19 +58,23 @@ public class Customer {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 25)
+    @Builder.Default
     private CustomerStatus status = CustomerStatus.PENDING_VERIFICATION;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "loyalty_tier", nullable = false, length = 10)
+    @Builder.Default
     private LoyaltyTier loyaltyTier = LoyaltyTier.BRONZE;
 
     @Column(name = "total_rentals", nullable = false)
+    @Builder.Default
     private Integer totalRentals = 0;
 
     @Column(name = "avatar_url", length = 500)
     private String avatarUrl;
 
     @Column(name = "is_deleted", nullable = false)
+    @Builder.Default
     private Boolean isDeleted = false;
 
     @Column(name = "created_at", nullable = false, updatable = false)

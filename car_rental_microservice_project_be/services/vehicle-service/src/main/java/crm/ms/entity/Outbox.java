@@ -44,6 +44,7 @@ public class Outbox {
     private LocalDateTime createdAt;
 
     @Column(name = "is_published", nullable = false)
+    @Builder.Default
     private Boolean isPublished = false;
 
     @Column(name = "published_at")

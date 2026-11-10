@@ -60,6 +60,7 @@ public class PricingTier {
 
     /** Tiền cọc tối thiểu */
     @Column(name = "deposit_amount", nullable = false, precision = 12, scale = 2)
+    @Builder.Default
     private BigDecimal depositAmount = BigDecimal.ZERO;
 
     /** BRULE-02: Giá sàn tối thiểu */
@@ -71,6 +72,7 @@ public class PricingTier {
     private BigDecimal maxRateCeiling;
 
     @Column(nullable = false, length = 3)
+    @Builder.Default
     private String currency = "VND";
 
     @Column(name = "effective_from", nullable = false)
@@ -81,6 +83,7 @@ public class PricingTier {
     private LocalDate effectiveTo;
 
     @Column(name = "is_active", nullable = false)
+    @Builder.Default
     private Boolean isActive = true;
 
     @Column(name = "created_at", nullable = false, updatable = false)

@@ -58,10 +58,12 @@ public class RateRule {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "apply_per", nullable = false, length = 10)
+    @Builder.Default
     private ApplyPer applyPer = ApplyPer.BOOKING;
 
     /** Thứ tự ưu tiên áp dụng */
     @Column(name = "priority_order", nullable = false)
+    @Builder.Default
     private Integer priorityOrder = 0;
 
     @Column(name = "valid_from")
@@ -71,6 +73,7 @@ public class RateRule {
     private LocalDate validTo;
 
     @Column(name = "is_active", nullable = false)
+    @Builder.Default
     private Boolean isActive = true;
 
     @Column(name = "created_at", nullable = false, updatable = false)

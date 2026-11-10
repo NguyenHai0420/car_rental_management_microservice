@@ -3,6 +3,8 @@ package crm.ms.entity;
 import crm.ms.enums.VehicleCacheStatus;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -12,7 +14,6 @@ import java.util.UUID;
  * CQRS Read Model — Bản sao thông tin xe từ Vehicle Service, sync qua Kafka.
  * Booking Service query bảng này để tìm xe trống mà KHÔNG cần gọi Sync
  * sang Vehicle Service (Giảm coupling).
- * Source of truth vẫn là vehicle_db.vehicles.
  */
 @Entity
 @Table(name = "fleet_inventory_cache", indexes = {
@@ -28,7 +29,8 @@ import java.util.UUID;
 public class FleetInventoryCache {
 
     @Id
-    @Column(name = "vehicle_id", nullable = false)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(name = "vehicle_id", nullable = false, length = 36)
     private UUID vehicleId;
 
     @Column(nullable = false, length = 17)
@@ -43,7 +45,8 @@ public class FleetInventoryCache {
     @Column(name = "model_name", nullable = false, length = 100)
     private String modelName;
 
-    @Column(name = "category_id", nullable = false)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(name = "category_id", nullable = false, length = 36)
     private UUID categoryId;
 
     @Column(name = "category_name", nullable = false, length = 50)
@@ -63,6 +66,7 @@ public class FleetInventoryCache {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "vehicle_status", nullable = false, length = 20)
+    @Builder.Default
     private VehicleCacheStatus vehicleStatus = VehicleCacheStatus.AVAILABLE;
 
     @Column(name = "daily_rate", precision = 12, scale = 2)
@@ -74,7 +78,6 @@ public class FleetInventoryCache {
     @Column(name = "primary_image_url", length = 500)
     private String primaryImageUrl;
 
-    /** Thời điểm sync gần nhất từ Kafka */
     @Column(name = "synced_at", nullable = false)
     private LocalDateTime syncedAt;
 

@@ -57,10 +57,12 @@ public class CustomerRentalHistory {
     private BigDecimal totalAmount;
 
     @Column(nullable = false, length = 3)
+    @Builder.Default
     private String currency = "VND";
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 15)
+    @Builder.Default
     private RentalHistoryStatus status = RentalHistoryStatus.ACTIVE;
 
     /** 1-5 star rating */
