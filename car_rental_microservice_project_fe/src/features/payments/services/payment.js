@@ -10,6 +10,14 @@ export const paymentService = {
   },
 
   /**
+   * Lấy danh sách bảng giá đang hiệu lực từ payment-service
+   */
+  listActiveTiers: async (signal) => {
+    const response = await apiClient.get("/api/v1/pricing/tiers", { signal });
+    return response.data?.data || [];
+  },
+
+  /**
    * Tạo hóa đơn thanh toán cho đơn thuê xe
    */
   createPayment: async (payload) => {

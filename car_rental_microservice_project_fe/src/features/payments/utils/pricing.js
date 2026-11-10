@@ -1,33 +1,53 @@
-export const DEFAULT_VEHICLES = [
-  {
-    id: "11111111-1111-1111-1111-111111111111",
-    name: "Xe Sedan (4 - 5 Chỗ)",
-    models: "Mazda 3 / Toyota Vios / Kia Cerato",
-    capacity: "4 - 5 chỗ",
-    icon: "🚗",
-    baseDailyRate: 80000,
-    weekendRate: 100000,
-    depositAmount: 200000,
-    isDefaultTier: true,
-  },
-  {
-    id: "22222222-2222-2222-2222-222222222222",
-    name: "Xe SUV (7 Chỗ)",
-    models: "Toyota Fortuner / Ford Everest / Hyundai SantaFe",
-    capacity: "7 chỗ rộng rãi",
-    icon: "🚙",
-    baseDailyRate: 90000,
-    weekendRate: 110000,
-    depositAmount: 200000,
-    isDefaultTier: true,
-  },
-];
+export const DEFAULT_VEHICLES = [];
 
 export function formatCurrency(amount) {
   return new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(amount || 0);
 }
 
+export function mapShowroomCarToPricingVehicle(car, tierByCategory = {}) {
+  const tier = car.categoryId ? tierByCategory[car.categoryId] : null;
+  const rawRate = Number(car.dailyRate) > 0 ? Number(car.dailyRate) : Number(tier?.baseDailyRate) || 90000;
+  const isLarge =
+    Number(car.seatCount) >= 7 ||
+    String(car.categoryName || "").toLowerCase().includes("suv") ||
+    String(car.sizeClass || "").toUpperCase() === "SUV";
+
+  return {
+    id: `showroom-${car.id}`,
+    vehicleId: car.id,
+    categoryId: car.categoryId,
+    categoryName: car.categoryName || tier?.tierName || "Xe cho thuê",
+    name: `${car.brand} ${car.modelName}`,
+    models: `${car.categoryName || "Xe cho thuê"} · ${car.seatCount || 5} chỗ${car.location ? ` · ${car.location}` : ""}`,
+    imageUrl: car.imageUrl || null,
+    icon: isLarge ? "🚙" : "🚗",
+    baseDailyRate: rawRate,
+    weekendRate: Number(tier?.weekendRate) > 0 ? Number(tier.weekendRate) : Math.round(rawRate * 1.25),
+    depositAmount: Number(tier?.depositAmount) > 0 ? Number(tier.depositAmount) : 200000,
+  };
+}
+
+export function mapTierToPricingVehicle(tier) {
+  const tierLabel = tier.tierName || "Phân khúc xe";
+  const isSuv = tierLabel.toLowerCase().includes("suv") || tierLabel.toLowerCase().includes("7");
+  const baseRate = Number(tier.baseDailyRate) || 80000;
+  return {
+    id: tier.categoryId || tier.id,
+    categoryId: tier.categoryId,
+    categoryName: tierLabel,
+    name: tierLabel,
+    models: "Bảng giá từ payment_db",
+    imageUrl: null,
+    icon: isSuv ? "🚙" : "🚗",
+    baseDailyRate: baseRate,
+    weekendRate: Number(tier.weekendRate) > 0 ? Number(tier.weekendRate) : Math.round(baseRate * 1.25),
+    depositAmount: Number(tier.depositAmount) > 0 ? Number(tier.depositAmount) : 200000,
+  };
+}
+
 export function calculateRentalPricing(vehicle, pickupDateStr, returnDateStr) {
+  if (!vehicle) return null;
+
   const start = new Date(pickupDateStr);
   const end = new Date(returnDateStr);
 

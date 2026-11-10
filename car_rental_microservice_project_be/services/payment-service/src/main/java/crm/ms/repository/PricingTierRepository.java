@@ -12,6 +12,7 @@ import java.util.UUID;
 
 public interface PricingTierRepository extends JpaRepository<PricingTier, UUID> {
     List<PricingTier> findByCategoryId(UUID categoryId);
+    List<PricingTier> findByIsActiveTrueOrderByTierNameAsc();
 
     @Query("SELECT p FROM PricingTier p WHERE p.categoryId = :categoryId " +
            "AND p.isActive = true " +
