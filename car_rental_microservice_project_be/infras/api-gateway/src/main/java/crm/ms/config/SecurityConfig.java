@@ -13,15 +13,16 @@ import org.springframework.security.web.server.SecurityWebFilterChain;
 public class SecurityConfig {
 
     @Bean
-    public SecurityWebFilterChain springSecurityFilterChain(ServerHttpSecurity http) {
+    public SecurityWebFilterChain securityFilterChain(ServerHttpSecurity http) {
         return http
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
                 .cors(Customizer.withDefaults())
-                .authorizeExchange(exchanges -> exchanges
+                .authorizeExchange(auth -> auth
                         .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .pathMatchers("/actuator/**").permitAll()
+                        .pathMatchers("/actuator/**", "/public/**").permitAll()
                         .pathMatchers(HttpMethod.GET, "/api/v1/bookings/available-vehicles/**").permitAll()
                         .pathMatchers(HttpMethod.GET, "/api/v1/vehicles/**").permitAll()
+                        .pathMatchers(HttpMethod.GET, "/api/v1/vehicles/lookup", "/api/v1/vehicles/showroom", "/api/v1/vehicles/*/images").permitAll()
                         .pathMatchers("/api/v1/payments/callback/**", "/api/v1/payments/webhook/**").permitAll()
                         .anyExchange().authenticated()
                 )
@@ -29,4 +30,3 @@ public class SecurityConfig {
                 .build();
     }
 }
-

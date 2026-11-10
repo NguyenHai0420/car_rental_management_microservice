@@ -1,124 +1,99 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import keycloak, { initKeycloak } from "../../services/keycloak";
-import { AuthContext } from "./auth-context";
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { AuthContext } from './auth-context'
+import { authSession, initializeAuth, keycloak } from '../../services/keycloak'
+import { setAccessTokenProvider } from '../../services/axios-client'
 
-const BUSINESS_ROLES = new Set(["ADMIN", "VEHICLE_OWNER", "CUSTOMER"]);
-
-const extractProfile = () => {
-  const parsed = keycloak.tokenParsed;
-  if (!parsed) return { user: null, roles: [] };
-
-  const realmRoles = parsed.realm_access?.roles || [];
-  const roles = realmRoles.filter((role) => BUSINESS_ROLES.has(role));
-
-  return {
-    user: {
-      id: parsed.sub,
-      username: parsed.preferred_username || "",
-      fullName: parsed.name || parsed.preferred_username || "Người dùng",
-      email: parsed.email || "",
-    },
-    roles,
-  };
-};
-
-export const AuthProvider = ({ children }) => {
-  const [authState, setAuthState] = useState({
-    initialized: false,
-    authenticated: false,
-    authError: null,
-    user: null,
-    roles: [],
-  });
+export function AuthProvider({ children }) {
+  const [session, setSession] = useState(authSession)
+  const [ready, setReady] = useState(!keycloak)
+  const [error, setError] = useState('')
 
   useEffect(() => {
-    let active = true;
+    let active = true
+    const refresh = () => {
+      if (active) setSession(authSession())
+    }
 
-    keycloak.onTokenExpired = () => {
-      keycloak
-        .updateToken(30)
-        .then((refreshed) => {
-          if (refreshed && active) {
-            const { user, roles } = extractProfile();
-            setAuthState((prev) => ({ ...prev, user, roles }));
-          }
-        })
-        .catch(() => {
-          if (active) {
-            setAuthState({
-              initialized: true,
-              authenticated: false,
-              authError: null,
-              user: null,
-              roles: [],
-            });
-          }
-        });
-    };
+    if (keycloak) {
+      keycloak.onAuthSuccess = refresh
+      keycloak.onAuthRefreshSuccess = refresh
+      keycloak.onAuthLogout = refresh
+      keycloak.onAuthRefreshError = () => {
+        keycloak.clearToken()
+        refresh()
+      }
+      keycloak.onTokenExpired = () => {
+        keycloak.updateToken(30)
+          .then((refreshed) => {
+            if (refreshed) refresh()
+          })
+          .catch(() => {
+            keycloak.clearToken()
+            refresh()
+          })
+      }
+    }
 
-    initKeycloak()
-      .then((authenticated) => {
-        if (!active) return;
-        const { user, roles } = authenticated
-          ? extractProfile()
-          : { user: null, roles: [] };
-        setAuthState({
-          initialized: true,
-          authenticated: Boolean(authenticated),
-          authError: null,
-          user,
-          roles,
-        });
-      })
+    setAccessTokenProvider(async () => {
+      if (!keycloak?.authenticated) return null
+      try {
+        await keycloak.updateToken(30)
+      } catch {
+        keycloak.clearToken()
+      }
+      return keycloak.token
+    })
+
+    initializeAuth()
+      .then(refresh)
       .catch(() => {
-        if (!active) return;
-        setAuthState({
-          initialized: true,
-          authenticated: false,
-          authError:
-            "Chưa kết nối được máy chủ xác thực Keycloak (:8180). Bạn vẫn có thể tra cứu xe trống công khai.",
-          user: null,
-          roles: [],
-        });
-      });
+        if (active) setError('Chưa kết nối được máy chủ xác thực Keycloak (:8180). Bạn vẫn có thể tra cứu xe công khai.')
+      })
+      .finally(() => {
+        if (active) setReady(true)
+      })
 
     return () => {
-      active = false;
-    };
-  }, []);
+      active = false
+    }
+  }, [])
 
   const hasRole = useCallback(
     (...allowedRoles) => {
-      if (!allowedRoles || allowedRoles.length === 0) return true;
-      return allowedRoles.some((role) => authState.roles.includes(role));
+      if (!allowedRoles || allowedRoles.length === 0) return true
+      const userRoles = session.roles || []
+      return allowedRoles.some((role) => userRoles.includes(role))
     },
-    [authState.roles]
-  );
+    [session.roles]
+  )
 
   const login = useCallback((redirectUri = window.location.href) => {
-    return keycloak.login({ redirectUri });
-  }, []);
+    return keycloak?.login({ redirectUri })
+  }, [])
 
   const register = useCallback((redirectUri = window.location.href) => {
-    return keycloak.register({ redirectUri });
-  }, []);
+    return keycloak?.register({ redirectUri })
+  }, [])
 
   const logout = useCallback(() => {
-    return keycloak.logout({ redirectUri: window.location.origin });
-  }, []);
+    return keycloak?.logout({ redirectUri: window.location.origin })
+  }, [])
 
-  const contextValue = useMemo(
+  const value = useMemo(
     () => ({
-      ...authState,
+      ...session,
+      ready,
+      initialized: ready,
+      error,
+      authError: error,
+      configured: Boolean(keycloak),
       hasRole,
       login,
       register,
       logout,
     }),
-    [authState, hasRole, login, register, logout]
-  );
+    [session, ready, error, hasRole, login, register, logout]
+  )
 
-  return (
-    <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>
-  );
-};
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+}

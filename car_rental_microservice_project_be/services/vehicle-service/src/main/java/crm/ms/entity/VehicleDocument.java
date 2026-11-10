@@ -10,7 +10,7 @@ import java.util.UUID;
 
 /**
  * Tài liệu pháp lý: giấy đăng ký, bảo hiểm, kiểm định, ...
- * File thực tế lưu trên MinIO, bảng này chỉ lưu URL.
+ * File thực tế lưu trên object storage, bảng này lưu object key bền vững.
  */
 @Entity
 @Table(name = "vehicle_documents", indexes = {
@@ -41,8 +41,14 @@ public class VehicleDocument {
     @Column(name = "doc_number", length = 100)
     private String docNumber;
 
-    @Column(name = "file_url", nullable = false, length = 500)
-    private String fileUrl;
+    @Column(name = "object_key", nullable = false, length = 500)
+    private String objectKey;
+
+    @Column(name = "content_type", nullable = false, length = 100)
+    private String contentType;
+
+    @Column(name = "created_by", length = 100)
+    private String createdBy;
 
     @Column(name = "file_name", length = 255)
     private String fileName;

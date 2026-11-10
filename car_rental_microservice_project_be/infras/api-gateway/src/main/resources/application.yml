@@ -1,5 +1,5 @@
-server:
-  port: 8080
+﻿server:
+  port: ${SERVER_PORT:8080}
 
 spring:
   application:
@@ -9,15 +9,16 @@ spring:
       resourceserver:
         jwt:
           issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/car-rental-realm}
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:8180/realms/car-rental-realm/protocol/openid-connect/certs}
   cloud:
     gateway:
       routes:
         - id: vehicle-service
-          uri: lb://vehicle-service
+          uri: http://localhost:8081
           predicates:
             - Path=/api/v1/vehicles/**
         - id: customer-service
-          uri: lb://customer-service
+          uri: http://localhost:8082
           predicates:
             - Path=/api/v1/customers/**
         - id: booking-service
@@ -25,21 +26,32 @@ spring:
           predicates:
             - Path=/api/v1/bookings/**
         - id: payment-service
-          uri: lb://payment-service
+          uri: http://localhost:8084
           predicates:
             - Path=/api/v1/payments/**
         - id: maintenance-service
-          uri: lb://maintenance-service
+          uri: http://localhost:8085
           predicates:
             - Path=/api/v1/maintenances/**
         - id: notification-service
-          uri: lb://notification-service
+          uri: http://localhost:8086
           predicates:
             - Path=/api/v1/notifications/**
+
+app:
+  cors:
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000}
+    allowed-methods: ${APP_CORS_ALLOWED_METHODS:GET,POST,PUT,DELETE,PATCH,OPTIONS}
+    allowed-headers: ${APP_CORS_ALLOWED_HEADERS:Authorization,Content-Type,Accept,X-Correlation-Id,Origin,X-Requested-With}
 
 eureka:
   client:
     service-url:
-      defaultZone: ${EUREKA_URI:http://localhost:8761/eureka/}
+      defaultZone: ${EUREKA_URI:${EUREKA_SERVER_URL:http://localhost:8761/eureka/}}
   instance:
     prefer-ip-address: true
+
+logging:
+  level:
+    org.springframework.security: INFO
+    org.springframework.cloud.gateway: INFO

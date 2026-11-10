@@ -30,6 +30,11 @@ public class VehicleModel {
     @Column(nullable = false, updatable = false)
     private UUID id;
 
+    // Nullable in the schema only so legacy rows survive; the API always requires it (see db/manual/002).
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id", foreignKey = @ForeignKey(name = "fk_models_category"))
+    private VehicleCategory category;
+
     @Column(nullable = false, length = 100)
     private String brand;
 
