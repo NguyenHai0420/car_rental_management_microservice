@@ -5,11 +5,11 @@ import crm.ms.dto.VehicleResponse;
 import crm.ms.dto.VehicleStatusHistoryResponse;
 import crm.ms.dto.VehicleStatusRequest;
 import crm.ms.entity.Vehicle;
+import crm.ms.entity.VehicleModel;
 import crm.ms.entity.VehicleStatusHistory;
 import crm.ms.enums.VehicleStatus;
 import crm.ms.exception.BusinessException;
 import crm.ms.mapper.VehicleMapper;
-import crm.ms.repository.VehicleCategoryRepository;
 import crm.ms.repository.VehicleModelRepository;
 import crm.ms.repository.VehicleRepository;
 import crm.ms.repository.VehicleStatusHistoryRepository;
@@ -44,7 +44,6 @@ public class VehicleServiceImpl implements VehicleService {
     private static final Sort LIST_ORDER = Sort.by(Sort.Direction.DESC, "createdAt", "id");
 
     private final VehicleRepository vehicles;
-    private final VehicleCategoryRepository categories;
     private final VehicleModelRepository models;
     private final VehicleStatusHistoryRepository histories;
     private final VehicleMapper mapper;
@@ -132,10 +131,14 @@ public class VehicleServiceImpl implements VehicleService {
     }
 
     private void applyDetails(Vehicle vehicle, VehicleRequest request, String actor) {
-        vehicle.setCategory(categories.findById(request.categoryId())
-                .orElseThrow(() -> new BusinessException(1, 404, "Vehicle category not found")));
-        vehicle.setModel(models.findById(request.modelId())
-                .orElseThrow(() -> new BusinessException(1, 404, "Vehicle model not found")));
+        VehicleModel model = models.findById(request.modelId())
+                .orElseThrow(() -> new BusinessException(1, 404, "Vehicle model not found"));
+        if (model.getCategory() == null) {
+            throw new BusinessException(1, 409, "Vehicle model has no category; assign one first");
+        }
+        // The category is owned by the model; Vehicle.category stays only as a query-friendly copy.
+        vehicle.setModel(model);
+        vehicle.setCategory(model.getCategory());
         mapper.update(request, vehicle);
         vehicle.setUpdatedBy(actor);
     }

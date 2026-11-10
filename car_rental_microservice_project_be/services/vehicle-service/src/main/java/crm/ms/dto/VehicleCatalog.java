@@ -23,13 +23,13 @@ public final class VehicleCatalog {
     public record Category(UUID id, String name, String description, SizeClass sizeClass, Boolean isActive) {
     }
 
-    public record ModelRequest(@NotBlank @Size(max = 100) String brand, @NotBlank @Size(max = 100) String modelName,
+    public record ModelRequest(@NotNull UUID categoryId, @NotBlank @Size(max = 100) String brand, @NotBlank @Size(max = 100) String modelName,
                                @NotNull @Positive @Max(9999) Integer manufactureYear, @NotNull FuelType fuelType,
                                @NotNull @Positive Integer seatCount, @NotNull Transmission transmission,
                                @PositiveOrZero Integer engineCapacityCc) {
     }
 
-    public record Model(UUID id, String brand, String modelName, Integer manufactureYear, FuelType fuelType,
+    public record Model(UUID id, UUID categoryId, String categoryName, String brand, String modelName, Integer manufactureYear, FuelType fuelType,
                         Integer seatCount, Transmission transmission, Integer engineCapacityCc) {
     }
 }

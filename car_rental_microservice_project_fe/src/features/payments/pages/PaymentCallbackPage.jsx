@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams, Link } from "react-router";
-import { SiteHeader, SiteFooter } from "../../home/HomePage";
+import { SiteHeader } from "../../home/SiteHeader";
+import { SiteFooter } from "../../home/SiteFooter";
 import { usePayment } from "../hooks/payment";
 import { formatCurrency } from "../utils/pricing";
 
@@ -133,15 +134,11 @@ export const PaymentCallbackPage = () => {
               </div>
 
               <div className="result-actions">
-                <Link to="/">
-                  <button type="button" className="secondary" style={{ width: "100%" }}>
-                    ← Về trang chủ CarRental
-                  </button>
+                <Link to="/" className="btn btn-outline-secondary btn-lg">
+                  ← Về trang chủ CarRental
                 </Link>
-                <Link to="/pricing">
-                  <button type="button" style={{ width: "100%" }}>
-                    Thuê thêm xe khác →
-                  </button>
+                <Link to="/pricing" className="btn btn-danger btn-lg">
+                  Thuê thêm xe khác →
                 </Link>
               </div>
             </>
@@ -155,10 +152,8 @@ export const PaymentCallbackPage = () => {
                 <p className="hint" style={{ fontSize: "14px", marginTop: "8px" }}>{errorMessage}</p>
               </div>
               <div className="result-actions">
-                <Link to="/payment">
-                  <button type="button" className="danger" style={{ width: "100%" }}>
-                    Quay lại trang thanh toán
-                  </button>
+                <Link to="/payment" className="btn btn-danger btn-lg">
+                  Quay lại trang thanh toán
                 </Link>
               </div>
             </>

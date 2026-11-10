@@ -35,22 +35,23 @@ export function VehicleDialog({ car, onClose }) {
           <button key={url} className="secondary" aria-current={i === index} aria-label={`Ảnh ${i + 1}`} onClick={() => setIndex(i)}><img src={url} alt="" loading="lazy" /></button>)}</div>}
       </div>
       <div className="dialog-info">
-        <button className="secondary dialog-close" onClick={onClose} aria-label="Đóng">✕</button>
+        <button className="btn btn-light border dialog-close" onClick={onClose} aria-label="Đóng">✕</button>
         <div><p className="eyebrow">{car.categoryName}</p><h2 id="car-dialog-title">{name}</h2></div>
         <p className="price">{formatPrice(car.dailyRate)}{car.dailyRate != null && <small> /ngày</small>}</p>
         <dl className="info-list">{facts.filter(([, value]) => value).map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
-        <div style={{ display: 'grid', gap: '8px' }}>
+        <div className="d-grid gap-2">
           <button
             type="button"
+            className="btn btn-danger btn-lg"
             onClick={() => {
               onClose()
               navigate('/pricing', { state: { showroomCar: { ...car, imageUrl: urls[0] || car.imageUrl } } })
             }}
           >
-            Tính giá & Đặt thuê xe này →
+            Tính giá &amp; Đặt thuê xe này →
           </button>
           {!auth.authenticated && auth.configured && (
-            <button type="button" className="secondary" disabled={!auth.ready} onClick={auth.login}>
+            <button type="button" className="btn btn-outline-secondary" disabled={!auth.ready} onClick={auth.login}>
               Đăng nhập tài khoản
             </button>
           )}

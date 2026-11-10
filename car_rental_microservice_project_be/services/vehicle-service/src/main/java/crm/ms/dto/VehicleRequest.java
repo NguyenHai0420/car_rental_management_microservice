@@ -13,7 +13,6 @@ import java.util.Locale;
 import java.util.UUID;
 
 public record VehicleRequest(
-        @NotNull UUID categoryId,
         @NotNull UUID modelId,
         @NotBlank @Pattern(regexp = "[A-HJ-NPR-Z0-9]{17}",
                 message = "must have 17 letters or digits, excluding I, O and Q") String vin,

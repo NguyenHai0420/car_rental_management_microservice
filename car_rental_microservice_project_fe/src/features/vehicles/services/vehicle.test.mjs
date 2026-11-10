@@ -82,7 +82,7 @@ test('plate lookup sends the complete plate in a query parameter', async () => {
 })
 
 test('vehicle create, edit and delete send their own verbs and vehicle ID', async () => {
-  const fields = { vin: '1HGCM82633A004352', licensePlate: '51H-123.45', mileageKm: '100.5', categoryId: 'cat', modelId: 'model' }
+  const fields = { vin: '1HGCM82633A004352', licensePlate: '51H-123.45', mileageKm: '100.5', modelId: 'model' }
   const id = 'vehicle-id'
   await createVehicle(fields)
   assert.equal(received.method, 'POST')

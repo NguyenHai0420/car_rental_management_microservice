@@ -225,7 +225,7 @@ export const PaymentForm = ({ payment }) => {
               <strong style={{ color: "var(--brand)", fontSize: "16px", letterSpacing: "0.4px" }}>0376359204</strong>
               <button
                 type="button"
-                className={copiedField === "stk" ? "copy-btn" : "secondary copy-btn"}
+                className={copiedField === "stk" ? "btn btn-success btn-sm copy-btn" : "btn btn-outline-secondary btn-sm copy-btn"}
                 onClick={() => copyToClipboard("0376359204", "stk")}
               >
                 {copiedField === "stk" ? "✓ Đã chép" : "Sao chép"}
@@ -254,7 +254,7 @@ export const PaymentForm = ({ payment }) => {
               <strong style={{ fontFamily: "Consolas, monospace", fontSize: "14px" }}>{transferContent}</strong>
               <button
                 type="button"
-                className={copiedField === "nd" ? "copy-btn" : "secondary copy-btn"}
+                className={copiedField === "nd" ? "btn btn-success btn-sm copy-btn" : "btn btn-outline-secondary btn-sm copy-btn"}
                 onClick={() => copyToClipboard(transferContent, "nd")}
               >
                 {copiedField === "nd" ? "✓ Đã chép" : "Sao chép"}

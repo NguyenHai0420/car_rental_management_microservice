@@ -1,5 +1,6 @@
 import { useLocation } from "react-router";
-import { SiteHeader, SiteFooter } from "../../home/HomePage";
+import { SiteHeader } from "../../home/SiteHeader";
+import { SiteFooter } from "../../home/SiteFooter";
 import { PricingCalculator } from "../components/PricingCalculator";
 
 export const PricingPage = () => {

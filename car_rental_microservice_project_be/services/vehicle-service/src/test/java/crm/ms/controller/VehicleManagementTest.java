@@ -135,10 +135,9 @@ class VehicleManagementTest {
     @Test
     void anonymousShowroomListsOnlyAvailableVehiclesWithPrimaryCover() throws Exception {
         when(storage.publicUrl(anyString(), anyString())).thenAnswer(call -> "http://cdn/" + call.getArgument(1));
-        ObjectNode payload = newPayload();
-        String categoryId = payload.path("categoryId").asText();
-        JsonNode shown = create(payload);
-        JsonNode rented = create(newPayload().put("categoryId", categoryId));
+        String categoryId = newCategoryId();
+        JsonNode shown = create(payloadFor(categoryId));
+        JsonNode rented = create(payloadFor(categoryId));
         mvc.perform(staff(transition(BASE + "/" + rented.path("id").asText(), "RESERVED", null))).andExpect(status().isOk());
         var vehicle = vehicles.findById(UUID.fromString(shown.path("id").asText())).orElseThrow();
         images.save(crm.ms.entity.VehicleImage.builder().vehicle(vehicle).imageType(crm.ms.enums.ImageType.OTHER)
@@ -259,7 +258,7 @@ class VehicleManagementTest {
                 valid.deepCopy().put("dailyRateSnapshot", "10000000000"), valid.deepCopy().putNull("mileageKm"))) {
             assertThat(submit(invalid).getResponse().getStatus()).isEqualTo(400);
         }
-        assertThat(submit(valid.deepCopy().put("categoryId", UUID.randomUUID().toString())).getResponse().getStatus()).isEqualTo(404);
+        assertThat(submit(valid.deepCopy().putNull("modelId")).getResponse().getStatus()).isEqualTo(400);
         assertThat(submit(valid.deepCopy().put("modelId", UUID.randomUUID().toString())).getResponse().getStatus()).isEqualTo(404);
         mvc.perform(staff(get(BASE).param("size", "101"))).andExpect(status().isBadRequest());
         mvc.perform(staff(get(BASE).param("page", "-1"))).andExpect(status().isBadRequest());
@@ -270,16 +269,46 @@ class VehicleManagementTest {
     }
 
     private ObjectNode newPayload() throws Exception {
+        return payloadFor(newCategoryId());
+    }
+
+    private String newCategoryId() throws Exception {
         int suffix = IDENTIFIER.incrementAndGet();
-        JsonNode category = data(mvc.perform(staff(post(BASE + "/categories").contentType(APPLICATION_JSON)
+        return data(mvc.perform(staff(post(BASE + "/categories").contentType(APPLICATION_JSON)
                 .content(json.createObjectNode().put("name", "SUV " + suffix).put("sizeClass", "SUV").toString())))
-                .andExpect(status().isCreated()).andReturn());
+                .andExpect(status().isCreated()).andReturn()).path("id").asText();
+    }
+
+    /** A vehicle payload for a fresh model that belongs to the given category. */
+    private ObjectNode payloadFor(String categoryId) throws Exception {
+        int suffix = IDENTIFIER.incrementAndGet();
         JsonNode model = data(mvc.perform(staff(post(BASE + "/models").contentType(APPLICATION_JSON)
-                .content(json.createObjectNode().put("brand", "Toyota").put("modelName", "RAV4 " + suffix)
-                        .put("manufactureYear", 2025).put("fuelType", "HYBRID").put("seatCount", 5)
-                        .put("transmission", "AUTOMATIC").toString()))).andExpect(status().isCreated()).andReturn());
-        return json.createObjectNode().put("categoryId", category.path("id").asText()).put("modelId", model.path("id").asText())
+                .content(json.createObjectNode().put("categoryId", categoryId).put("brand", "Toyota")
+                        .put("modelName", "RAV4 " + suffix).put("manufactureYear", 2025).put("fuelType", "HYBRID")
+                        .put("seatCount", 5).put("transmission", "AUTOMATIC").toString())))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.data.categoryId").value(categoryId)).andReturn());
+        return json.createObjectNode().put("modelId", model.path("id").asText())
                 .put("vin", "1HGCM82633A" + suffix).put("licensePlate", "51H-" + suffix).put("mileageKm", 0);
+    }
+
+    @Test
+    void modelRequiresAnExistingCategory() throws Exception {
+        var model = json.createObjectNode().put("brand", "Kia").put("modelName", "Morning").put("manufactureYear", 2024)
+                .put("fuelType", "GASOLINE").put("seatCount", 4).put("transmission", "MANUAL");
+        mvc.perform(staff(post(BASE + "/models").contentType(APPLICATION_JSON).content(model.toString())))
+                .andExpect(status().isBadRequest());
+        model.put("categoryId", UUID.randomUUID().toString());
+        mvc.perform(staff(post(BASE + "/models").contentType(APPLICATION_JSON).content(model.toString())))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void vehicleTakesItsCategoryFromTheModel() throws Exception {
+        String categoryId = newCategoryId();
+        JsonNode saved = create(payloadFor(categoryId));
+        assertThat(saved.path("categoryId").asText()).isEqualTo(categoryId);
+        mvc.perform(staff(get(BASE + "/models"))).andExpect(jsonPath("$.data[?(@.id == '%s')].categoryId",
+                saved.path("modelId").asText()).value(categoryId));
     }
 
     private JsonNode create(ObjectNode payload) throws Exception {

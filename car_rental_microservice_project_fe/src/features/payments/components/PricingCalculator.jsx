@@ -250,6 +250,7 @@ export const PricingCalculator = ({ showroomCar, onProceedToPayment }) => {
           <div className="result-actions">
             <button
               type="button"
+              className="btn btn-primary"
               onClick={() => {
                 setLoadingVehicles(true);
                 setReloadNonce((n) => n + 1);
@@ -257,10 +258,8 @@ export const PricingCalculator = ({ showroomCar, onProceedToPayment }) => {
             >
               ↻ Thử tải lại
             </button>
-            <Link to="/">
-              <button type="button" className="secondary" style={{ width: "100%" }}>
-                ← Về Showroom trang chủ
-              </button>
+            <Link to="/" className="btn btn-outline-secondary">
+              ← Về Showroom trang chủ
             </Link>
           </div>
         </section>
@@ -419,7 +418,7 @@ export const PricingCalculator = ({ showroomCar, onProceedToPayment }) => {
 
             <button
               type="button"
-              className="pay-cta-btn"
+              className="btn btn-danger btn-lg pay-cta-btn"
               disabled={submitting}
               onClick={handleCreateOrderAndPay}
             >

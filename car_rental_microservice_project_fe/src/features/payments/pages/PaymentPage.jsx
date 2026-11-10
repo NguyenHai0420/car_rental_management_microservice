@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation, useSearchParams, useNavigate, Link } from "react-router";
-import { SiteHeader, SiteFooter } from "../../home/HomePage";
+import { SiteHeader } from "../../home/SiteHeader";
+import { SiteFooter } from "../../home/SiteFooter";
 import { usePayment } from "../hooks/payment";
 import { PaymentForm } from "../components/PaymentForm";
 
@@ -78,7 +79,7 @@ export const PaymentPage = ({ bookingId: propBookingId, customOrder: propOrder }
               {!currentBookingId && (
                 <button
                   type="button"
-                  className="secondary copy-btn"
+                  className="btn btn-outline-secondary btn-sm copy-btn"
                   onClick={handleClearOrder}
                 >
                   ✕ Hủy đơn này
@@ -110,15 +111,11 @@ export const PaymentPage = ({ bookingId: propBookingId, customOrder: propOrder }
                 </p>
               </div>
               <div className="result-actions">
-                <Link to="/pricing">
-                  <button type="button" style={{ width: "100%" }}>
-                    🚗 Chọn xe &amp; Tính giá ngay →
-                  </button>
+                <Link to="/pricing" className="btn btn-danger btn-lg">
+                  🚗 Chọn xe &amp; Tính giá ngay →
                 </Link>
-                <Link to="/">
-                  <button type="button" className="secondary" style={{ width: "100%" }}>
-                    ← Xem xe tại Trang chủ
-                  </button>
+                <Link to="/" className="btn btn-outline-secondary btn-lg">
+                  ← Xem xe tại Trang chủ
                 </Link>
               </div>
             </section>
