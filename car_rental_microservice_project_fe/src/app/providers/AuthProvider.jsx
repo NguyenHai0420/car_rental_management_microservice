@@ -67,16 +67,34 @@ export function AuthProvider({ children }) {
     [session.roles]
   )
 
-  const login = useCallback((redirectUri = window.location.href) => {
+  const login = useCallback((optionsOrRedirectUri) => {
+    const redirectUri =
+      typeof optionsOrRedirectUri === 'string'
+        ? optionsOrRedirectUri
+        : typeof optionsOrRedirectUri?.redirectUri === 'string'
+          ? optionsOrRedirectUri.redirectUri
+          : window.location.href
     return keycloak?.login({ redirectUri })
   }, [])
 
-  const register = useCallback((redirectUri = window.location.href) => {
+  const register = useCallback((optionsOrRedirectUri) => {
+    const redirectUri =
+      typeof optionsOrRedirectUri === 'string'
+        ? optionsOrRedirectUri
+        : typeof optionsOrRedirectUri?.redirectUri === 'string'
+          ? optionsOrRedirectUri.redirectUri
+          : window.location.href
     return keycloak?.register({ redirectUri })
   }, [])
 
-  const logout = useCallback(() => {
-    return keycloak?.logout({ redirectUri: window.location.origin })
+  const logout = useCallback((optionsOrRedirectUri) => {
+    const redirectUri =
+      typeof optionsOrRedirectUri === 'string'
+        ? optionsOrRedirectUri
+        : typeof optionsOrRedirectUri?.redirectUri === 'string'
+          ? optionsOrRedirectUri.redirectUri
+          : window.location.origin
+    return keycloak?.logout({ redirectUri })
   }, [])
 
   const value = useMemo(

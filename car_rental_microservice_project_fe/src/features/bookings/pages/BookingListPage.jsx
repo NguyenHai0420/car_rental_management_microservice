@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import {
   Alert,
   App,
@@ -63,17 +63,22 @@ const getDefaultRange = () => [
 export const BookingListPage = () => {
   const { message } = App.useApp();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const { authenticated, hasRole, login } = useAuth();
 
   const isStaff = authenticated && hasRole("ADMIN", "VEHICLE_OWNER");
   const activeTab = searchParams.get("tab") || "search";
+  const vehicleIdParam = searchParams.get("vehicleId");
 
   const [dateRange, setDateRange] = useState(getDefaultRange);
   const [minSeats, setMinSeats] = useState(undefined);
   const [locationFilter, setLocationFilter] = useState("");
 
-  const [bookingModalVehicle, setBookingModalVehicle] = useState(null);
+  const [selectedVehicle, setSelectedVehicle] = useState(
+    () => location.state?.vehicle || null
+  );
+  const [closedVehicleId, setClosedVehicleId] = useState(null);
   const [submittingBooking, setSubmittingBooking] = useState(false);
 
   const [staffStatusFilter, setStaffStatusFilter] = useState("ALL");
@@ -112,6 +117,27 @@ export const BookingListPage = () => {
       returnDatetime: initial[1],
     });
   }, [searchVehicles]);
+
+  const bookingModalVehicle = useMemo(() => {
+    if (closedVehicleId && (selectedVehicle?.id === closedVehicleId || vehicleIdParam === closedVehicleId)) {
+      return null;
+    }
+    if (selectedVehicle) return selectedVehicle;
+    if (vehicleIdParam && vehicles?.length > 0) {
+      return vehicles.find((v) => v.id === vehicleIdParam) || null;
+    }
+    return null;
+  }, [selectedVehicle, closedVehicleId, vehicleIdParam, vehicles]);
+
+  const openBookingModal = (v) => {
+    setClosedVehicleId(null);
+    setSelectedVehicle(v);
+  };
+
+  const closeBookingModal = () => {
+    setClosedVehicleId(bookingModalVehicle?.id || "closed");
+    setSelectedVehicle(null);
+  };
 
   useEffect(() => {
     if (authenticated && activeTab === "my-bookings") {
@@ -156,7 +182,7 @@ export const BookingListPage = () => {
       login();
       return;
     }
-    setBookingModalVehicle(vehicle);
+    openBookingModal(vehicle);
   };
 
   const handleCreateBooking = async (payload) => {
@@ -166,7 +192,7 @@ export const BookingListPage = () => {
       message.success(
         `Đặt xe thành công! Mã đơn: ${created.bookingCode}. Vui lòng thanh toán tiền cọc trong 15 phút.`
       );
-      setBookingModalVehicle(null);
+      closeBookingModal();
       handleSearchSubmit();
       setSearchParams({ tab: "my-bookings" });
       await loadMyBookings();
@@ -691,15 +717,22 @@ export const BookingListPage = () => {
 
   return (
     <div>
-      <div style={{ marginBottom: 16 }}>
-        <Title level={3} style={{ marginBottom: 4 }}>
-          Đặt Thuê Xe & Điều Phối Lịch Xe
-        </Title>
-        <Text type="secondary">
-          Tra cứu xe trống tức thời (CQRS Inventory Cache), giữ chỗ chống trùng lịch
-          và theo dõi trọn vẹn vòng đời hợp đồng thuê xe.
-        </Text>
-      </div>
+      {isStaff && (
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message="Khu vực Quản trị & Điều phối"
+          description={
+            <span>
+              Bạn đang đăng nhập với tài khoản Quản trị / Nhân viên. Để duyệt và điều phối đơn xe toàn hệ thống, vui lòng truy cập{" "}
+              <Link to="/vehicles/bookings" style={{ fontWeight: 600 }}>
+                Trang Quản lý đơn thuê xe ➔
+              </Link>
+            </span>
+          }
+        />
+      )}
 
       <Tabs
         activeKey={activeTab}
@@ -713,7 +746,7 @@ export const BookingListPage = () => {
         vehicle={bookingModalVehicle}
         defaultDateRange={dateRange}
         submitting={submittingBooking}
-        onCancel={() => setBookingModalVehicle(null)}
+        onCancel={closeBookingModal}
         onSubmit={handleCreateBooking}
       />
 

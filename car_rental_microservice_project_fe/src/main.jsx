@@ -13,8 +13,12 @@ createRoot(document.getElementById('root')).render(
     <ConfigProvider
       theme={{
         token: {
-          colorPrimary: '#0f766e',
+          colorPrimary: '#ff6a1a',
+          colorPrimaryHover: '#ff8a3d',
+          colorPrimaryActive: '#e8480c',
           borderRadius: 8,
+          colorLink: '#d4440c',
+          colorLinkHover: '#ff6a1a',
         },
       }}
     >
