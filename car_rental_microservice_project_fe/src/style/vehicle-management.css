@@ -1,0 +1,39 @@
+.fleet-link { display: inline-block; margin-top: 10px; }
+.fleet-workspace a, .fleet-link { color: #176756; font-weight: 600; text-underline-offset: 3px; }
+.fleet-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; }
+.fleet-workspace .fleet-button { padding: 10px 16px; background: #176756; border-radius: 8px; color: white; font-size: 14px; text-decoration: none; }
+.fleet-workspace .fleet-button:hover { background: #125344; }
+.fleet-filters { display: grid; gap: 14px; grid-template-columns: minmax(200px, 1.4fr) repeat(3, minmax(130px, 1fr)); margin-bottom: 20px; }
+.fleet-filters .fleet-actions, .fleet-fields > .fleet-actions { grid-column: 1 / -1; }
+.fleet-table-scroll { overflow-x: auto; }
+.fleet-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 14px; }
+.fleet-table caption { text-align: left; margin-bottom: 8px; font-weight: 650; }
+.fleet-table th, .fleet-table td { padding: 12px; border-bottom: 1px solid #dbe3e8; }
+.fleet-table thead { background: #eef3f6; }
+.fleet-table td { overflow-wrap: anywhere; }
+.fleet-table time { white-space: nowrap; }
+.fleet-pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; margin-top: 18px; font-size: 14px; }
+.fleet-workspace button:disabled { cursor: default; }
+.fleet-fields, .fleet-catalog { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.fleet-fields input, .fleet-fields select { min-width: 0; }
+.fleet-catalog-entries { padding-left: 20px; margin: 0; font-size: 14px; }
+.fleet-catalog-entries li { margin: 5px 0; }
+.fleet-detail-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 0 0 20px; }
+.fleet-detail-fields dt { font-size: 13px; color: #5b7381; }
+.fleet-detail-fields dd { margin: 3px 0 0; overflow-wrap: anywhere; }
+.fleet-detail-fields + .hint { margin-bottom: 10px; }
+.fleet-workspace .fleet-delete { margin-top: 0; }
+.fleet-status-form { display: grid; grid-template-columns: minmax(160px, 1fr) minmax(180px, 2fr) auto; align-items: end; gap: 12px; margin: 16px 0 22px; }
+.fleet-status-form button { min-height: 43px; }
+.fleet-status { display: inline-block; padding: 4px 8px; border-radius: 5px; background: #edf1f7; color: #435970; white-space: nowrap; font-size: 13px; font-weight: 600; }
+.fleet-status[data-status="AVAILABLE"] { background: #e1f4ec; color: #1b6957; }
+.fleet-status[data-status="RESERVED"] { background: #e8f0fc; color: #284d86; }
+.fleet-status[data-status="RENTED"] { background: #eee8f8; color: #573b79; }
+.fleet-status[data-status="IN_MAINTENANCE"] { background: #fff0d2; color: #764b11; }
+.fleet-workspace .notice button { margin-top: 8px; }
+@media (max-width: 980px) {
+  .fleet-filters, .fleet-detail-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .fleet-filters, .fleet-fields, .fleet-catalog, .fleet-detail-fields, .fleet-status-form { grid-template-columns: 1fr; }
+}

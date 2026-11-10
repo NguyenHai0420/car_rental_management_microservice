@@ -44,6 +44,24 @@ class VehicleMediaSecurityTest {
     }
 
     @Test
+    void onlyGetIsPublicOnVehicleLookup() {
+        client.get().uri("/api/v1/vehicles/lookup?licensePlate=51H-780.01").exchange().expectStatus().isOk();
+        client.post().uri("/api/v1/vehicles/lookup").exchange().expectStatus().isUnauthorized();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "/", "/vehicle-id", "/categories", "/models", "/vehicle-id/status-history"})
+    void fleetReadsRequireJwtEvenWithSpoofedHeaders(String suffix) {
+        client.get().uri("/api/v1/vehicles" + suffix).header("X-User-ID", "spoofed").header("X-User-Roles", "ADMIN")
+                .exchange().expectStatus().isUnauthorized();
+    }
+
+    @Test
+    void authenticatedFleetRequestReachesServiceForRoleEnforcement() {
+        client.mutateWith(mockJwt()).get().uri("/api/v1/vehicles").exchange().expectStatus().isOk();
+    }
+
+    @Test
     void authenticatedDocumentRequestReachesService() {
         client.mutateWith(mockJwt()).get().uri("/api/v1/vehicles/vehicle-id/documents")
                 .exchange().expectStatus().isOk();

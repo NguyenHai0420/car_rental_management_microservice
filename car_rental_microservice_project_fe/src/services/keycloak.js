@@ -21,6 +21,7 @@ export function authSession() {
     .split(',').map((role) => role.trim().toUpperCase())
   return {
     authenticated: Boolean(keycloak?.authenticated),
+    canManageFleet: Boolean(keycloak?.authenticated) && roles.some((role) => role === 'ADMIN' || role === 'STAFF'),
     canManage: Boolean(keycloak?.authenticated) && roles.some((role) => managers.includes(role)),
     name: claims?.preferred_username || claims?.name || '',
   }

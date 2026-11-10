@@ -2,6 +2,8 @@
 
 Java Spring Boot microservices with a React frontend.
 
+Quản lý đội xe qua React, Keycloak, Gateway và MySQL. [Hướng dẫn chạy local và kiểm thử](docs/vehicle-management.md).
+
 Unified MinIO module with Spring Boot API, S3 server, lifecycle commands and bucket configuration:
 [MinIO service](car_rental_microservice_project_be/services/minio-service/README.md).
 

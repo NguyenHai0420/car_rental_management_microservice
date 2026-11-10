@@ -28,7 +28,7 @@ import java.util.UUID;
 @Validated
 public class VehicleMediaController {
     private final VehicleMediaService media;
-    private final MediaAccessPolicy access;
+    private final VehicleAccessPolicy access;
 
     @PostMapping(value = "/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ResponseApi> uploadImage(
@@ -37,7 +37,7 @@ public class VehicleMediaController {
             @RequestParam(defaultValue = "0") @Min(0) int sortOrder,
             @RequestHeader(value = "X-User-ID", required = false) String userId,
             @RequestHeader(value = "X-User-Roles", required = false) String roles) {
-        String actor = access.requireManager(userId, roles);
+        String actor = access.requireMediaManager(userId, roles);
         try (InputStream input = file.getInputStream()) {
             return response(HttpStatus.CREATED, "Image uploaded", media.uploadImage(vehicleId,
                     upload(file, input), imageType, isPrimary, sortOrder, actor));
@@ -56,7 +56,7 @@ public class VehicleMediaController {
             @PathVariable UUID vehicleId, @PathVariable UUID imageId,
             @RequestHeader(value = "X-User-ID", required = false) String userId,
             @RequestHeader(value = "X-User-Roles", required = false) String roles) {
-        access.requireManager(userId, roles);
+        access.requireMediaManager(userId, roles);
         media.deleteImage(vehicleId, imageId);
         return response(HttpStatus.OK, "Image deleted", null);
     }
@@ -69,7 +69,7 @@ public class VehicleMediaController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate expiryDate,
             @RequestHeader(value = "X-User-ID", required = false) String userId,
             @RequestHeader(value = "X-User-Roles", required = false) String roles) {
-        String actor = access.requireManager(userId, roles);
+        String actor = access.requireMediaManager(userId, roles);
         try (InputStream input = file.getInputStream()) {
             return response(HttpStatus.CREATED, "Document uploaded", media.uploadDocument(vehicleId,
                     upload(file, input), docType, docNumber, issueDate, expiryDate, actor));
@@ -83,7 +83,7 @@ public class VehicleMediaController {
             @PathVariable UUID vehicleId,
             @RequestHeader(value = "X-User-ID", required = false) String userId,
             @RequestHeader(value = "X-User-Roles", required = false) String roles) {
-        access.requireManager(userId, roles);
+        access.requireMediaManager(userId, roles);
         return response(HttpStatus.OK, "Vehicle documents", media.listDocuments(vehicleId));
     }
 
@@ -92,7 +92,7 @@ public class VehicleMediaController {
             @PathVariable UUID vehicleId, @PathVariable UUID documentId,
             @RequestHeader(value = "X-User-ID", required = false) String userId,
             @RequestHeader(value = "X-User-Roles", required = false) String roles) {
-        access.requireManager(userId, roles);
+        access.requireMediaManager(userId, roles);
         return ResponseEntity.ok().cacheControl(org.springframework.http.CacheControl.noStore())
                 .body(ResponseApi.builder().code(HttpStatus.OK).message("Temporary document URL")
                         .data(media.getDocumentUrl(vehicleId, documentId)).build());
@@ -103,7 +103,7 @@ public class VehicleMediaController {
             @PathVariable UUID vehicleId, @PathVariable UUID documentId,
             @RequestHeader(value = "X-User-ID", required = false) String userId,
             @RequestHeader(value = "X-User-Roles", required = false) String roles) {
-        access.requireManager(userId, roles);
+        access.requireMediaManager(userId, roles);
         media.deleteDocument(vehicleId, documentId);
         return response(HttpStatus.OK, "Document deleted", null);
     }

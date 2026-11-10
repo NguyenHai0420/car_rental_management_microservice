@@ -133,7 +133,7 @@ public class VehicleMediaServiceImpl implements VehicleMediaService {
     }
 
     private Vehicle activeVehicle(UUID vehicleId, boolean forUpdate) {
-        return (forUpdate ? vehicles.findActiveForMediaUpdate(vehicleId) : vehicles.findByIdAndIsDeletedFalse(vehicleId))
+        return (forUpdate ? vehicles.findActiveForUpdate(vehicleId) : vehicles.findByIdAndIsDeletedFalse(vehicleId))
                 .orElseThrow(() -> missing("Vehicle"));
     }
 

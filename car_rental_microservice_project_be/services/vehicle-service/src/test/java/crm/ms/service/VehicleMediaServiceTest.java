@@ -175,7 +175,7 @@ class VehicleMediaServiceTest {
     }
 
     private void activeWrite() {
-        when(vehicles.findActiveForMediaUpdate(vehicleId))
+        when(vehicles.findActiveForUpdate(vehicleId))
                 .thenReturn(Optional.of(Vehicle.builder().id(vehicleId).isDeleted(false).build()));
     }
 

@@ -1,6 +1,6 @@
 # Tích hợp MinIO cho hồ sơ xe
 
-Vehicle-service quản lý metadata và quyền truy cập ảnh, giấy tờ của xe. API Spring Boot trong module `infras/minio-service` xử lý lưu/xóa/cấp URL thông qua MinIO Server. Mã Java và cấu hình Docker đã nằm chung module này. MinIO giữ nội dung tệp; MySQL chỉ giữ object key cùng tên gốc, MIME, dung lượng và người tải lên. Ảnh có URL công khai, giấy tờ chỉ nhận URL GET ký tạm thời trong 10 phút.
+Vehicle-service quản lý metadata và quyền truy cập ảnh, giấy tờ của xe. API Spring Boot trong module `services/minio-service` xử lý lưu/xóa/cấp URL thông qua MinIO Server. Mã Java và cấu hình Docker đã nằm chung module này. MinIO giữ nội dung tệp; MySQL chỉ giữ object key cùng tên gốc, MIME, dung lượng và người tải lên. Ảnh có URL công khai, giấy tờ chỉ nhận URL GET ký tạm thời trong 10 phút.
 
 ## Ranh giới kiến trúc
 
@@ -24,28 +24,28 @@ React → API Gateway → VehicleMediaController → VehicleMediaService
                                                                   MinIO
 ```
 
-Phần tích hợp giữ cấu trúc service/repository/entity sẵn có. `FileStorage`, `MediaFile` và `MediaStorageSettings` thuộc tầng service, không chứa kiểu của MinIO hay multipart HTTP. Controller chuyển `MultipartFile` thành stream; `HttpFileStorage` gửi stream tới API nội bộ của file-service. SDK và credentials MinIO chỉ nằm trong module `infras/minio-service`. File-service có port thuần Java `ObjectStorage`, use case và adapter MinIO riêng; thay nhà cung cấp storage chỉ tác động adapter đó.
+Vehicle-service tổ chức phần lưu file trong `service.storage` và phần cấu hình kết nối trong `config`. Controller chuyển `MultipartFile` thành stream để `HttpFileStorage` gửi tới API nội bộ. Trong module `services/minio-service`, `FileService` kiểm tra quy tắc lưu trữ và gọi `MinioFileStorage` qua interface `ObjectStorage`. MinIO SDK và credentials thuộc module này.
 
-Ảnh và giấy tờ vẫn thuộc aggregate xe, được xử lý trong vehicle-service. Gateway giữ trách nhiệm xác thực JWT và loại bỏ header định danh do client gửi trước khi gắn định danh đã xác thực. API lưu file dùng service key riêng và giới hạn bucket/prefix theo caller; không expose API nội bộ qua gateway. Các service khác không truy cập trực tiếp bảng media của vehicle-service. Chi tiết API chung và scope customer nằm trong [API của MinIO service](../car_rental_microservice_project_be/infras/minio-service/API.md).
+Ảnh và giấy tờ vẫn thuộc aggregate xe, được xử lý trong vehicle-service. Gateway giữ trách nhiệm xác thực JWT và loại bỏ header định danh do client gửi trước khi gắn định danh đã xác thực. API lưu file dùng service key riêng và giới hạn bucket/prefix theo caller; không expose API nội bộ qua gateway. Các service khác không truy cập trực tiếp bảng media của vehicle-service. Chi tiết API chung và scope customer nằm trong [API của MinIO service](../car_rental_microservice_project_be/services/minio-service/API.md).
 
 ## Khởi chạy local
 
-Cần Java 21, Maven 3.9+, Node.js 22.12+ cho các service nghiệp vụ/frontend và Docker Desktop với Linux engine. Module `infras/minio-service` chứa cả Java API và MinIO Server trong Compose project `car-rental-minio`. Một lệnh khởi động cả hai phần, từ thư mục backend:
+Cần Java 21, Maven 3.9+, Node.js 22.12+ cho các service nghiệp vụ/frontend và Docker Desktop với Linux engine. Module `services/minio-service` chứa cả Java API và MinIO Server trong Compose project `car-rental-minio`. Một lệnh khởi động cả hai phần, từ thư mục backend:
 
 ```powershell
-.\infras\minio-service\minio.ps1 start
-.\infras\minio-service\minio.ps1 status
+.\services\minio-service\minio.ps1 start
+.\services\minio-service\minio.ps1 status
 ```
 
 Console ở <http://localhost:9001>; S3 API ở <http://localhost:9000>. Thông tin local mặc định là `minioadmin` / `minioadmin123`. Compose tạo `vehicle-images` với quyền anonymous `GetObject` và `vehicle-documents` private. Init chạy lại được và không xóa dữ liệu. Quyền công khai không cho phép liệt kê bucket.
 
-MinIO có lệnh start/stop/restart/down riêng và dùng volume/network external. Ví dụ `.\infras\minio-service\minio.ps1 down` chỉ xóa container thuộc project MinIO, giữ nguyên file và các container của service khác. Script tự tạo volume/network khi cần và tự chạy init bucket. Chi tiết vận hành, thêm bucket customer và dùng lại dữ liệu cũ nằm trong [README của MinIO service](../car_rental_microservice_project_be/infras/minio-service/README.md).
+MinIO có lệnh start/stop/restart/down riêng và dùng volume/network external. Ví dụ `.\services\minio-service\minio.ps1 down` chỉ xóa container thuộc project MinIO, giữ nguyên file và các container của service khác. Script tự tạo volume/network khi cần và tự chạy init bucket. Chi tiết vận hành, thêm bucket customer và dùng lại dữ liệu cũ nằm trong [README của MinIO service](../car_rental_microservice_project_be/services/minio-service/README.md).
 
 Image upstream trong kế hoạch không còn truy cập được. Compose ghim một bản build MinIO theo digest từ [coollabsio/minio](https://github.com/coollabsio/minio), chứa cả server và `mc`. Có thể đặt `MINIO_IMAGE` để dùng image MinIO đã kiểm duyệt trong registry của tổ chức. Integration test dùng cùng digest; biến `MINIO_TEST_IMAGE` cho phép ghi đè image test.
 
-Backend đọc biến môi trường của tiến trình Java. File `infras/minio-service/.env` cấu hình riêng cho stack MinIO; muốn đổi cấu hình Java, đặt biến trong shell hoặc Run Configuration của IDE. Các biến mẫu cho consumer Java nằm trong `car_rental_microservice_project_be/.env.example`; mẫu cho MinIO server nằm trong `infras/minio-service/.env.example`.
+Backend đọc biến môi trường của tiến trình Java. File `services/minio-service/.env` cấu hình riêng cho stack MinIO; muốn đổi cấu hình Java, đặt biến trong shell hoặc Run Configuration của IDE. Các biến mẫu cho consumer Java nằm trong `car_rental_microservice_project_be/.env.example`; mẫu cho MinIO server nằm trong `services/minio-service/.env.example`.
 
-MySQL cần database `vehicle_db` và các bản ghi xe đã tồn tại. Module CRUD xe còn là khung của repository gốc; tích hợp này bổ sung các API media cho xe có sẵn. Nếu dùng schema cũ, thực hiện migration ở phần dưới trước khi khởi động service.
+MySQL cần database `vehicle_db`. Có thể tạo danh mục và xe từ database trống, rồi mở ảnh và giấy tờ ngay trong trang chi tiết. [Hướng dẫn quản lý xe](vehicle-management.md). Nếu dùng schema media cũ, thực hiện migration ở phần dưới trước khi khởi động service.
 
 Sau khi stack MinIO healthy, khởi chạy Eureka, vehicle-service và gateway theo thứ tự, mỗi lệnh trong một terminal riêng từ thư mục backend. API lưu file đã chạy trong Compose, không chạy thêm một ứng dụng ở cổng 8087:
 
@@ -67,7 +67,7 @@ npm run dev
 
 Điền ba biến `VITE_KEYCLOAK_URL`, `VITE_KEYCLOAK_REALM`, `VITE_KEYCLOAK_CLIENT_ID` trong `.env` để bật đăng nhập. Client Keycloak phải là public client, bật Standard Flow và PKCE S256, đăng ký redirect URI `http://localhost:5173/*` cùng Web Origin `http://localhost:5173`. Tên role hiển thị nút quản lý được cấu hình bằng `VITE_MEDIA_MANAGEMENT_ROLES`, đồng bộ với backend. Cấu hình dựa trên [JavaScript adapter của Keycloak](https://www.keycloak.org/securing-apps/javascript-adapter).
 
-Frontend giữ token trong bộ nhớ, refresh trước khi gọi API và gửi Bearer token đến gateway. Người chưa đăng nhập vẫn xem ảnh công khai. Nhập UUID của xe có sẵn để mở hồ sơ; tài khoản quản lý có form upload, nút xóa và quyền mở giấy tờ. Giấy tờ được mở bằng URL mới mỗi lần bấm, không lưu URL hết hạn vào state hay DB.
+Frontend giữ token trong bộ nhớ, refresh trước khi gọi API và gửi Bearer token đến gateway. Nhập đầy đủ biển số ở trang tra cứu để xem ảnh công khai. Tài khoản quản lý có form upload, nút xóa và quyền mở giấy tờ. Giấy tờ được mở bằng URL mới mỗi lần bấm, không lưu URL hết hạn vào state hay DB.
 
 ## Cấu hình storage phía vehicle-service
 
@@ -84,6 +84,8 @@ Hai bucket phải khác nhau. Các biến tên bucket/thời hạn cũ `MINIO_IM
 File-service có hai MinIO client độc lập: ghi/xóa qua `MINIO_ENDPOINT`, ký URL bằng `MINIO_PUBLIC_ENDPOINT` với region cố định `us-east-1`. Nếu đưa file-service vào Docker, nối vào network external `car-rental-storage` và đặt `MINIO_ENDPOINT=http://minio:9000`; public endpoint vẫn là host trình duyệt truy cập được. Vehicle-service chỉ dùng `FILE_SERVICE_URL` và không cần credentials MinIO.
 
 ## Hợp đồng API
+
+Tra cứu công khai qua `GET /api/v1/vehicles/lookup?licensePlate=51H-780.01`. API cắt khoảng trắng hai đầu, chuẩn hóa chữ hoa và so khớp biển số đầy đủ. Kết quả `data` chỉ chứa `id` để frontend gọi API media. Xe đã xóa mềm hoặc không tìm thấy trả `404`.
 
 Mọi endpoint bên dưới có tiền tố `/api/v1/vehicles/{vehicleId}` và bọc kết quả bằng `ResponseApi` gồm `code`, `message`, `data`.
 
@@ -136,8 +138,8 @@ Script đổi tên `file_url` sang `object_key`, thêm MIME/người tạo và c
 Từ backend:
 
 ```powershell
-mvn -pl infras/minio-service,services/vehicle-service,infras/api-gateway -am clean verify
-docker compose -f infras/minio-service/docker-compose.yml config --quiet
+mvn -pl services/minio-service,services/vehicle-service,infras/api-gateway -am clean verify
+docker compose -f services/minio-service/docker-compose.yml config --quiet
 ```
 
 Unit test kiểm tra whitelist/chữ ký file, bù object khi DB/HTTP lỗi, vòng đời commit/rollback và HTTP adapter của vehicle-service. Test persistence dùng H2 để kiểm tra metadata, primary image, rollback upload và rollback/commit xóa. Test gateway kiểm tra giấy tờ trả 401, ảnh công khai và header giả mạo bị loại bỏ. Testcontainers trong module file-service chạy cả adapter MinIO và HTTP API thật để put, GET bằng URL ký, chặn GET anonymous, scope caller và delete; tự skip khi Docker không khả dụng.
