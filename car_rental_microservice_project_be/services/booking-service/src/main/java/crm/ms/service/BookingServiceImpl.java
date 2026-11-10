@@ -1,24 +1,18 @@
 package crm.ms.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import crm.ms.client.ExternalValidationService;
+import crm.ms.client.VehicleClient;
 import crm.ms.dto.*;
 import crm.ms.entity.Booking;
 import crm.ms.entity.BookingStatusHistory;
-import crm.ms.entity.Outbox;
 import crm.ms.entity.RentalSlot;
 import crm.ms.enums.BookingStatus;
 import crm.ms.enums.SlotStatus;
-import crm.ms.enums.VehicleCacheStatus;
-import crm.ms.event.BookingEventPayload;
 import crm.ms.event.EmailNotificationCommand;
-import crm.ms.event.PaymentEventPayload;
 import crm.ms.exception.BusinessException;
 import crm.ms.mapper.BookingMapper;
 import crm.ms.messaging.NotificationRabbitPublisher;
 import crm.ms.repository.BookingRepository;
-import crm.ms.repository.OutboxRepository;
 import crm.ms.repository.RentalSlotRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,10 +29,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -50,18 +41,42 @@ public class BookingServiceImpl implements BookingService {
 
     private final BookingRepository bookingRepository;
     private final RentalSlotRepository rentalSlotRepository;
-    private final OutboxRepository outboxRepository;
     private final ExternalValidationService externalValidationService;
-    private final FleetInventoryService fleetInventoryService;
+    private final VehicleClient vehicleClient;
     private final NotificationRabbitPublisher notificationRabbitPublisher;
     private final BookingMapper bookingMapper;
-    private final ObjectMapper objectMapper;
 
     @Value("${booking.deposit-rate:0.30}")
     private BigDecimal depositRate;
 
-    @Value("${booking.expiration-minutes:15}")
-    private int expirationMinutes;
+    @Value("${booking.mock-external-services:false}")
+    private boolean mockExternalServices;
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AvailableVehicleResponse> searchAvailableVehicles(
+            LocalDateTime pickupDatetime,
+            LocalDateTime returnDatetime,
+            UUID categoryId,
+            Integer minSeats,
+            String location
+    ) {
+        LocalDate startDate = pickupDatetime != null ? pickupDatetime.toLocalDate() : LocalDate.now().plusDays(1);
+        LocalDate endDate = returnDatetime != null ? returnDatetime.toLocalDate() : startDate.plusDays(2);
+
+        List<UUID> busyVehicleIds = rentalSlotRepository.findBusyVehicleIds(startDate, endDate);
+        Set<UUID> busySet = new HashSet<>(busyVehicleIds != null ? busyVehicleIds : Collections.emptyList());
+
+        List<AvailableVehicleResponse> vehicles = fetchVehiclesFromServiceOrMock();
+
+        return vehicles.stream()
+                .filter(v -> !busySet.contains(v.getVehicleId()))
+                .filter(v -> categoryId == null || categoryId.equals(v.getCategoryId()))
+                .filter(v -> minSeats == null || (v.getSeatCount() != null && v.getSeatCount() >= minSeats))
+                .filter(v -> location == null || location.isBlank() ||
+                        (v.getLocation() != null && v.getLocation().toLowerCase().contains(location.trim().toLowerCase())))
+                .toList();
+    }
 
     @Override
     @Transactional
@@ -131,11 +146,29 @@ public class BookingServiceImpl implements BookingService {
         }
 
         recordStatusHistory(booking, null, BookingStatus.PENDING, "Khởi tạo đơn đặt xe, chờ thanh toán cọc", keycloakUserId);
-
         Booking saved = bookingRepository.saveAndFlush(booking);
-        enqueueOutboxEvent(saved, "BookingCreated", null);
 
         log.info("Created booking {} (id={}) for vehicleId={}", saved.getBookingCode(), saved.getId(), saved.getVehicleId());
+        return bookingMapper.fromEntity(saved);
+    }
+
+    @Override
+    @Transactional
+    public BookingResponse confirmBooking(UUID bookingId, String paymentCode, String actor) {
+        Booking booking = findActiveBooking(bookingId);
+        if (booking.getStatus() != BookingStatus.PENDING) {
+            throw new BusinessException(1, 400, "Chỉ có thể xác nhận đơn ở trạng thái PENDING (hiện tại: " + booking.getStatus() + ")");
+        }
+
+        String reason = "Đã xác nhận thanh toán tiền cọc thành công" + (paymentCode != null ? " (Mã GD: " + paymentCode + ")" : "");
+        booking.setStatus(BookingStatus.CONFIRMED);
+        booking.setUpdatedBy(actor != null ? actor : "system");
+
+        recordStatusHistory(booking, BookingStatus.PENDING, BookingStatus.CONFIRMED, reason, actor != null ? actor : "system");
+        Booking saved = bookingRepository.saveAndFlush(booking);
+
+        sendBookingConfirmedEmail(saved);
+        log.info("Confirmed booking {} via payment confirmation", saved.getBookingCode());
         return bookingMapper.fromEntity(saved);
     }
 
@@ -190,10 +223,7 @@ public class BookingServiceImpl implements BookingService {
         recordStatusHistory(booking, oldStatus, BookingStatus.CANCELLED, reason, keycloakUserId);
         Booking saved = bookingRepository.saveAndFlush(booking);
 
-        if (oldStatus == BookingStatus.CONFIRMED) {
-            fleetInventoryService.updateCachedStatus(saved.getVehicleId(), VehicleCacheStatus.AVAILABLE);
-        }
-        enqueueOutboxEvent(saved, "BookingCancelled", reason);
+        log.info("Cancelled booking {} (reason: {})", saved.getBookingCode(), reason);
         return bookingMapper.fromEntity(saved);
     }
 
@@ -218,8 +248,12 @@ public class BookingServiceImpl implements BookingService {
                 "Đã bàn giao xe tại km: " + request.getPickupMileage(), actorUsername);
         Booking saved = bookingRepository.saveAndFlush(booking);
 
-        fleetInventoryService.updateCachedStatus(saved.getVehicleId(), VehicleCacheStatus.RENTED);
-        enqueueOutboxEvent(saved, "BookingPickedUp", null);
+        try {
+            vehicleClient.updateStatus(saved.getVehicleId(), "RENTED", request.getPickupMileage());
+        } catch (Exception e) {
+            log.warn("Failed to notify vehicle-service about RENTED status for vehicleId={}: {}", saved.getVehicleId(), e.getMessage());
+        }
+
         return bookingMapper.fromEntity(saved);
     }
 
@@ -252,79 +286,79 @@ public class BookingServiceImpl implements BookingService {
                 "Khách trả xe tại km: " + request.getReturnMileage(), actorUsername);
         Booking saved = bookingRepository.saveAndFlush(booking);
 
-        fleetInventoryService.updateCachedStatus(saved.getVehicleId(), VehicleCacheStatus.AVAILABLE);
-        enqueueOutboxEvent(saved, "BookingReturned", null);
+        try {
+            vehicleClient.updateStatus(saved.getVehicleId(), "AVAILABLE", request.getReturnMileage());
+        } catch (Exception e) {
+            log.warn("Failed to notify vehicle-service about AVAILABLE status for vehicleId={}: {}", saved.getVehicleId(), e.getMessage());
+        }
+
         return bookingMapper.fromEntity(saved);
     }
 
-    @Override
-    @Transactional
-    public void handlePaymentEvent(PaymentEventPayload event) {
-        if (event == null || event.getBookingId() == null || event.getEventType() == null) {
-            return;
-        }
-        Booking booking = bookingRepository.findByIdAndIsDeletedFalse(event.getBookingId()).orElse(null);
-        if (booking == null) {
-            log.warn("Ignored payment event {} for unknown bookingId={}", event.getEventType(), event.getBookingId());
-            return;
-        }
-
-        switch (event.getEventType()) {
-            case "PaymentCompleted" -> {
-                if (booking.getStatus() == BookingStatus.PENDING) {
-                    booking.setStatus(BookingStatus.CONFIRMED);
-                    booking.setUpdatedBy("payment-service");
-                    recordStatusHistory(booking, BookingStatus.PENDING, BookingStatus.CONFIRMED,
-                            "Đã thanh toán thành công mã GD: " + nullSafe(event.getPaymentCode()), "payment-service");
-                    Booking saved = bookingRepository.saveAndFlush(booking);
-
-                    fleetInventoryService.updateCachedStatus(saved.getVehicleId(), VehicleCacheStatus.RESERVED);
-                    enqueueOutboxEvent(saved, "BookingConfirmed", null);
-                    sendBookingConfirmedEmail(saved);
-                } else if (booking.getStatus() == BookingStatus.RETURNED && "FULLY_PAID".equalsIgnoreCase(event.getPaymentStatus())) {
-                    booking.setStatus(BookingStatus.COMPLETED);
-                    booking.setUpdatedBy("payment-service");
-                    recordStatusHistory(booking, BookingStatus.RETURNED, BookingStatus.COMPLETED,
-                            "Đã tất toán toàn bộ chi phí thuê xe", "payment-service");
-                    Booking saved = bookingRepository.saveAndFlush(booking);
-                    enqueueOutboxEvent(saved, "BookingCompleted", null);
-                }
+    private List<AvailableVehicleResponse> fetchVehiclesFromServiceOrMock() {
+        try {
+            FeignResponseWrapper<List<AvailableVehicleResponse>> response = vehicleClient.getAvailableVehicles();
+            if (response != null && response.getData() != null && !response.getData().isEmpty()) {
+                return response.getData();
             }
-            case "PaymentFailed" -> {
-                if (booking.getStatus() == BookingStatus.PENDING) {
-                    String reason = event.getReason() != null ? event.getReason() : "Thanh toán thất bại hoặc hết hạn";
-                    booking.setStatus(BookingStatus.CANCELLED);
-                    booking.setCancellationReason(reason);
-                    booking.setUpdatedBy("payment-service");
-                    booking.getRentalSlots().clear();
-                    recordStatusHistory(booking, BookingStatus.PENDING, BookingStatus.CANCELLED, reason, "payment-service");
-                    Booking saved = bookingRepository.saveAndFlush(booking);
-                    enqueueOutboxEvent(saved, "BookingCancelled", reason);
-                }
-            }
-            default -> log.debug("Ignored unhandled payment eventType={}", event.getEventType());
+        } catch (Exception e) {
+            log.warn("vehicle-service getAvailableVehicles failed: {} (mockExternalServices={})", e.getMessage(), mockExternalServices);
         }
-    }
 
-    @Override
-    @Transactional
-    public int expireOverduePendingBookings() {
-        LocalDateTime cutoff = LocalDateTime.now().minusMinutes(expirationMinutes);
-        List<Booking> expiredList = bookingRepository.findByStatusAndCreatedAtBeforeAndIsDeletedFalse(
-                BookingStatus.PENDING, cutoff
-        );
-        for (Booking booking : expiredList) {
-            String reason = "Tự động hủy đơn do quá hạn thanh toán " + expirationMinutes + " phút";
-            booking.setStatus(BookingStatus.CANCELLED);
-            booking.setCancellationReason(reason);
-            booking.setUpdatedBy("system-scheduler");
-            booking.getRentalSlots().clear();
-            recordStatusHistory(booking, BookingStatus.PENDING, BookingStatus.CANCELLED, reason, "system-scheduler");
-            Booking saved = bookingRepository.saveAndFlush(booking);
-            enqueueOutboxEvent(saved, "BookingCancelled", reason);
-            log.info("Auto-expired overdue PENDING booking {}", saved.getBookingCode());
+        if (mockExternalServices) {
+            return List.of(
+                    AvailableVehicleResponse.builder()
+                            .vehicleId(UUID.fromString("6d2f1de6-861b-4774-ab0c-fd96d9b5a59b"))
+                            .vin("VN1234567890CAMRY")
+                            .licensePlate("51A-888.99")
+                            .brand("Toyota")
+                            .modelName("Camry 2.5Q")
+                            .categoryName("Sedan")
+                            .sizeClass("MIDSIZE")
+                            .color("Đen")
+                            .seatCount(5)
+                            .fuelType("Xăng")
+                            .vehicleStatus("AVAILABLE")
+                            .dailyRate(BigDecimal.valueOf(1200000))
+                            .location("Chi nhánh Quận 1, TP.HCM")
+                            .primaryImageUrl("https://images.unsplash.com/photo-1621007947382-bb3c3994e3fb?w=600")
+                            .build(),
+                    AvailableVehicleResponse.builder()
+                            .vehicleId(UUID.fromString("7e3f2de7-972c-5885-bc1d-fe07e0c6b60c"))
+                            .vin("VN1234567890EVEREST")
+                            .licensePlate("51K-666.88")
+                            .brand("Ford")
+                            .modelName("Everest Titanium 4x4")
+                            .categoryName("SUV")
+                            .sizeClass("FULLSIZE")
+                            .color("Trắng ngọc trai")
+                            .seatCount(7)
+                            .fuelType("Dầu Diesel")
+                            .vehicleStatus("AVAILABLE")
+                            .dailyRate(BigDecimal.valueOf(1600000))
+                            .location("Chi nhánh Quận 7, TP.HCM")
+                            .primaryImageUrl("https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?w=600")
+                            .build(),
+                    AvailableVehicleResponse.builder()
+                            .vehicleId(UUID.fromString("8f4f3de8-083d-6996-cd2e-0f18f1d7c71d"))
+                            .vin("VN1234567890TUCSON")
+                            .licensePlate("51G-555.33")
+                            .brand("Hyundai")
+                            .modelName("Tucson 2.0 Turbo")
+                            .categoryName("Crossover")
+                            .sizeClass("COMPACT")
+                            .color("Đỏ đô")
+                            .seatCount(5)
+                            .fuelType("Xăng")
+                            .vehicleStatus("AVAILABLE")
+                            .dailyRate(BigDecimal.valueOf(1100000))
+                            .location("Chi nhánh Sân bay Tân Sơn Nhất")
+                            .primaryImageUrl("https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=600")
+                            .build()
+            );
         }
-        return expiredList.size();
+
+        return Collections.emptyList();
     }
 
     private void validateBookingDates(LocalDateTime pickup, LocalDateTime returnDt) {
@@ -351,45 +385,6 @@ public class BookingServiceImpl implements BookingService {
                 .build());
     }
 
-    private void enqueueOutboxEvent(Booking booking, String eventType, String reason) {
-        BookingEventPayload payload = BookingEventPayload.builder()
-                .eventType(eventType)
-                .bookingId(booking.getId())
-                .bookingCode(booking.getBookingCode())
-                .customerId(booking.getCustomerId())
-                .customerName(booking.getCustomerName())
-                .customerEmail(booking.getCustomerEmail())
-                .vehicleId(booking.getVehicleId())
-                .vehicleInfo(booking.getVehicleInfo())
-                .status(booking.getStatus().name())
-                .pickupDatetime(booking.getPickupDatetime())
-                .returnDatetime(booking.getReturnDatetime())
-                .actualReturnDatetime(booking.getActualReturnDatetime())
-                .pickupLocation(booking.getPickupLocation())
-                .returnLocation(booking.getReturnLocation())
-                .pickupMileage(booking.getPickupMileage())
-                .returnMileage(booking.getReturnMileage())
-                .dailyRate(booking.getDailyRate())
-                .estimatedTotal(booking.getEstimatedTotal())
-                .depositRequired(booking.getDepositRequired())
-                .currency(booking.getCurrency())
-                .reason(reason)
-                .occurredAt(LocalDateTime.now())
-                .build();
-        try {
-            String json = objectMapper.writeValueAsString(payload);
-            outboxRepository.save(Outbox.builder()
-                    .aggregateType("Booking")
-                    .aggregateId(booking.getId())
-                    .eventType(eventType)
-                    .payload(json)
-                    .isPublished(false)
-                    .build());
-        } catch (JsonProcessingException e) {
-            throw new IllegalStateException("Failed to serialize Outbox event payload", e);
-        }
-    }
-
     private void sendBookingConfirmedEmail(Booking booking) {
         if (booking.getCustomerEmail() == null || booking.getCustomerEmail().isBlank()) {
             return;
@@ -413,7 +408,11 @@ public class BookingServiceImpl implements BookingService {
                 .sourceEvent("BookingConfirmed")
                 .referenceId(booking.getId())
                 .build();
-        notificationRabbitPublisher.sendEmailCommand(cmd);
+        try {
+            notificationRabbitPublisher.sendEmailCommand(cmd);
+        } catch (Exception e) {
+            log.warn("Failed to publish booking confirmed email command to RabbitMQ: {}", e.getMessage());
+        }
     }
 
     private String generateBookingCode() {

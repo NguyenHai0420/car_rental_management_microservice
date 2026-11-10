@@ -116,6 +116,13 @@ export const bookingService = {
     return response.data?.data;
   },
 
+  async confirmBooking(id, paymentCode) {
+    const response = await apiClient.patch(`/api/v1/bookings/${id}/confirm`, null, {
+      params: { paymentCode: paymentCode || undefined },
+    });
+    return response.data?.data;
+  },
+
   async cancelBooking(id, reason) {
     const response = await apiClient.patch(`/api/v1/bookings/${id}/cancel`, {
       reason: reason?.trim() || "Khách hàng chủ động hủy đơn",

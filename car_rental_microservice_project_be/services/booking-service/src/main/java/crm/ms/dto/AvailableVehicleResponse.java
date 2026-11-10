@@ -1,6 +1,5 @@
 package crm.ms.dto;
 
-import crm.ms.enums.VehicleCacheStatus;
 import lombok.*;
 
 import java.math.BigDecimal;
@@ -23,9 +22,8 @@ public class AvailableVehicleResponse {
     private String color;
     private Integer seatCount;
     private String fuelType;
-    private VehicleCacheStatus vehicleStatus;
+    private String vehicleStatus;
     private BigDecimal dailyRate;
     private String location;
     private String primaryImageUrl;
 }
-

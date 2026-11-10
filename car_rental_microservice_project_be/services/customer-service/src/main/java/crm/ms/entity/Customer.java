@@ -93,10 +93,6 @@ public class Customer {
     @Builder.Default
     private List<CustomerAddress> addresses = new ArrayList<>();
 
-    @OneToMany(mappedBy = "customer", cascade = CascadeType.ALL)
-    @Builder.Default
-    private List<CustomerRentalHistory> rentalHistories = new ArrayList<>();
-
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();

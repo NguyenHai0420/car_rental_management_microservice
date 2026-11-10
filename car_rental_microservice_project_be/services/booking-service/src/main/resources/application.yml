@@ -8,7 +8,7 @@ spring:
   application:
     name: booking-service
   datasource:
-    url: jdbc:mysql://${DB_HOST:localhost}:3306/booking_db
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3307}/booking_db
     username: ${DB_USER:root}
     password: ${DB_PASSWORD:1234}
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -24,16 +24,6 @@ spring:
       resourceserver:
         jwt:
           issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/car-rental-realm}
-  kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
-    producer:
-      key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.apache.kafka.common.serialization.StringSerializer
-    consumer:
-      group-id: booking-service-group
-      auto-offset-reset: earliest
-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
   rabbitmq:
     host: ${RABBITMQ_HOST:localhost}
     port: ${RABBITMQ_PORT:5672}
@@ -41,27 +31,11 @@ spring:
     password: ${RABBITMQ_PASSWORD:guest}
   cloud:
     openfeign:
-      circuitbreaker:
-        enabled: true
       client:
         config:
           default:
             connectTimeout: 3000
             readTimeout: 5000
-
-resilience4j:
-  circuitbreaker:
-    instances:
-      customerService:
-        slidingWindowSize: 5
-        minimumNumberOfCalls: 3
-        failureRateThreshold: 50
-        waitDurationInOpenState: 10s
-      vehicleService:
-        slidingWindowSize: 5
-        minimumNumberOfCalls: 3
-        failureRateThreshold: 50
-        waitDurationInOpenState: 10s
 
 eureka:
   client:

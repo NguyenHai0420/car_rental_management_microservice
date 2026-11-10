@@ -3,7 +3,6 @@ package crm.ms.controller;
 import crm.ms.dto.*;
 import crm.ms.enums.BookingStatus;
 import crm.ms.service.BookingService;
-import crm.ms.service.FleetInventoryService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -27,10 +26,9 @@ import java.util.UUID;
 public class BookingCarController {
 
     private final BookingService bookingService;
-    private final FleetInventoryService fleetInventoryService;
 
     /**
-     * Public CQRS Search — Tìm xe trống không cần gọi đồng bộ sang vehicle-service.
+     * Tìm kiếm xe trống — gọi trực tiếp qua OpenFeign sang vehicle-service và lọc theo rental_slots.
      */
     @GetMapping("/available-vehicles")
     public ResponseEntity<ResponseApi> searchAvailableVehicles(
@@ -40,7 +38,7 @@ public class BookingCarController {
             @RequestParam(required = false) Integer minSeats,
             @RequestParam(required = false) String location
     ) {
-        List<AvailableVehicleResponse> vehicles = fleetInventoryService.searchAvailableVehicles(
+        List<AvailableVehicleResponse> vehicles = bookingService.searchAvailableVehicles(
                 pickupDatetime, returnDatetime, categoryId, minSeats, location
         );
         return ResponseEntity.ok(ResponseApi.builder()
@@ -69,6 +67,26 @@ public class BookingCarController {
                 .code(HttpStatus.CREATED)
                 .message("Tạo đơn đặt xe thành công, vui lòng tiến hành thanh toán tiền cọc")
                 .data(created)
+                .build());
+    }
+
+    /**
+     * Xác nhận thanh toán tiền cọc (Role: CUSTOMER, ADMIN, VEHICLE_OWNER hoặc payment-service gọi).
+     */
+    @PatchMapping("/{id}/confirm")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ResponseApi> confirmBooking(
+            @PathVariable UUID id,
+            @RequestParam(required = false) String paymentCode,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        String actor = jwt != null && jwt.getClaimAsString("preferred_username") != null
+                ? jwt.getClaimAsString("preferred_username") : "customer";
+        BookingResponse confirmed = bookingService.confirmBooking(id, paymentCode, actor);
+        return ResponseEntity.ok(ResponseApi.builder()
+                .code(HttpStatus.OK)
+                .message("Đã xác nhận đặt cọc đơn đặt xe thành công")
+                .data(confirmed)
                 .build());
     }
 

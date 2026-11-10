@@ -1,20 +1,15 @@
 package crm.ms.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import crm.ms.client.ExternalValidationService;
+import crm.ms.client.VehicleClient;
 import crm.ms.dto.*;
 import crm.ms.entity.Booking;
-import crm.ms.entity.Outbox;
 import crm.ms.enums.BookingStatus;
-import crm.ms.enums.VehicleCacheStatus;
 import crm.ms.event.EmailNotificationCommand;
-import crm.ms.event.PaymentEventPayload;
 import crm.ms.exception.BusinessException;
 import crm.ms.mapper.BookingMapper;
 import crm.ms.messaging.NotificationRabbitPublisher;
 import crm.ms.repository.BookingRepository;
-import crm.ms.repository.OutboxRepository;
 import crm.ms.repository.RentalSlotRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -44,11 +39,9 @@ class BookingServiceImplTest {
     @Mock
     private RentalSlotRepository rentalSlotRepository;
     @Mock
-    private OutboxRepository outboxRepository;
-    @Mock
     private ExternalValidationService externalValidationService;
     @Mock
-    private FleetInventoryService fleetInventoryService;
+    private VehicleClient vehicleClient;
     @Mock
     private NotificationRabbitPublisher notificationRabbitPublisher;
 
@@ -57,23 +50,20 @@ class BookingServiceImplTest {
     @BeforeEach
     void setUp() {
         BookingMapper mapper = Mappers.getMapper(BookingMapper.class);
-        ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
         bookingService = new BookingServiceImpl(
                 bookingRepository,
                 rentalSlotRepository,
-                outboxRepository,
                 externalValidationService,
-                fleetInventoryService,
+                vehicleClient,
                 notificationRabbitPublisher,
-                mapper,
-                objectMapper
+                mapper
         );
         ReflectionTestUtils.setField(bookingService, "depositRate", new BigDecimal("0.30"));
-        ReflectionTestUtils.setField(bookingService, "expirationMinutes", 15);
+        ReflectionTestUtils.setField(bookingService, "mockExternalServices", false);
     }
 
     @Test
-    void createBooking_success_createsSlotsHistoryAndOutbox() {
+    void createBooking_success_createsSlotsAndHistory() {
         UUID vehicleId = UUID.randomUUID();
         UUID customerId = UUID.randomUUID();
         LocalDateTime pickup = LocalDateTime.now().plusDays(1).withHour(8).withMinute(0);
@@ -121,10 +111,6 @@ class BookingServiceImplTest {
         ArgumentCaptor<Booking> bookingCaptor = ArgumentCaptor.forClass(Booking.class);
         verify(bookingRepository).saveAndFlush(bookingCaptor.capture());
         assertThat(bookingCaptor.getValue().getRentalSlots()).hasSize(3);
-
-        ArgumentCaptor<Outbox> outboxCaptor = ArgumentCaptor.forClass(Outbox.class);
-        verify(outboxRepository).save(outboxCaptor.capture());
-        assertThat(outboxCaptor.getValue().getEventType()).isEqualTo("BookingCreated");
     }
 
     @Test
@@ -149,7 +135,7 @@ class BookingServiceImplTest {
     }
 
     @Test
-    void cancelBooking_clearsRentalSlotsAndEnqueuesCancelledEvent() {
+    void cancelBooking_clearsRentalSlotsAndChangesStatusToCancelled() {
         UUID bookingId = UUID.randomUUID();
         Booking existing = Booking.builder()
                 .id(bookingId)
@@ -175,11 +161,10 @@ class BookingServiceImplTest {
 
         assertThat(cancelled.getStatus()).isEqualTo(BookingStatus.CANCELLED);
         assertThat(existing.getRentalSlots()).isEmpty();
-        verify(outboxRepository).save(argThat(o -> "BookingCancelled".equals(o.getEventType())));
     }
 
     @Test
-    void handlePaymentCompleted_confirmsBookingAndPublishesRabbitNotification() {
+    void confirmBooking_confirmsAndPublishesRabbitNotification() {
         UUID bookingId = UUID.randomUUID();
         UUID vehicleId = UUID.randomUUID();
         Booking existing = Booking.builder()
@@ -201,16 +186,9 @@ class BookingServiceImplTest {
         when(bookingRepository.findByIdAndIsDeletedFalse(bookingId)).thenReturn(Optional.of(existing));
         when(bookingRepository.saveAndFlush(any(Booking.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        bookingService.handlePaymentEvent(PaymentEventPayload.builder()
-                .eventType("PaymentCompleted")
-                .bookingId(bookingId)
-                .paymentCode("PAY-001")
-                .paymentStatus("DEPOSIT_PAID")
-                .build());
+        BookingResponse res = bookingService.confirmBooking(bookingId, "PAY-001", "payment-service");
 
-        assertThat(existing.getStatus()).isEqualTo(BookingStatus.CONFIRMED);
-        verify(fleetInventoryService).updateCachedStatus(vehicleId, VehicleCacheStatus.RESERVED);
-        verify(outboxRepository).save(argThat(o -> "BookingConfirmed".equals(o.getEventType())));
+        assertThat(res.getStatus()).isEqualTo(BookingStatus.CONFIRMED);
         verify(notificationRabbitPublisher).sendEmailCommand(any(EmailNotificationCommand.class));
     }
 
@@ -249,4 +227,3 @@ class BookingServiceImplTest {
         assertThat(returned.getReturnMileage()).isEqualByComparingTo("15250.5");
     }
 }
-

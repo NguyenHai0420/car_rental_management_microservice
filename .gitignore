@@ -27,3 +27,7 @@
 .agents/
 CONTRACTS.md
 architecture_and_booking_plan.md
+
+# Test scripts
+test-booking.http
+test-booking.ps1
