@@ -20,7 +20,8 @@ public class SecurityConfig {
                 .authorizeExchange(auth -> auth
                         .pathMatchers("/actuator/**", "/public/**").permitAll()
                         .pathMatchers(HttpMethod.OPTIONS).permitAll()
-                        .pathMatchers(HttpMethod.GET, "/api/v1/vehicles/**").permitAll()
+                        .pathMatchers(HttpMethod.GET, "/api/v1/vehicles/lookup", "/api/v1/vehicles/showroom",
+                                "/api/v1/vehicles/*/images").permitAll()
                         .anyExchange().authenticated()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()))
