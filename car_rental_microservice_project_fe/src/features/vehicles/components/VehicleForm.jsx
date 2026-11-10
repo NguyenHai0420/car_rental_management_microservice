@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
-import { VehicleCatalogSelects } from './VehicleCatalogSelects'
+import { ModelSelect } from './VehicleCatalogSelects'
 import { vehicleError } from '../services/vehicle'
 
 export function VehicleForm({ vehicle, catalog, cancelTo, onSave }) {
@@ -11,7 +11,6 @@ export function VehicleForm({ vehicle, catalog, cancelTo, onSave }) {
     event.preventDefault()
     const form = new FormData(event.currentTarget)
     const fields = {
-      categoryId: form.get('categoryId'),
       modelId: form.get('modelId'),
       vin: form.get('vin').trim(),
       licensePlate: form.get('licensePlate').trim(),
@@ -43,7 +42,7 @@ export function VehicleForm({ vehicle, catalog, cancelTo, onSave }) {
         <input name="vin" defaultValue={vehicle?.vin} required minLength={17} maxLength={17}
           pattern="[A-HJ-NPR-Za-hj-npr-z0-9]{17}" title="17 chữ cái hoặc chữ số, trừ I, O và Q" autoComplete="off" />
       </label>
-      <VehicleCatalogSelects catalog={catalog} categoryId={vehicle?.categoryId} modelId={vehicle?.modelId} required />
+      <ModelSelect catalog={catalog} modelId={vehicle?.modelId} />
       <label>Số km
         <input name="mileageKm" type="number" defaultValue={vehicle?.mileageKm ?? 0} min="0" max="999999999.9" step="0.1" required />
       </label>

@@ -1,6 +1,6 @@
 # Quản lý đội xe
 
-Mở [trang quản lý xe](http://localhost:5173/vehicles) và đăng nhập bằng tài khoản Keycloak có vai trò `ADMIN` hoặc `STAFF`. Trên DB trống, mở [Danh mục xe](http://localhost:5173/vehicles/catalog), tạo ít nhất một loại và một mẫu, sau đó dùng **Thêm xe**. Trang chi tiết có nút **Mở ảnh và giấy tờ** cho xe đang xem. [Trang tra cứu ảnh công khai](http://localhost:5173/) nhận biển số đầy đủ của xe.
+Mở [trang quản lý xe](http://localhost:5173/vehicles) và đăng nhập bằng tài khoản Keycloak có vai trò `ADMIN` hoặc `STAFF`. Trên DB trống, tạo ít nhất một [loại xe](http://localhost:5173/vehicles/categories), rồi một [mẫu xe](http://localhost:5173/vehicles/models) thuộc loại đó, sau đó dùng **Thêm xe**. Mẫu xe thuộc về một loại xe, nên khi thêm xe chỉ cần chọn mẫu xe. Trang chi tiết có nút **Mở ảnh và giấy tờ** cho xe đang xem. Ảnh công khai của xe hiển thị ở [trang chủ](http://localhost:5173/).
 
 ## Chạy local
 
@@ -37,7 +37,7 @@ Các đường dẫn dưới đây có tiền tố `/api/v1/vehicles`. Dùng Bea
 
 | Method | Đường dẫn | Dữ liệu |
 | --- | --- | --- |
-| POST | `/` | `categoryId`, `modelId`, `vin`, `licensePlate`, `mileageKm` và thông tin tùy chọn. Trả 201. |
+| POST | `/` | `modelId` (loại xe lấy theo mẫu xe), `vin`, `licensePlate`, `mileageKm` và thông tin tùy chọn. Trả 201. |
 | GET | `/` | `q` tìm chuỗi con trong VIN hoặc biển số, `status`, `categoryId`, `modelId`, `page` từ 0 và `size` từ 1 đến 100. Mặc định `size=20`. |
 | GET | `/{id}` | Chi tiết xe. |
 | PUT | `/{id}` | Cùng các trường thông tin như POST. |
@@ -45,17 +45,17 @@ Các đường dẫn dưới đây có tiền tố `/api/v1/vehicles`. Dùng Bea
 | PATCH | `/{id}/status` | `status` và `reason` tùy chọn, tối đa 500 ký tự. |
 | GET | `/{id}/status-history` | Các lần đổi trạng thái, mới nhất trước. |
 | GET, POST | `/categories` | Liệt kê hoặc tạo loại xe với `name`, `sizeClass` và `description` tùy chọn. |
-| GET, POST | `/models` | Liệt kê hoặc tạo mẫu xe với `brand`, `modelName`, `manufactureYear`, `fuelType`, `seatCount`, `transmission` và `engineCapacityCc` tùy chọn. |
+| GET, POST | `/models` | Liệt kê hoặc tạo mẫu xe với `categoryId` (bắt buộc), `brand`, `modelName`, `manufactureYear`, `fuelType`, `seatCount`, `transmission` và `engineCapacityCc` tùy chọn. |
 
 Gọi endpoint gốc bằng `/api/v1/vehicles` không có dấu gạch chéo cuối. Danh sách trả `data.content` và `data.page` gồm `number`, `size`, `totalElements`, `totalPages`.
 
 ## Quy tắc nghiệp vụ
 
-- VIN và biển số được cắt khoảng trắng hai đầu và viết hoa. VIN có 17 chữ cái hoặc chữ số, trừ I, O, Q. Biển số tối đa 20 ký tự, có thể dùng dấu chấm, gạch nối hoặc khoảng trắng giữa các nhóm. Số km bắt buộc, không âm và có tối đa một chữ số thập phân. Giá thuê snapshot tùy chọn, không âm và có tối đa hai chữ số thập phân. Loại và mẫu xe phải tồn tại.
+- VIN và biển số được cắt khoảng trắng hai đầu và viết hoa. VIN có 17 chữ cái hoặc chữ số, trừ I, O, Q. Biển số tối đa 20 ký tự, có thể dùng dấu chấm, gạch nối hoặc khoảng trắng giữa các nhóm. Số km bắt buộc, không âm và có tối đa một chữ số thập phân. Giá thuê snapshot tùy chọn, không âm và có tối đa hai chữ số thập phân. Mẫu xe phải tồn tại và đã được gán loại xe. Loại xe của xe luôn bằng loại xe của mẫu.
 - VIN và biển số duy nhất ở MySQL, kể cả với xe đã xóa mềm. Trùng khóa, bước chuyển sai và xóa xe trong trạng thái bị chặn trả `409`. Dữ liệu sai định dạng trả `400`. Thiếu xác thực trả `401` và thiếu quyền trả `403`.
 - Xe mới ở trạng thái `AVAILABLE`. Chỉ PATCH trạng thái ghi lịch sử, gồm trạng thái cũ, trạng thái mới, lý do nếu có, subject của người thực hiện và thời điểm. Gửi lại trạng thái đang có trả `200` và không sinh bản ghi mới. Bộ lọc `AVAILABLE` dùng trạng thái hiện tại của xe.
 - Chỉ xóa mềm xe `AVAILABLE` hoặc `DECOMMISSIONED`. Xe bị ẩn khỏi danh sách. Chi tiết, lịch sử và API media theo UUID của xe đã xóa trả `404`. MySQL giữ xe và các bản ghi liên quan, MinIO giữ file.
-- Các bảng, cột và khóa duy nhất phục vụ chức năng này đã có trong entity. Bản này không cần migration schema mới. Với DB dùng schema media cũ, làm theo [migration media hiện có](minio-vehicle-media.md#migration-schema-cũ).
+- Các bảng, cột và khóa duy nhất phục vụ chức năng này đã có trong entity. Cột `vehicle_models.category_id` là mới. Hibernate tự thêm cột khi service khởi động, sau đó chạy [002_vehicle_model_category.sql](../car_rental_microservice_project_be/services/vehicle-service/src/main/resources/db/manual/002_vehicle_model_category.sql) để gán loại cho các mẫu xe đã có. Với DB dùng schema media cũ, làm theo [migration media hiện có](minio-vehicle-media.md#migration-schema-cũ).
 
 | Trạng thái hiện tại | Có thể chuyển sang |
 | --- | --- |
@@ -75,4 +75,4 @@ Kết quả gồm 56 test vehicle-service, 16 test api-gateway và 7 test fronte
 
 Kịch bản Chrome chạy từ database MySQL 8.4 trống qua React, Keycloak, Gateway và Eureka. Kịch bản đã kiểm tra tạo danh mục, thêm, tìm, xem, sửa xe, phân trang, lịch sử trạng thái, xóa mềm và quyền truy cập. Hai POST đồng thời trùng VIN và hai POST đồng thời trùng biển số đều cho kết quả một `201` và một `409`. Ảnh được tải lên, đọc công khai và xóa. Giấy tờ được tải lên, tải xuống bằng URL ký và xóa. Đối chiếu MySQL và MinIO xác nhận xóa mềm giữ lại lịch sử, metadata và các tệp đã gắn vào xe.
 
-Kịch bản tra cứu trên Chrome với MySQL local xác nhận nhập biển số mở ảnh của đúng xe. Xe đã xóa mềm trả thông báo không tìm thấy. Yêu cầu xem giấy tờ chưa xác thực trả `401`.
+API `GET /api/v1/vehicles/lookup` tra cứu xe theo biển số vẫn còn, nhưng giao diện không còn trang tra cứu riêng vì ảnh và giấy tờ đã có trong chi tiết xe. Xe đã xóa mềm trả `404`. Yêu cầu xem giấy tờ chưa xác thực trả `401`.

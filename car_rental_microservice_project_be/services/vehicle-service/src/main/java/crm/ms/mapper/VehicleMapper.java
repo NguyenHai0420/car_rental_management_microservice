@@ -36,6 +36,8 @@ public interface VehicleMapper {
 
     VehicleCatalog.Category toResponse(VehicleCategory category);
 
+    @Mapping(target = "categoryId", source = "category.id")
+    @Mapping(target = "categoryName", source = "category.name")
     VehicleCatalog.Model toResponse(VehicleModel model);
 
     VehicleStatusHistoryResponse toResponse(VehicleStatusHistory history);

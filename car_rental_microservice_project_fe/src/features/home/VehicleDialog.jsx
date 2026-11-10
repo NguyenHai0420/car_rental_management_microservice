@@ -33,13 +33,13 @@ export function VehicleDialog({ car, onClose }) {
           <button key={url} className="secondary" aria-current={i === index} aria-label={`Ảnh ${i + 1}`} onClick={() => setIndex(i)}><img src={url} alt="" loading="lazy" /></button>)}</div>}
       </div>
       <div className="dialog-info">
-        <button className="secondary dialog-close" onClick={onClose} aria-label="Đóng">✕</button>
+        <button className="btn btn-light border dialog-close" onClick={onClose} aria-label="Đóng">✕</button>
         <div><p className="eyebrow">{car.categoryName}</p><h2 id="car-dialog-title">{name}</h2></div>
         <p className="price">{formatPrice(car.dailyRate)}{car.dailyRate != null && <small> /ngày</small>}</p>
         <dl className="info-list">{facts.filter(([, value]) => value).map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
         {auth.authenticated
-          ? <button disabled title="Chức năng đặt xe đang được hoàn thiện">Đặt xe (sắp ra mắt)</button>
-          : <button disabled={!auth.ready || !auth.configured} onClick={auth.login}>Đăng nhập để đặt xe</button>}
+          ? <button className="btn btn-danger btn-lg" disabled title="Chức năng đặt xe đang được hoàn thiện">Đặt xe (sắp ra mắt)</button>
+          : <button className="btn btn-danger btn-lg" disabled={!auth.ready || !auth.configured} onClick={auth.login}>Đăng nhập để đặt xe</button>}
       </div>
     </div>
   </dialog>

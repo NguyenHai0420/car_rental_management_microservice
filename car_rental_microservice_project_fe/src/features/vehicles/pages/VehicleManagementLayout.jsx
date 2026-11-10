@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router'
 import { useAuth } from '../../../app/providers/auth-context'
 
-const links = [['/vehicles', 'Danh sách xe', '🚘', true], ['/vehicles/new', 'Thêm xe', '＋'], ['/vehicles/catalog', 'Danh mục xe', '🗂️'], ['/lookup', 'Hồ sơ ảnh & giấy tờ', '🖼️']]
-const titles = { '/vehicles': 'Danh sách xe', '/vehicles/new': 'Thêm xe', '/vehicles/catalog': 'Danh mục xe' }
+const links = [['/vehicles', 'Danh sách xe', '🚘', true], ['/vehicles/new', 'Thêm xe', '＋'], ['/vehicles/categories', 'Loại xe', '🗂️'], ['/vehicles/models', 'Mẫu xe', '🏷️']]
+const titles = { '/vehicles': 'Danh sách xe', '/vehicles/new': 'Thêm xe', '/vehicles/categories': 'Loại xe', '/vehicles/models': 'Mẫu xe' }
 
 export function VehicleManagementLayout() {
   const auth = useAuth()

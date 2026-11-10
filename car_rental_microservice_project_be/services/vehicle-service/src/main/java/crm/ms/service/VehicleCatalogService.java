@@ -3,6 +3,7 @@ package crm.ms.service;
 import crm.ms.dto.VehicleCatalog;
 import crm.ms.entity.VehicleCategory;
 import crm.ms.entity.VehicleModel;
+import crm.ms.exception.BusinessException;
 import crm.ms.mapper.VehicleMapper;
 import crm.ms.repository.VehicleCategoryRepository;
 import crm.ms.repository.VehicleModelRepository;
@@ -37,7 +38,9 @@ public class VehicleCatalogService {
 
     @Transactional
     public VehicleCatalog.Model createModel(VehicleCatalog.ModelRequest request) {
-        VehicleModel model = VehicleModel.builder().brand(request.brand().strip()).modelName(request.modelName().strip())
+        VehicleCategory category = categories.findById(request.categoryId())
+                .orElseThrow(() -> new BusinessException(1, 404, "Vehicle category not found"));
+        VehicleModel model = VehicleModel.builder().category(category).brand(request.brand().strip()).modelName(request.modelName().strip())
                 .manufactureYear(request.manufactureYear()).fuelType(request.fuelType()).seatCount(request.seatCount())
                 .transmission(request.transmission()).engineCapacityCc(request.engineCapacityCc()).build();
         return mapper.toResponse(models.saveAndFlush(model));
