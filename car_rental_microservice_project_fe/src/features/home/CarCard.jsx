@@ -17,6 +17,11 @@ export function CarCard({ car, onOpen, onBook }) {
         <span className="badge car-cat">{car.categoryName}</span>
         <span className="car-color">{dot && <i style={{ background: dot }} aria-hidden="true" />}{car.color}</span>
         <span className="car-title">{name}</span>
+        {car.licensePlate && (
+          <span className="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1 mt-1" style={{ fontSize: 12, fontWeight: 600 }}>
+            {car.licensePlate}
+          </span>
+        )}
         <span className="car-price">{formatPrice(car.dailyRate)}{car.dailyRate != null && <small> /ngày</small>}</span>
       </button>
       <dl className="spec-panel">{rows.filter(([, , value]) => value).map(([icon, label, value]) =>

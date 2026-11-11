@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   DatePicker,
@@ -15,6 +15,7 @@ import {
   calculateRentalDays,
   formatVnd,
 } from "../services/booking";
+import { getVehicle } from "../../vehicles/services/vehicle";
 
 const { RangePicker } = DatePicker;
 const { Text } = Typography;
@@ -28,6 +29,7 @@ export const BookingForm = ({
   onSubmit,
 }) => {
   const [form] = Form.useForm();
+  const [extraDetail, setExtraDetail] = useState(null);
   const watchedRange = Form.useWatch("dateRange", form);
 
   useEffect(() => {
@@ -38,6 +40,15 @@ export const BookingForm = ({
         returnLocation: vehicle.location || "Chi nhánh trung tâm TP.HCM",
         notes: "",
       });
+
+      const vid = vehicle.vehicleId || vehicle.id;
+      if (vid && !vehicle.licensePlate && !vehicle.plate) {
+        getVehicle(vid)
+          .then((data) => setExtraDetail(data))
+          .catch(() => {});
+      } else {
+        setExtraDetail(null);
+      }
     }
   }, [open, vehicle, defaultDateRange, form]);
 
@@ -65,9 +76,12 @@ export const BookingForm = ({
     });
   };
 
-  const displayPlate = vehicle?.licensePlate || vehicle?.plate;
-  const displaySeats = vehicle?.seatCount || vehicle?.seats || 4;
-  const displayFuel = vehicle?.fuelType || vehicle?.fuel || "Xăng";
+  const displayPlate =
+    vehicle?.licensePlate || vehicle?.plate || extraDetail?.licensePlate;
+  const displaySeats =
+    vehicle?.seatCount || vehicle?.seats || extraDetail?.seatCount || 4;
+  const displayFuel =
+    vehicle?.fuelType || vehicle?.fuel || extraDetail?.fuelType || "Xăng";
 
   return (
     <Modal

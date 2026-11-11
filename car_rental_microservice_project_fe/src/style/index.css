@@ -41,11 +41,27 @@ button.secondary { background: var(--surface); color: var(--ink-2); border-color
 button.secondary:hover:not(:disabled) { background: var(--surface-2); }
 button.danger { background: var(--danger-soft); color: var(--danger); }
 button.danger:hover:not(:disabled) { background: var(--danger-soft); filter: brightness(.96); }
-input, select { width: 100%; min-height: 42px; padding: 9px 12px; color: var(--ink); background: var(--surface);
+input:not([class*="ant-"]), select:not([class*="ant-"]) { width: 100%; min-height: 42px; padding: 9px 12px; color: var(--ink); background: var(--surface);
   border: 1px solid var(--line-2); border-radius: var(--r-sm); transition: border-color .15s, box-shadow .15s; }
-input:hover, select:hover { border-color: var(--muted); }
-input:focus, select:focus { outline: 0; border-color: var(--brand); box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 25%, transparent); }
+input:not([class*="ant-"]):hover, select:not([class*="ant-"]):hover { border-color: var(--muted); }
+input:not([class*="ant-"]):focus, select:not([class*="ant-"]):focus { outline: 0; border-color: var(--brand); box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 25%, transparent); }
 input[type=checkbox] { width: 17px; min-height: 17px; accent-color: var(--brand); }
+
+/* Ensure Ant Design Select inputs & placeholders never get polluted by global styles */
+.ant-select .ant-select-input {
+  min-height: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+.ant-select-single .ant-select-content {
+  align-self: center !important;
+}
+.ant-select-placeholder {
+  line-height: normal !important;
+  align-self: center;
+}
 label { display: grid; gap: 6px; font-size: 13px; font-weight: 600; color: var(--ink-2); }
 fieldset { padding: 0; margin: 0; border: 0; min-width: 0; }
 .notice { padding: 12px 16px; margin-bottom: 16px; background: var(--info-soft); color: var(--info); border-radius: var(--r-sm); font-size: 14px; }

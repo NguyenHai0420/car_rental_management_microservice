@@ -22,9 +22,15 @@ export function VehicleDialog({ car, onClose, onBook }) {
     if (!ref.current.open) ref.current.showModal()
   }, [])
 
-  const facts = [['Năm sản xuất', car.manufactureYear], ['Số chỗ', `${car.seatCount} chỗ`],
-    ['Hộp số', transmissions[car.transmission]], ['Nhiên liệu', fuelTypes[car.fuelType]],
-    ['Màu xe', car.color], ['Nhận xe tại', car.location]]
+  const facts = [
+    ...(car.licensePlate ? [['Biển số', car.licensePlate]] : []),
+    ['Năm sản xuất', car.manufactureYear],
+    ['Số chỗ', `${car.seatCount} chỗ`],
+    ['Hộp số', transmissions[car.transmission]],
+    ['Nhiên liệu', fuelTypes[car.fuelType]],
+    ['Màu xe', car.color],
+    ['Nhận xe tại', car.location],
+  ]
 
   return <dialog ref={ref} className="car-dialog" aria-labelledby="car-dialog-title" onClose={onClose}
     onClick={(event) => { if (event.target === ref.current) onClose() }}>

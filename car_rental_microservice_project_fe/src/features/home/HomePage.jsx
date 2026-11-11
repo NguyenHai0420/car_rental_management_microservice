@@ -165,11 +165,12 @@ export function HomePage() {
                   <CalendarOutlined style={{ color: '#ff6a1a', marginRight: 6 }} /> Khoảng thời gian thuê xe
                 </div>
                 <RangePicker
+                  size="large"
                   value={dateRange}
                   onChange={(vals) => setDateRange(vals)}
                   showTime={{ format: 'HH:mm' }}
                   format="DD/MM/YYYY HH:mm"
-                  style={{ width: '100%', height: 44, borderRadius: 8 }}
+                  style={{ width: '100%' }}
                   disabledDate={(current) => current && current < dayjs().startOf('day')}
                 />
               </Col>
@@ -178,9 +179,10 @@ export function HomePage() {
                   <CarOutlined style={{ color: '#ff6a1a', marginRight: 6 }} /> Số chỗ tối thiểu
                 </div>
                 <Select
+                  size="large"
                   allowClear
                   placeholder="Tất cả số chỗ"
-                  style={{ width: '100%', height: 44 }}
+                  style={{ width: '100%' }}
                   value={minSeats}
                   onChange={setMinSeats}
                   options={[
@@ -196,9 +198,9 @@ export function HomePage() {
                   <EnvironmentOutlined style={{ color: '#ff6a1a', marginRight: 6 }} /> Khu vực / Chi nhánh
                 </div>
                 <Input
+                  size="large"
                   allowClear
                   placeholder="VD: Quận 1, Hoàng Mai, Cầu Giấy..."
-                  style={{ height: 44, borderRadius: 8 }}
                   value={locationFilter}
                   onChange={(e) => setLocationFilter(e.target.value)}
                   onPressEnter={() => document.getElementById('xe')?.scrollIntoView({ behavior: 'smooth' })}
@@ -209,9 +211,9 @@ export function HomePage() {
                   <SearchOutlined style={{ color: '#ff6a1a', marginRight: 6 }} /> Tìm theo tên
                 </div>
                 <Input
+                  size="large"
                   allowClear
                   placeholder="Vios, Camry, VF 8..."
-                  style={{ height: 44, borderRadius: 8 }}
                   value={term}
                   onChange={(e) => {
                     setTerm(e.target.value)
@@ -222,14 +224,13 @@ export function HomePage() {
               </Col>
               <Col xs={8} sm={24} lg={2}>
                 <Button
+                  size="large"
                   type="primary"
                   style={{
-                    height: 44,
                     width: '100%',
                     fontWeight: 700,
                     background: 'linear-gradient(135deg, #ff8a1f, #ff6a1a)',
                     borderColor: '#ff6a1a',
-                    borderRadius: 8,
                   }}
                   onClick={() => document.getElementById('xe')?.scrollIntoView({ behavior: 'smooth' })}
                 >

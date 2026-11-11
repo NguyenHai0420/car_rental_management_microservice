@@ -19,6 +19,7 @@ createRoot(document.getElementById('root')).render(
           borderRadius: 8,
           colorLink: '#d4440c',
           colorLinkHover: '#ff6a1a',
+          controlHeightLG: 44,
         },
       }}
     >
