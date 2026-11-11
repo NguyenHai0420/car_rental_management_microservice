@@ -65,7 +65,22 @@ public class CustomerServiceImpl implements CustomerService {
         Customer customer = customerRepository.findByKeycloakUserId(keycloakUserId)
                 .orElseThrow(() -> new BusinessException(1, 404, "Customer profile not found"));
 
+        String currentEmail = customer.getEmail();
         customerMapper.updateEntityFromRequest(request, customer);
+        if (request.getEmail() != null && !request.getEmail().isBlank()) {
+            String newEmail = request.getEmail().trim();
+            if (!newEmail.equalsIgnoreCase(currentEmail)) {
+                customerRepository.findByEmail(newEmail).ifPresent(existing -> {
+                    if (!existing.getId().equals(customer.getId())) {
+                        throw new BusinessException(1, 400, "Email " + newEmail + " đã được sử dụng bởi khách hàng khác.");
+                    }
+                });
+                customer.setEmail(newEmail);
+            }
+        } else {
+            customer.setEmail(currentEmail);
+        }
+
         Customer updated = customerRepository.save(customer);
         return customerMapper.fromEntity(updated);
     }
