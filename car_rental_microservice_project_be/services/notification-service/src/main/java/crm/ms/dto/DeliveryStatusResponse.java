@@ -19,4 +19,6 @@ public class DeliveryStatusResponse {
     private UUID id;
     private DeliveryEventType eventType;
     private LocalDateTime eventAt;
+    private String provider;
+    private String detail;
 }

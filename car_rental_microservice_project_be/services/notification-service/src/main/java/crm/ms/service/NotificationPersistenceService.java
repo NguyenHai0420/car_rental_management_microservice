@@ -1,7 +1,9 @@
 package crm.ms.service;
 
 import crm.ms.config.NotificationProperties;
+import crm.ms.dto.DeliveryStatusResponse;
 import crm.ms.dto.NotificationResponse;
+import crm.ms.dto.NotificationSummaryResponse;
 import crm.ms.entity.DeliveryStatus;
 import crm.ms.entity.NotificationLog;
 import crm.ms.enums.DeliveryEventType;
@@ -14,7 +16,10 @@ import crm.ms.repository.NotificationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
@@ -23,10 +28,14 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -171,14 +180,108 @@ public class NotificationPersistenceService {
     public NotificationResponse getById(UUID id) {
         NotificationLog entity = notificationRepository.findByIdWithDeliveryStatuses(id)
                 .orElseThrow(() -> new BusinessException(404, "Notification not found with id: " + id));
-        return notificationMapper.toResponse(entity);
+        return toSortedResponse(entity);
     }
 
     @Transactional(readOnly = true)
     public List<NotificationResponse> getByReferenceId(UUID referenceId) {
         return notificationRepository.findByReferenceIdWithDeliveryStatuses(referenceId).stream()
-                .map(notificationMapper::toResponse)
+                .map(this::toSortedResponse)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Page<NotificationResponse> listNotifications(
+            NotificationStatus status,
+            String recipient,
+            String sourceEvent,
+            Pageable pageable) {
+        String normalizedRecipient = trimToNull(recipient);
+        String normalizedEvent = trimToNull(sourceEvent);
+
+        Page<NotificationLog> page = notificationRepository.searchNotifications(
+                status,
+                normalizedRecipient,
+                normalizedEvent,
+                pageable
+        );
+        if (page.isEmpty()) {
+            return new PageImpl<>(List.of(), pageable, page.getTotalElements());
+        }
+
+        List<UUID> ids = page.getContent().stream().map(NotificationLog::getId).toList();
+        Map<UUID, NotificationLog> hydratedById = notificationRepository.findByIdInWithDeliveryStatuses(ids)
+                .stream()
+                .collect(Collectors.toMap(NotificationLog::getId, Function.identity(), (a, b) -> a));
+
+        List<NotificationResponse> items = ids.stream()
+                .map(id -> hydratedById.getOrDefault(id, null))
+                .filter(Objects::nonNull)
+                .map(this::toSortedResponse)
+                .toList();
+
+        return new PageImpl<>(items, pageable, page.getTotalElements());
+    }
+
+    @Transactional(readOnly = true)
+    public NotificationSummaryResponse getSummary() {
+        long pending = 0;
+        long sending = 0;
+        long sent = 0;
+        long delivered = 0;
+        long retry = 0;
+        long failed = 0;
+        long deadLetter = 0;
+
+        for (Object[] row : notificationRepository.countGroupedByStatus()) {
+            if (row == null || row.length < 2 || row[0] == null || row[1] == null) {
+                continue;
+            }
+            NotificationStatus status = (NotificationStatus) row[0];
+            long count = ((Number) row[1]).longValue();
+            switch (status) {
+                case PENDING -> pending += count;
+                case SENDING -> sending += count;
+                case SENT -> sent += count;
+                case DELIVERED -> delivered += count;
+                case RETRY -> retry += count;
+                case FAILED -> failed += count;
+                case DEAD_LETTER -> deadLetter += count;
+            }
+        }
+
+        long total = pending + sending + sent + delivered + retry + failed + deadLetter;
+        return NotificationSummaryResponse.builder()
+                .total(total)
+                .pending(pending)
+                .sending(sending)
+                .sent(sent)
+                .delivered(delivered)
+                .retry(retry)
+                .failed(failed)
+                .deadLetter(deadLetter)
+                .build();
+    }
+
+    private NotificationResponse toSortedResponse(NotificationLog entity) {
+        NotificationResponse response = notificationMapper.toResponse(entity);
+        if (response != null && response.getDeliveryEvents() != null) {
+            response.setDeliveryEvents(
+                    response.getDeliveryEvents().stream()
+                            .sorted(Comparator.comparing(
+                                    DeliveryStatusResponse::getEventAt,
+                                    Comparator.nullsLast(Comparator.naturalOrder())))
+                            .toList()
+            );
+        }
+        return response;
+    }
+
+    private String trimToNull(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return value.trim();
     }
 
     /**

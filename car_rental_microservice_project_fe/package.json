@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "test": "node --test src/features/vehicles/services/vehicle.test.mjs",
+    "test": "node --test src/features/vehicles/services/vehicle.test.mjs src/features/maintenance/services/maintenance.test.mjs src/features/notifications/services/notification.test.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

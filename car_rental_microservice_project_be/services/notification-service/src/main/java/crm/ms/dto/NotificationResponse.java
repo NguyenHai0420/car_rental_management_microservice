@@ -25,6 +25,7 @@ public class NotificationResponse {
     private String recipientName;
     private String subject;
     private NotificationStatus status;
+    private String errorMessage;
     private Integer retryCount;
     private Integer maxRetries;
     private LocalDateTime nextRetryAt;

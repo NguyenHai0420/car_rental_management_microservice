@@ -4,12 +4,16 @@ import crm.ms.config.NotificationProperties;
 import crm.ms.dto.BookingConfirmationRequest;
 import crm.ms.dto.NotificationRequest;
 import crm.ms.dto.NotificationResponse;
+import crm.ms.dto.NotificationSummaryResponse;
 import crm.ms.dto.PaymentConfirmationRequest;
+import crm.ms.enums.NotificationStatus;
 import crm.ms.service.EmailTemplateRenderer.RenderedEmail;
 import crm.ms.service.NotificationPersistenceService.EnqueueCommand;
 import crm.ms.service.NotificationPersistenceService.EnqueueResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -101,6 +105,20 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     public List<NotificationResponse> getNotificationsByReference(UUID referenceId) {
         return persistenceService.getByReferenceId(referenceId);
+    }
+
+    @Override
+    public Page<NotificationResponse> listNotifications(
+            NotificationStatus status,
+            String recipient,
+            String sourceEvent,
+            Pageable pageable) {
+        return persistenceService.listNotifications(status, recipient, sourceEvent, pageable);
+    }
+
+    @Override
+    public NotificationSummaryResponse getSummary() {
+        return persistenceService.getSummary();
     }
 
     /**

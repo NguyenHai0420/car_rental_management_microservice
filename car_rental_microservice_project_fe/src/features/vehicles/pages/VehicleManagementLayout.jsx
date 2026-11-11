@@ -16,6 +16,8 @@ const titles = {
   '/vehicles/models': 'Mẫu xe',
   '/vehicles/customers': 'Quản lý khách hàng',
   '/vehicles/bookings': 'Quản lý đơn thuê',
+  '/maintenance': 'Quản lý bảo dưỡng xe',
+  '/notifications': 'Trung tâm thông báo',
 }
 
 export function VehicleManagementLayout() {
@@ -38,6 +40,9 @@ export function VehicleManagementLayout() {
         <NavLink to="/vehicles/customers"><span aria-hidden="true">👥</span>Quản lý khách hàng</NavLink>
         <span className="group">Đơn hàng</span>
         <NavLink to="/vehicles/bookings"><span aria-hidden="true">📋</span>Quản lý đơn thuê</NavLink>
+        <span className="group">Vận hành &amp; Thông báo</span>
+        <NavLink to="/maintenance"><span aria-hidden="true">🔧</span>Bảo dưỡng xe</NavLink>
+        <NavLink to="/notifications"><span aria-hidden="true">✉️</span>Trung tâm thông báo</NavLink>
       </nav>
       <span className="spacer" />
       <nav className="admin-nav"><Link to="/">↩ Về trang chủ</Link></nav>
