@@ -143,6 +143,7 @@ export function NotificationDetailDrawer({ open, onClose, notification, httpStat
       width={680}
       open={open}
       onClose={onClose}
+      focusable={{ trap: false }}
       destroyOnClose={false}
     >
       <NotificationDetail

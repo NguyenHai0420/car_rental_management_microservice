@@ -12,6 +12,8 @@ import {
   Row,
   Select,
   Space,
+  Switch,
+  Typography,
 } from 'antd'
 import { CalendarOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
@@ -28,8 +30,10 @@ export function MaintenanceForm({ vehicles = [], createdByDefault = 'admin', onC
   const [form] = Form.useForm()
   const [submitting, setSubmitting] = useState(false)
   const [checking, setChecking] = useState(false)
+  const [manualUuid, setManualUuid] = useState(false)
   const [errorText, setErrorText] = useState('')
   const [conflictResult, setConflictResult] = useState(null)
+  const watchedVehicleId = Form.useWatch('vehicleId', form)
 
   const vehicleOptions = vehicles.map((v) => ({
     value: v.id,
@@ -43,8 +47,7 @@ export function MaintenanceForm({ vehicles = [], createdByDefault = 'admin', onC
     }
   }, [vehicles, form])
 
-  const handleSelectVehicle = (vehicleId) => {
-    form.setFieldValue('vehicleId', vehicleId || '')
+  const handleVehicleChange = () => {
     setConflictResult(null)
   }
 
@@ -170,29 +173,60 @@ export function MaintenanceForm({ vehicles = [], createdByDefault = 'admin', onC
         onFinish={handleCreate}
       >
         <Row gutter={12}>
-          {vehicleOptions.length > 0 && (
-            <Col xs={24} md={13}>
-              <Form.Item label="Chọn xe trong hệ thống">
+          <Col xs={24}>
+            {vehicleOptions.length > 0 && !manualUuid ? (
+              <Form.Item
+                label={
+                  <Space size={12} wrap>
+                    <span>Chọn xe bảo dưỡng</span>
+                    <Space size={6}>
+                      <Switch size="small" checked={manualUuid} onChange={setManualUuid} />
+                      <Typography.Text type="secondary" style={{ fontSize: 12, fontWeight: 400 }}>
+                        Nhập UUID thủ công
+                      </Typography.Text>
+                    </Space>
+                  </Space>
+                }
+                name="vehicleId"
+                extra={
+                  watchedVehicleId ? (
+                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                      Vehicle UUID: <Typography.Text code copyable>{watchedVehicleId}</Typography.Text>
+                    </Typography.Text>
+                  ) : null
+                }
+                rules={[{ required: true, message: 'Vui lòng chọn xe cần bảo dưỡng' }]}
+              >
                 <Select
                   allowClear
                   showSearch
                   optionFilterProp="label"
                   placeholder="Tìm theo biển số, hãng hoặc mẫu xe..."
                   options={vehicleOptions}
-                  defaultValue={vehicles[0]?.id}
-                  onChange={handleSelectVehicle}
+                  onChange={handleVehicleChange}
                 />
               </Form.Item>
-            </Col>
-          )}
-          <Col xs={24} md={vehicleOptions.length > 0 ? 11 : 24}>
-            <Form.Item
-              label="Mã định danh xe (Vehicle UUID)"
-              name="vehicleId"
-              rules={[{ required: true, message: 'Vui lòng chọn hoặc nhập Vehicle UUID' }]}
-            >
-              <Input placeholder="UUID của xe cần bảo dưỡng" />
-            </Form.Item>
+            ) : (
+              <Form.Item
+                label={
+                  <Space size={12} wrap>
+                    <span>Mã định danh xe (Vehicle UUID)</span>
+                    {vehicleOptions.length > 0 && (
+                      <Space size={6}>
+                        <Switch size="small" checked={manualUuid} onChange={setManualUuid} />
+                        <Typography.Text type="secondary" style={{ fontSize: 12, fontWeight: 400 }}>
+                          Nhập UUID thủ công
+                        </Typography.Text>
+                      </Space>
+                    )}
+                  </Space>
+                }
+                name="vehicleId"
+                rules={[{ required: true, message: 'Vui lòng nhập Vehicle UUID' }]}
+              >
+                <Input placeholder="UUID của xe cần bảo dưỡng" onChange={handleVehicleChange} />
+              </Form.Item>
+            )}
           </Col>
 
           <Col xs={24} md={12}>
@@ -201,7 +235,7 @@ export function MaintenanceForm({ vehicles = [], createdByDefault = 'admin', onC
               name="scheduledStartAt"
               rules={[{ required: true, message: 'Chọn thời điểm bắt đầu' }]}
             >
-              <DatePicker showTime style={{ width: '100%' }} format="DD/MM/YYYY HH:mm" />
+              <DatePicker showTime={{ format: 'HH:mm', minuteStep: 15 }} style={{ width: '100%' }} format="DD/MM/YYYY HH:mm" />
             </Form.Item>
           </Col>
           <Col xs={24} md={12}>
@@ -210,7 +244,7 @@ export function MaintenanceForm({ vehicles = [], createdByDefault = 'admin', onC
               name="scheduledEndAt"
               rules={[{ required: true, message: 'Chọn thời điểm kết thúc' }]}
             >
-              <DatePicker showTime style={{ width: '100%' }} format="DD/MM/YYYY HH:mm" />
+              <DatePicker showTime={{ format: 'HH:mm', minuteStep: 15 }} style={{ width: '100%' }} format="DD/MM/YYYY HH:mm" />
             </Form.Item>
           </Col>
 

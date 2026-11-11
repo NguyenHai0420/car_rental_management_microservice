@@ -29,24 +29,28 @@ h1, h2, h3, p { margin: 0; }
 h1, h2, h3 { color: var(--ink); letter-spacing: -.02em; line-height: 1.25; }
 a { color: var(--brand); text-underline-offset: 3px; }
 img { max-width: 100%; }
-:focus-visible { outline: 3px solid var(--brand-2); outline-offset: 2px; border-radius: 6px; }
-button, input, select { font: inherit; font-size: 14px; }
-button { cursor: pointer; border: 1px solid transparent; border-radius: var(--r-sm); padding: 10px 16px; min-height: 40px;
+:focus-visible:where(:not([class*="ant-"]):not(.ant-form *):not(.ant-select *):not(.ant-select-dropdown *):not(.ant-picker *):not(.ant-picker-dropdown *):not(.ant-drawer *):not(.ant-modal *)) { outline: 3px solid var(--brand-2); outline-offset: 2px; border-radius: 6px; }
+button:where(:not([class*="ant-"]):not(.ant-form *):not(.ant-select *):not(.ant-select-dropdown *):not(.ant-picker *):not(.ant-picker-dropdown *):not(.ant-drawer *):not(.ant-modal *):not(.ant-table *):not(.ant-pagination *):not(.ant-collapse *)),
+input:where(:not([class*="ant-"]):not(.ant-form *):not(.ant-select *):not(.ant-select-dropdown *):not(.ant-picker *):not(.ant-picker-dropdown *):not(.ant-input-number *):not(.ant-input-affix-wrapper *):not(.ant-drawer *):not(.ant-modal *):not(.ant-table *):not(.ant-pagination *)),
+select:where(:not([class*="ant-"]):not(.ant-form *):not(.ant-select *):not(.ant-select-dropdown *):not(.ant-picker *):not(.ant-picker-dropdown *):not(.ant-drawer *):not(.ant-modal *):not(.ant-table *):not(.ant-pagination *)) { font: inherit; font-size: 14px; }
+button:where(:not([class*="ant-"]):not(.ant-form *):not(.ant-select *):not(.ant-select-dropdown *):not(.ant-picker *):not(.ant-picker-dropdown *):not(.ant-drawer *):not(.ant-modal *):not(.ant-table *):not(.ant-pagination *):not(.ant-collapse *)) { cursor: pointer; border: 1px solid transparent; border-radius: var(--r-sm); padding: 10px 16px; min-height: 40px;
   font-weight: 600; background: var(--brand); color: #fff; transition: background .15s, transform .05s, box-shadow .15s; }
-@media (prefers-color-scheme: dark) { button { color: #04201d; } }
-button:hover:not(:disabled) { background: var(--brand-2); }
-button:active:not(:disabled) { transform: translateY(1px); }
-button:disabled { opacity: .5; cursor: not-allowed; }
+button:where(:not([class*="ant-"]):not(.ant-form *):not(.ant-select *):not(.ant-select-dropdown *):not(.ant-picker *):not(.ant-picker-dropdown *):not(.ant-drawer *):not(.ant-modal *):not(.ant-table *):not(.ant-pagination *):not(.ant-collapse *)):hover:not(:disabled) { background: var(--brand-2); }
+button:where(:not([class*="ant-"]):not(.ant-form *):not(.ant-select *):not(.ant-select-dropdown *):not(.ant-picker *):not(.ant-picker-dropdown *):not(.ant-drawer *):not(.ant-modal *):not(.ant-table *):not(.ant-pagination *):not(.ant-collapse *)):active:not(:disabled) { transform: translateY(1px); }
+button:where(:not([class*="ant-"]):not(.ant-form *):not(.ant-select *):not(.ant-select-dropdown *):not(.ant-picker *):not(.ant-picker-dropdown *):not(.ant-drawer *):not(.ant-modal *):not(.ant-table *):not(.ant-pagination *):not(.ant-collapse *)):disabled { opacity: .5; cursor: not-allowed; }
 button.secondary { background: var(--surface); color: var(--ink-2); border-color: var(--line-2); }
 button.secondary:hover:not(:disabled) { background: var(--surface-2); }
 button.danger { background: var(--danger-soft); color: var(--danger); }
 button.danger:hover:not(:disabled) { background: var(--danger-soft); filter: brightness(.96); }
-input, select { width: 100%; min-height: 42px; padding: 9px 12px; color: var(--ink); background: var(--surface);
+input:where(:not([class*="ant-"]):not(.ant-form *):not(.ant-select *):not(.ant-select-dropdown *):not(.ant-picker *):not(.ant-picker-dropdown *):not(.ant-input-number *):not(.ant-input-affix-wrapper *):not(.ant-drawer *):not(.ant-modal *):not(.ant-table *):not(.ant-pagination *)),
+select:where(:not([class*="ant-"]):not(.ant-form *):not(.ant-select *):not(.ant-select-dropdown *):not(.ant-picker *):not(.ant-picker-dropdown *):not(.ant-drawer *):not(.ant-modal *):not(.ant-table *):not(.ant-pagination *)) { width: 100%; min-height: 42px; padding: 9px 12px; color: var(--ink); background: var(--surface);
   border: 1px solid var(--line-2); border-radius: var(--r-sm); transition: border-color .15s, box-shadow .15s; }
-input:hover, select:hover { border-color: var(--muted); }
-input:focus, select:focus { outline: 0; border-color: var(--brand); box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 25%, transparent); }
-input[type=checkbox] { width: 17px; min-height: 17px; accent-color: var(--brand); }
-label { display: grid; gap: 6px; font-size: 13px; font-weight: 600; color: var(--ink-2); }
+input:where(:not([class*="ant-"]):not(.ant-form *):not(.ant-select *):not(.ant-select-dropdown *):not(.ant-picker *):not(.ant-picker-dropdown *):not(.ant-input-number *):not(.ant-input-affix-wrapper *):not(.ant-drawer *):not(.ant-modal *):not(.ant-table *):not(.ant-pagination *)):hover,
+select:where(:not([class*="ant-"]):not(.ant-form *):not(.ant-select *):not(.ant-select-dropdown *):not(.ant-picker *):not(.ant-picker-dropdown *):not(.ant-drawer *):not(.ant-modal *):not(.ant-table *):not(.ant-pagination *)):hover { border-color: var(--muted); }
+input:where(:not([class*="ant-"]):not(.ant-form *):not(.ant-select *):not(.ant-select-dropdown *):not(.ant-picker *):not(.ant-picker-dropdown *):not(.ant-input-number *):not(.ant-input-affix-wrapper *):not(.ant-drawer *):not(.ant-modal *):not(.ant-table *):not(.ant-pagination *)):focus,
+select:where(:not([class*="ant-"]):not(.ant-form *):not(.ant-select *):not(.ant-select-dropdown *):not(.ant-picker *):not(.ant-picker-dropdown *):not(.ant-drawer *):not(.ant-modal *):not(.ant-table *):not(.ant-pagination *)):focus { outline: 0; border-color: var(--brand); box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 25%, transparent); }
+input[type=checkbox]:where(:not([class*="ant-"]):not(.ant-form *):not(.ant-drawer *):not(.ant-modal *):not(.ant-table *)) { width: 17px; min-height: 17px; accent-color: var(--brand); }
+label:where(:not([class*="ant-"]):not(.ant-form *):not(.ant-drawer *):not(.ant-modal *):not(.ant-table *)) { display: grid; gap: 6px; font-size: 13px; font-weight: 600; color: var(--ink-2); }
 fieldset { padding: 0; margin: 0; border: 0; min-width: 0; }
 .notice { padding: 12px 16px; margin-bottom: 16px; background: var(--info-soft); color: var(--info); border-radius: var(--r-sm); font-size: 14px; }
 .notice.error { background: var(--danger-soft); color: var(--danger); }

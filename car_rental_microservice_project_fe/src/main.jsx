@@ -11,6 +11,8 @@ import App from './app/App.jsx'
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ConfigProvider
+      drawer={{ focusable: { trap: false } }}
+      modal={{ focusable: { trap: false } }}
       theme={{
         token: {
           colorPrimary: '#ff6a1a',

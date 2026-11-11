@@ -234,6 +234,7 @@ export function MaintenanceDetailDrawer({ schedule, vehicleLabel, open, onClose,
       width={780}
       open={open}
       onClose={onClose}
+      focusable={{ trap: false }}
       extra={
         <Space wrap>
           <Popconfirm

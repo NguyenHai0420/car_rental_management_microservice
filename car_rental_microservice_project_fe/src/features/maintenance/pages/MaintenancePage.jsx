@@ -4,13 +4,13 @@ import {
   Button,
   Card,
   Col,
-  Drawer,
   Empty,
   Input,
   Row,
   Select,
   Space,
   Table,
+  Tabs,
   Tag,
   Typography,
 } from 'antd'
@@ -69,7 +69,7 @@ export function MaintenancePage() {
   const [filterVehicleId, setFilterVehicleId] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
   const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 })
-  const [createDrawerOpen, setCreateDrawerOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState('list')
   const [selectedSchedule, setSelectedSchedule] = useState(null)
   const [detailDrawerOpen, setDetailDrawerOpen] = useState(false)
 
@@ -174,6 +174,7 @@ export function MaintenancePage() {
 
   const applyStatFilter = (status) => {
     setFilterStatus(status)
+    setActiveTab('list')
     loadSchedules(0, pagination.pageSize, filterVehicleId, status)
   }
 
@@ -274,7 +275,7 @@ export function MaintenancePage() {
           >
             Làm mới
           </Button>
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateDrawerOpen(true)}>
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => setActiveTab('create')}>
             Tạo lịch bảo dưỡng
           </Button>
         </Space>
@@ -328,117 +329,129 @@ export function MaintenancePage() {
         </button>
       </div>
 
-      <Card size="small" title={`Danh sách lịch bảo dưỡng (${pagination.total})`}>
-        <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
-          <Col xs={24} md={8}>
-            {vehicles.length > 0 ? (
-              <Select
-                allowClear
-                showSearch
-                optionFilterProp="label"
-                style={{ width: '100%' }}
-                placeholder="Chọn xe theo biển số / mẫu xe..."
-                value={vehicleMap[filterVehicleId] ? filterVehicleId : undefined}
-                onChange={(val) => {
-                  const next = val || ''
-                  setFilterVehicleId(next)
-                  loadSchedules(0, pagination.pageSize, next, filterStatus)
-                }}
-                options={vehicles.map((v) => ({ value: v.id, label: formatVehicleDisplay(v) }))}
-              />
-            ) : (
-              <Input
-                allowClear
-                placeholder="Lọc theo Vehicle UUID..."
-                value={filterVehicleId}
-                onChange={(e) => setFilterVehicleId(e.target.value)}
-                onPressEnter={() => loadSchedules(0, pagination.pageSize, filterVehicleId, filterStatus)}
-              />
-            )}
-          </Col>
-          <Col xs={24} md={6}>
-            <Input
-              allowClear
-              placeholder="Hoặc nhập Vehicle UUID..."
-              value={filterVehicleId}
-              onChange={(e) => setFilterVehicleId(e.target.value)}
-              onPressEnter={() => loadSchedules(0, pagination.pageSize, filterVehicleId, filterStatus)}
-            />
-          </Col>
-          <Col xs={12} md={5}>
-            <Select
-              allowClear
-              style={{ width: '100%' }}
-              placeholder="Lọc trạng thái..."
-              value={filterStatus || undefined}
-              onChange={(val) => {
-                const next = val || ''
-                setFilterStatus(next)
-                loadSchedules(0, pagination.pageSize, filterVehicleId, next)
-              }}
-              options={Object.entries(MAINTENANCE_STATUS_META).map(([value, meta]) => ({
-                value,
-                label: meta.label,
-              }))}
-            />
-          </Col>
-          <Col xs={12} md={5}>
-            <Space wrap>
-              <Button
-                type="primary"
-                icon={<SearchOutlined />}
-                onClick={() => loadSchedules(0, pagination.pageSize, filterVehicleId, filterStatus)}
-                loading={loading}
-              >
-                Tìm kiếm
-              </Button>
-              <Button onClick={handleResetFilters}>Đặt lại</Button>
-            </Space>
-          </Col>
-        </Row>
+      <Tabs
+        activeKey={activeTab}
+        onChange={setActiveTab}
+        items={[
+          {
+            key: 'list',
+            label: `Danh sách lịch bảo dưỡng (${pagination.total})`,
+            children: (
+              <Card size="small">
+                <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
+                  <Col xs={24} md={8}>
+                    {vehicles.length > 0 ? (
+                      <Select
+                        allowClear
+                        showSearch
+                        optionFilterProp="label"
+                        style={{ width: '100%' }}
+                        placeholder="Chọn xe theo biển số / mẫu xe..."
+                        value={vehicleMap[filterVehicleId] ? filterVehicleId : undefined}
+                        onChange={(val) => {
+                          const next = val || ''
+                          setFilterVehicleId(next)
+                          loadSchedules(0, pagination.pageSize, next, filterStatus)
+                        }}
+                        options={vehicles.map((v) => ({ value: v.id, label: formatVehicleDisplay(v) }))}
+                      />
+                    ) : (
+                      <Input
+                        allowClear
+                        placeholder="Lọc theo Vehicle UUID..."
+                        value={filterVehicleId}
+                        onChange={(e) => setFilterVehicleId(e.target.value)}
+                        onPressEnter={() => loadSchedules(0, pagination.pageSize, filterVehicleId, filterStatus)}
+                      />
+                    )}
+                  </Col>
+                  <Col xs={24} md={6}>
+                    <Input
+                      allowClear
+                      placeholder="Hoặc nhập Vehicle UUID..."
+                      value={filterVehicleId}
+                      onChange={(e) => setFilterVehicleId(e.target.value)}
+                      onPressEnter={() => loadSchedules(0, pagination.pageSize, filterVehicleId, filterStatus)}
+                    />
+                  </Col>
+                  <Col xs={12} md={5}>
+                    <Select
+                      allowClear
+                      style={{ width: '100%' }}
+                      placeholder="Lọc trạng thái..."
+                      value={filterStatus || undefined}
+                      onChange={(val) => {
+                        const next = val || ''
+                        setFilterStatus(next)
+                        loadSchedules(0, pagination.pageSize, filterVehicleId, next)
+                      }}
+                      options={Object.entries(MAINTENANCE_STATUS_META).map(([value, meta]) => ({
+                        value,
+                        label: meta.label,
+                      }))}
+                    />
+                  </Col>
+                  <Col xs={12} md={5}>
+                    <Space wrap>
+                      <Button
+                        type="primary"
+                        icon={<SearchOutlined />}
+                        onClick={() => loadSchedules(0, pagination.pageSize, filterVehicleId, filterStatus)}
+                        loading={loading}
+                      >
+                        Tìm kiếm
+                      </Button>
+                      <Button onClick={handleResetFilters}>Đặt lại</Button>
+                    </Space>
+                  </Col>
+                </Row>
 
-        <Table
-          size="small"
-          rowKey="id"
-          loading={loading}
-          columns={columns}
-          dataSource={schedules}
-          locale={{
-            emptyText: (
-              <Empty description="Chưa có lịch bảo dưỡng nào phù hợp.">
-                <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateDrawerOpen(true)}>
-                  Tạo lịch bảo dưỡng đầu tiên
-                </Button>
-              </Empty>
+                <Table
+                  size="small"
+                  rowKey="id"
+                  loading={loading}
+                  columns={columns}
+                  dataSource={schedules}
+                  locale={{
+                    emptyText: (
+                      <Empty description="Chưa có lịch bảo dưỡng nào phù hợp.">
+                        <Button type="primary" icon={<PlusOutlined />} onClick={() => setActiveTab('create')}>
+                          Tạo lịch bảo dưỡng đầu tiên
+                        </Button>
+                      </Empty>
+                    ),
+                  }}
+                  pagination={{
+                    current: pagination.current,
+                    pageSize: pagination.pageSize,
+                    total: pagination.total,
+                    showSizeChanger: true,
+                    onChange: (page, size) => loadSchedules(page - 1, size),
+                  }}
+                />
+              </Card>
             ),
-          }}
-          pagination={{
-            current: pagination.current,
-            pageSize: pagination.pageSize,
-            total: pagination.total,
-            showSizeChanger: true,
-            onChange: (page, size) => loadSchedules(page - 1, size),
-          }}
-        />
-      </Card>
-
-      <Drawer
-        title="Tạo lịch bảo dưỡng mới"
-        width={720}
-        open={createDrawerOpen}
-        onClose={() => setCreateDrawerOpen(false)}
-      >
-        <MaintenanceForm
-          vehicles={vehicles}
-          createdByDefault={auth.name || 'admin'}
-          onCreated={(created) => {
-            setCreateDrawerOpen(false)
-            setSelectedSchedule(created)
-            setDetailDrawerOpen(true)
-            loadSchedules(0, pagination.pageSize)
-          }}
-        />
-      </Drawer>
+          },
+          {
+            key: 'create',
+            label: 'Tạo lịch bảo dưỡng mới',
+            children: (
+              <Card size="small" title="Thông tin lịch bảo dưỡng">
+                <MaintenanceForm
+                  vehicles={vehicles}
+                  createdByDefault={auth.name || 'admin'}
+                  onCreated={(created) => {
+                    setActiveTab('list')
+                    setSelectedSchedule(created)
+                    setDetailDrawerOpen(true)
+                    loadSchedules(0, pagination.pageSize)
+                  }}
+                />
+              </Card>
+            ),
+          },
+        ]}
+      />
 
       <MaintenanceDetailDrawer
         schedule={selectedSchedule}
