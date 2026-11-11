@@ -1,3 +1,1 @@
-export const apiClient = {
-
-};
+export { default as apiClient, default } from './axios-client.js'
