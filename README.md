@@ -20,3 +20,17 @@ Gateway và notification-service dùng cùng `NOTIFICATION_GATEWAY_SECRET`;
 booking-service và notification-service dùng cùng `NOTIFICATION_INTERNAL_TOKEN`.
 Booking gửi xác nhận qua `POST /api/v1/notifications/booking-confirmation`.
 SePay đọc thông tin xác thực từ `SEPAY_API_KEY` và `SEPAY_API_TOKEN` trong môi trường.
+
+## Chạy toàn bộ dự án bằng Docker
+
+Chỉ cần Docker Desktop. Từ thư mục gốc repo:
+
+```powershell
+docker compose up -d --build
+```
+
+- Web: <http://localhost:5173> (tài khoản Keycloak: `admin` / `123456`, `owner1`, `customer1` cùng mật khẩu)
+- Gateway: <http://localhost:8080>, Eureka: <http://localhost:8761>, Keycloak admin: <http://localhost:8180> (`admin` / `admin`)
+- MinIO console: <http://localhost:9001> (`minioadmin` / `minioadmin`), MySQL: `localhost:3307` (`root` / `1234`)
+
+Lần đầu build mất vài phút. Xem log: `docker compose logs -f <service>`. Dừng: `docker compose down` (thêm `-v` để xóa dữ liệu MySQL/MinIO). Sau khi sửa code chạy lại `docker compose up -d --build`.
