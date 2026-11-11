@@ -2,7 +2,8 @@ package crm.ms.dto;
 
 import lombok.*;
 
-import java.util.Map;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Getter
@@ -11,14 +12,16 @@ import java.util.UUID;
 @AllArgsConstructor
 @Builder
 public class NotificationRequest {
-    private String templateCode;
-    private String channel;
-    private String recipient;
-    private String recipientName;
-    private String subject;
-    private String body;
-    private Map<String, String> placeholders;
-    private String sourceService;
-    private String sourceEvent;
-    private UUID referenceId;
+    private String idempotencyKey;
+    private UUID bookingId;
+    private String bookingCode;
+    private String customerEmail;
+    private String customerName;
+    private String vehicleName;
+    private LocalDateTime pickupDatetime;
+    private LocalDateTime returnDatetime;
+    private String pickupLocation;
+    private BigDecimal estimatedTotal;
+    private BigDecimal depositRequired;
+    private String currency;
 }

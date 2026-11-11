@@ -11,4 +11,6 @@ public class Constants {
     public static final String USER_EMAIL = "X-User-Email";
     public static final String USER_NAME = "X-User-Name";
     public static final String USER_ROLES = "X-User-Roles";
+    public static final String GATEWAY_SECRET = "X-Gateway-Secret";
+    public static final String INTERNAL_SERVICE_TOKEN = "X-Internal-Service-Token";
 }

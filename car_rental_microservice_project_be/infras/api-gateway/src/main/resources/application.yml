@@ -39,6 +39,9 @@ spring:
             - Path=/api/v1/notifications/**
 
 app:
+  trust:
+    maintenance-gateway-secret: ${MAINTENANCE_GATEWAY_SECRET:}
+    notification-gateway-secret: ${NOTIFICATION_GATEWAY_SECRET:}
   cors:
     allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000}
     allowed-methods: ${APP_CORS_ALLOWED_METHODS:GET,POST,PUT,DELETE,PATCH,OPTIONS}
