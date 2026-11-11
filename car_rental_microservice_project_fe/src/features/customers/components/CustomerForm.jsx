@@ -12,6 +12,7 @@ export function CustomerForm({ initialData, onSave, cancelTo = '/' }) {
     const form = new FormData(event.currentTarget)
     const fields = {
       fullName: form.get('fullName')?.trim(),
+      email: form.get('email')?.trim() || null,
       phone: form.get('phone')?.trim() || null,
       dateOfBirth: form.get('dateOfBirth') || null,
       gender: form.get('gender') || null,
@@ -54,6 +55,19 @@ export function CustomerForm({ initialData, onSave, cancelTo = '/' }) {
             maxLength={100}
             placeholder="Nguyễn Văn A"
             autoComplete="name"
+          />
+        </label>
+
+        <label>
+          Email liên hệ
+          <input
+            name="email"
+            type="email"
+            defaultValue={initialData?.email ?? ''}
+            required
+            maxLength={150}
+            placeholder="customer@carrental.vn"
+            autoComplete="email"
           />
         </label>
 
