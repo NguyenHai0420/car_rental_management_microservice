@@ -11,4 +11,3 @@ spring:
 notification:
   mail:
     enforce-allowlist: ${MAIL_ENFORCE_ALLOWLIST:true}
-

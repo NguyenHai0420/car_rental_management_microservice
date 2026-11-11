@@ -172,4 +172,3 @@ public class EmailTemplateRenderer {
         return value != null && !value.isBlank();
     }
 }
-

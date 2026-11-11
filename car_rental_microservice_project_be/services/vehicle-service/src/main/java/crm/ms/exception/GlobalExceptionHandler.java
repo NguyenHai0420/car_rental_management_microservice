@@ -80,6 +80,10 @@ public class GlobalExceptionHandler {
                     .map(Map.Entry::getValue).findFirst().orElse("A record with the same unique fields already exists");
             return error(HttpStatus.CONFLICT, message);
         }
+        if (exception.getMostSpecificCause() instanceof SQLException sql
+                && (sql.getErrorCode() == 1451 || "23503".equals(sql.getSQLState()))) {
+            return error(HttpStatus.CONFLICT, "Record is still in use by other data");
+        }
         log.error("Unexpected database integrity violation", exception);
         return error(HttpStatus.INTERNAL_SERVER_ERROR, "Unable to save data");
     }

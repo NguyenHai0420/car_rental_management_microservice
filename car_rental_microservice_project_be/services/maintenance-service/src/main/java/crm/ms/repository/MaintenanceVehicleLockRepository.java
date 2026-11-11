@@ -21,4 +21,3 @@ public interface MaintenanceVehicleLockRepository extends JpaRepository<Maintena
     @Query("SELECT l FROM MaintenanceVehicleLock l WHERE l.vehicleId = :vehicleId")
     Optional<MaintenanceVehicleLock> findByVehicleIdForUpdate(@Param("vehicleId") UUID vehicleId);
 }
-

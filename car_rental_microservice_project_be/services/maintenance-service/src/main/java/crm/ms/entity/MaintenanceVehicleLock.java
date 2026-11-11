@@ -51,4 +51,3 @@ public class MaintenanceVehicleLock {
         updatedAt = Instant.now();
     }
 }
-

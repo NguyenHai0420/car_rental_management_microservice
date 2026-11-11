@@ -158,4 +158,3 @@ public class NotificationAccessFilter extends OncePerRequestFilter {
         return value != null && !value.isBlank();
     }
 }
-

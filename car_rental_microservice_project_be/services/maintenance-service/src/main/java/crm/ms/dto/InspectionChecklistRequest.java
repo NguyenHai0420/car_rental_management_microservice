@@ -34,4 +34,3 @@ public class InspectionChecklistRequest {
     @Size(max = 100, message = "inspectorName must not exceed 100 characters")
     private String inspectorName;
 }
-

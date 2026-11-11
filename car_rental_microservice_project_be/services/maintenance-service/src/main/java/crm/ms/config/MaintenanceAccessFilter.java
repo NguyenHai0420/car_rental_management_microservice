@@ -157,4 +157,3 @@ public class MaintenanceAccessFilter extends OncePerRequestFilter {
         return value != null && !value.isBlank();
     }
 }
-

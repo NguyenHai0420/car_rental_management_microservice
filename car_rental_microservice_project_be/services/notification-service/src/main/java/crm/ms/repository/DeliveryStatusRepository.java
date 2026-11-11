@@ -12,4 +12,3 @@ public interface DeliveryStatusRepository extends JpaRepository<DeliveryStatus, 
 
     List<DeliveryStatus> findByNotificationLog_IdOrderByEventAtAsc(UUID notificationId);
 }
-

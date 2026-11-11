@@ -1,7 +1,6 @@
 package crm.ms.dto;
 
 import crm.ms.enums.FuelType;
-import crm.ms.enums.SizeClass;
 import crm.ms.enums.Transmission;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotBlank;
@@ -16,11 +15,10 @@ public final class VehicleCatalog {
     private VehicleCatalog() {
     }
 
-    public record CategoryRequest(@NotBlank @Size(max = 50) String name, @Size(max = 255) String description,
-                                  @NotNull SizeClass sizeClass) {
+    public record CategoryRequest(@NotBlank @Size(max = 50) String name, @Size(max = 255) String description) {
     }
 
-    public record Category(UUID id, String name, String description, SizeClass sizeClass, Boolean isActive) {
+    public record Category(UUID id, String name, String description, Boolean isActive) {
     }
 
     public record ModelRequest(@NotNull UUID categoryId, @NotBlank @Size(max = 100) String brand, @NotBlank @Size(max = 100) String modelName,

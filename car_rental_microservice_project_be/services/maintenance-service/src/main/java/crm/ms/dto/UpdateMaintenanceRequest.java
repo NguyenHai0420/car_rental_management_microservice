@@ -50,4 +50,3 @@ public class UpdateMaintenanceRequest {
         return scheduledEndAt.isAfter(scheduledStartAt);
     }
 }
-

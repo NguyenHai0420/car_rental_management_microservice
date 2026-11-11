@@ -22,11 +22,19 @@ import { VehicleModelPage } from '../features/vehicles/pages/VehicleModelPage'
 import { VehicleDetailPage } from '../features/vehicles/pages/VehicleDetailPage'
 import { VehicleFormPage } from '../features/vehicles/pages/VehicleFormPage'
 import { VehicleListPage } from '../features/vehicles/pages/VehicleListPage'
+import { ProfilePage } from '../features/customers/pages/ProfilePage'
+import { CustomerListPage } from '../features/customers/pages/CustomerListPage'
+import { CustomerDetailPage } from '../features/customers/pages/CustomerDetailPage'
 import { HomePage } from '../features/home/HomePage'
+import { PricingPage } from '../features/payments/pages/PricingPage'
+import { PaymentPage } from '../features/payments/pages/PaymentPage'
+import { PaymentCallbackPage } from '../features/payments/pages/PaymentCallbackPage'
+import { PaymentHistoryPage } from '../features/payments/pages/PaymentHistoryPage'
 import { SiteHeader } from '../features/home/SiteHeader'
 import { SiteFooter } from '../features/home/SiteFooter'
 import '../style/home.css'
 import '../style/admin.css'
+import '../style/payment.css'
 
 const { Text } = Typography
 
@@ -115,21 +123,19 @@ export default function App() {
         <Route path=":id" element={<VehicleDetailPage />} />
         <Route path=":id/edit" element={<VehicleFormPage />} />
         <Route path="bookings" element={<AdminBookingManagementPage />} />
+        <Route path="customers" element={<CustomerListPage />} />
+        <Route path="customers/:id" element={<CustomerDetailPage />} />
       </Route>
+      <Route path="/rent" element={<PricingPage />} />
+      <Route path="/pricing" element={<PricingPage />} />
+      <Route path="/payment" element={<PrivateRoute><PaymentPage /></PrivateRoute>} />
+      <Route path="/payments" element={<PrivateRoute><PaymentPage /></PrivateRoute>} />
+      <Route path="/payment/history" element={<PrivateRoute><PaymentHistoryPage /></PrivateRoute>} />
+      <Route path="/payments/history" element={<PrivateRoute><PaymentHistoryPage /></PrivateRoute>} />
+      <Route path="/payment/callback" element={<PaymentCallbackPage />} />
+      <Route path="/payment/cancel" element={<PaymentCallbackPage />} />
       <Route element={<CustomerLayout />}>
         <Route path="/bookings" element={<BookingListPage />} />
-        <Route
-          path="/payments"
-          element={
-            <PrivateRoute>
-              <ModulePlaceholder
-                title="Cổng Thanh Toán & Đặt Cọc (Payment Service)"
-                owner="Uyên"
-                serviceName="payment-service (:8084)"
-              />
-            </PrivateRoute>
-          }
-        />
         <Route
           path="/maintenance"
           element={
@@ -158,11 +164,7 @@ export default function App() {
           path="/profile"
           element={
             <PrivateRoute>
-              <ModulePlaceholder
-                title="Hồ Sơ Khách Hàng & GPLX (Customer Service)"
-                owner="DA"
-                serviceName="customer-service (:8082)"
-              />
+              <ProfilePage />
             </PrivateRoute>
           }
         />

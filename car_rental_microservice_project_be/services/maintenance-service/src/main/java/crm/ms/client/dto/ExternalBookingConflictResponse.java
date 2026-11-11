@@ -34,4 +34,3 @@ public class ExternalBookingConflictResponse {
         private String status;
     }
 }
-

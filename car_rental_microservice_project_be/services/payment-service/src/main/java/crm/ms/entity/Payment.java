@@ -76,6 +76,11 @@ public class Payment {
     @Builder.Default
     private BigDecimal totalAmount = BigDecimal.ZERO;
 
+    /** Tiền cọc giữ xe yêu cầu */
+    @Column(name = "deposit_required", nullable = false, precision = 12, scale = 2)
+    @Builder.Default
+    private BigDecimal depositRequired = BigDecimal.ZERO;
+
     @Column(name = "deposit_paid", nullable = false, precision = 12, scale = 2)
     @Builder.Default
     private BigDecimal depositPaid = BigDecimal.ZERO;
@@ -116,6 +121,7 @@ public class Payment {
     private List<PaymentItem> paymentItems = new ArrayList<>();
 
     @OneToMany(mappedBy = "payment", cascade = CascadeType.ALL)
+    @OrderBy("createdAt DESC")
     @Builder.Default
     private List<PaymentTransaction> paymentTransactions = new ArrayList<>();
 

@@ -4,6 +4,7 @@
 -- !! vehicles, vehicle_models and vehicle_categories, then inserts the data below.
 -- Run only on a development database, after the latest vehicle-service has started once
 -- (so Hibernate has created the tables and vehicle_models.category_id).
+-- Existing databases: apply db/manual/003_drop_vehicle_category_size_class.sql before seeding.
 -- vehicle_images / vehicle_documents rows are removed; their files stay in MinIO as unreferenced
 -- objects (clear the vehicle-images and vehicle-documents buckets in the MinIO console if you want).
 -- The seeded vehicles have no photos: upload real photos in the admin UI (Chi tiet xe > Mo anh va giay to).
@@ -23,14 +24,14 @@ DELETE FROM vehicle_categories;
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- Loai xe
-INSERT INTO vehicle_categories (id, name, description, size_class, is_active, created_at, updated_at) VALUES (UNHEX('cde13b9eb9a75fbeb0a07fd8580fcd58'), 'Xe nhỏ gọn', 'Hatchback 4-5 chỗ, tiết kiệm xăng, dễ đi trong phố', 'COMPACT', 1, DATE_SUB(NOW(), INTERVAL 400 DAY), DATE_SUB(NOW(), INTERVAL 400 DAY));
-INSERT INTO vehicle_categories (id, name, description, size_class, is_active, created_at, updated_at) VALUES (UNHEX('ae35fe1ff29056cd8ad90ffcb0018771'), 'Sedan', 'Sedan 5 chỗ cho đi làm, công tác và gia đình nhỏ', 'MIDSIZE', 1, DATE_SUB(NOW(), INTERVAL 400 DAY), DATE_SUB(NOW(), INTERVAL 400 DAY));
-INSERT INTO vehicle_categories (id, name, description, size_class, is_active, created_at, updated_at) VALUES (UNHEX('a925ea6b84c05102b041c8fc5e2e9aea'), 'SUV / Crossover', 'Gầm cao 5 chỗ, phù hợp đường dài và đi tỉnh', 'SUV', 1, DATE_SUB(NOW(), INTERVAL 400 DAY), DATE_SUB(NOW(), INTERVAL 400 DAY));
-INSERT INTO vehicle_categories (id, name, description, size_class, is_active, created_at, updated_at) VALUES (UNHEX('9ca27e3701ac58c29052bce7ab7e9dee'), 'MPV 7 chỗ', 'Xe 7 chỗ rộng rãi cho gia đình và nhóm bạn', 'FULLSIZE', 1, DATE_SUB(NOW(), INTERVAL 400 DAY), DATE_SUB(NOW(), INTERVAL 400 DAY));
-INSERT INTO vehicle_categories (id, name, description, size_class, is_active, created_at, updated_at) VALUES (UNHEX('2eeff9e5191654e8ba4a46b50fa9caad'), 'Xe điện', 'Xe thuần điện, chi phí vận hành thấp', 'EV', 1, DATE_SUB(NOW(), INTERVAL 400 DAY), DATE_SUB(NOW(), INTERVAL 400 DAY));
-INSERT INTO vehicle_categories (id, name, description, size_class, is_active, created_at, updated_at) VALUES (UNHEX('b3144b70085c5a0dba8b56d07d6d9834'), 'Xe sang', 'Sedan hạng sang cho sự kiện, đón tiếp đối tác', 'LUXURY', 1, DATE_SUB(NOW(), INTERVAL 400 DAY), DATE_SUB(NOW(), INTERVAL 400 DAY));
-INSERT INTO vehicle_categories (id, name, description, size_class, is_active, created_at, updated_at) VALUES (UNHEX('9532d26de00354fd95f09d8821de57d1'), 'Xe 16 chỗ', 'Xe khách cỡ nhỏ cho đoàn, du lịch, đưa đón', 'VAN', 1, DATE_SUB(NOW(), INTERVAL 400 DAY), DATE_SUB(NOW(), INTERVAL 400 DAY));
-INSERT INTO vehicle_categories (id, name, description, size_class, is_active, created_at, updated_at) VALUES (UNHEX('15f59f98347f5e8a897bfab75407d352'), 'Bán tải', 'Pickup 5 chỗ, thùng sau, đi địa hình', 'TRUCK', 1, DATE_SUB(NOW(), INTERVAL 400 DAY), DATE_SUB(NOW(), INTERVAL 400 DAY));
+INSERT INTO vehicle_categories (id, name, description, is_active, created_at, updated_at) VALUES (UNHEX('cde13b9eb9a75fbeb0a07fd8580fcd58'), 'Xe nhỏ gọn', 'Hatchback 4-5 chỗ, tiết kiệm xăng, dễ đi trong phố', 1, DATE_SUB(NOW(), INTERVAL 400 DAY), DATE_SUB(NOW(), INTERVAL 400 DAY));
+INSERT INTO vehicle_categories (id, name, description, is_active, created_at, updated_at) VALUES (UNHEX('ae35fe1ff29056cd8ad90ffcb0018771'), 'Sedan', 'Sedan 5 chỗ cho đi làm, công tác và gia đình nhỏ', 1, DATE_SUB(NOW(), INTERVAL 400 DAY), DATE_SUB(NOW(), INTERVAL 400 DAY));
+INSERT INTO vehicle_categories (id, name, description, is_active, created_at, updated_at) VALUES (UNHEX('a925ea6b84c05102b041c8fc5e2e9aea'), 'SUV / Crossover', 'Gầm cao 5 chỗ, phù hợp đường dài và đi tỉnh', 1, DATE_SUB(NOW(), INTERVAL 400 DAY), DATE_SUB(NOW(), INTERVAL 400 DAY));
+INSERT INTO vehicle_categories (id, name, description, is_active, created_at, updated_at) VALUES (UNHEX('9ca27e3701ac58c29052bce7ab7e9dee'), 'MPV 7 chỗ', 'Xe 7 chỗ rộng rãi cho gia đình và nhóm bạn', 1, DATE_SUB(NOW(), INTERVAL 400 DAY), DATE_SUB(NOW(), INTERVAL 400 DAY));
+INSERT INTO vehicle_categories (id, name, description, is_active, created_at, updated_at) VALUES (UNHEX('2eeff9e5191654e8ba4a46b50fa9caad'), 'Xe điện', 'Xe thuần điện, chi phí vận hành thấp', 1, DATE_SUB(NOW(), INTERVAL 400 DAY), DATE_SUB(NOW(), INTERVAL 400 DAY));
+INSERT INTO vehicle_categories (id, name, description, is_active, created_at, updated_at) VALUES (UNHEX('b3144b70085c5a0dba8b56d07d6d9834'), 'Xe sang', 'Sedan hạng sang cho sự kiện, đón tiếp đối tác', 1, DATE_SUB(NOW(), INTERVAL 400 DAY), DATE_SUB(NOW(), INTERVAL 400 DAY));
+INSERT INTO vehicle_categories (id, name, description, is_active, created_at, updated_at) VALUES (UNHEX('9532d26de00354fd95f09d8821de57d1'), 'Xe 16 chỗ', 'Xe khách cỡ nhỏ cho đoàn, du lịch, đưa đón', 1, DATE_SUB(NOW(), INTERVAL 400 DAY), DATE_SUB(NOW(), INTERVAL 400 DAY));
+INSERT INTO vehicle_categories (id, name, description, is_active, created_at, updated_at) VALUES (UNHEX('15f59f98347f5e8a897bfab75407d352'), 'Bán tải', 'Pickup 5 chỗ, thùng sau, đi địa hình', 1, DATE_SUB(NOW(), INTERVAL 400 DAY), DATE_SUB(NOW(), INTERVAL 400 DAY));
 
 -- Mau xe
 INSERT INTO vehicle_models (id, category_id, brand, model_name, manufacture_year, fuel_type, seat_count, transmission, engine_capacity_cc, created_at, updated_at) VALUES (UNHEX('1c44fb7bc5d157f48c4592dd26f87dd8'), UNHEX('cde13b9eb9a75fbeb0a07fd8580fcd58'), 'Kia', 'Morning', 2023, 'GASOLINE', 5, 'AUTOMATIC', 1248, DATE_SUB(NOW(), INTERVAL 380 DAY), DATE_SUB(NOW(), INTERVAL 380 DAY));

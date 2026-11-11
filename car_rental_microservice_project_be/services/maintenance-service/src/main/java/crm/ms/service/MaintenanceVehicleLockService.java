@@ -60,4 +60,3 @@ public class MaintenanceVehicleLockService {
                         "Vehicle lock row missing after initialization for vehicleId=" + vehicleId));
     }
 }
-

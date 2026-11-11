@@ -16,4 +16,3 @@ public class ExternalServiceUnavailableException extends BusinessException {
         super(2, 503, message);
     }
 }
-

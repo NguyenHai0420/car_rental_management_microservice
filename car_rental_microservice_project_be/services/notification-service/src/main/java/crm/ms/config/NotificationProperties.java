@@ -71,4 +71,3 @@ public class NotificationProperties {
         private List<String> allowedRoles = new ArrayList<>(List.of("ADMIN", "STAFF", "SYSTEM", "SERVICE"));
     }
 }
-

@@ -31,3 +31,8 @@ architecture_and_booking_plan.md
 # Test scripts
 test-booking.http
 test-booking.ps1
+
+# Documents & Reports
+*.docx
+~$*
+build_report.js

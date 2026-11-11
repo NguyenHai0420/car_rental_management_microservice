@@ -19,4 +19,3 @@ public class MaintenanceSecurityProperties {
     private String internalToken = "";
     private List<String> allowedRoles = new ArrayList<>(List.of("ADMIN", "STAFF", "SYSTEM", "SERVICE"));
 }
-

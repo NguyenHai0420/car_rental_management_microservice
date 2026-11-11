@@ -9,4 +9,3 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @ConditionalOnProperty(name = "notification.recovery.enabled", havingValue = "true", matchIfMissing = true)
 public class SchedulingConfig {
 }
-

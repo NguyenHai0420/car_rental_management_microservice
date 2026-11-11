@@ -34,4 +34,3 @@ public class ServiceRecordResponse {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }
-

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useVehicleQuery } from '../vehicles/hooks/useVehicleQuery'
 import { listShowroom, vehicleError } from '../vehicles/services/vehicle'
+import { matchesSearch } from '../vehicles/vehicle-fields'
 import { BrandLogo } from './BrandLogo'
 import { CarCard } from './CarCard'
 import { HeroSlider } from './HeroSlider'
@@ -42,9 +43,8 @@ export function HomePage() {
   const slides = useMemo(() => (cars ?? []).filter((car) => car.imageUrl).slice(0, 5), [cars])
   const filtering = Boolean(brand || category || term.trim())
   const sections = useMemo(() => {
-    const q = term.trim().toLowerCase()
     return group((cars ?? []).filter((car) => (!brand || car.brand === brand) && (!category || car.categoryId === category)
-      && (!q || `${car.brand} ${car.modelName}`.toLowerCase().includes(q))), (car) => car.brand)
+      && matchesSearch(term, car.brand, car.modelName, car.categoryName)), (car) => car.brand)
   }, [cars, brand, category, term])
   const total = sections.reduce((sum, [, list]) => sum + list.length, 0)
   const pickBrand = (name) => { setBrand((current) => current === name ? '' : name); setCategory(''); setTerm('') }
@@ -57,8 +57,8 @@ export function HomePage() {
       <HeroSlider cars={slides} onOpen={setSelected} />
       <div className="container finder-wrap"><form className="finder" role="search" onSubmit={(event) => { event.preventDefault(); document.getElementById('xe')?.scrollIntoView({ behavior: 'smooth' }) }}>
         <div className="row g-2 align-items-center">
-          <div className="col-12 col-md"><label className="input-group"><span className="input-group-text"><i className="bi bi-search" aria-hidden="true" /></span><span className="sr-only">Tìm hãng hoặc mẫu xe</span>
-            <input className="form-control" type="search" placeholder="Tìm hãng hoặc mẫu xe…" value={term} onChange={(event) => { setTerm(event.target.value); setBrand('') }} /></label></div>
+          <div className="col-12 col-md"><label className="input-group"><span className="input-group-text"><i className="bi bi-search" aria-hidden="true" /></span><span className="sr-only">Tìm theo tên xe</span>
+            <input className="form-control" type="search" placeholder="Tìm tên xe, hãng hoặc mẫu xe (VD: Vios, Toyota Camry)…" value={term} onChange={(event) => { setTerm(event.target.value); setBrand('') }} /></label></div>
           <div className="col-12 col-md-4"><label><span className="sr-only">Loại xe</span>
             <select className="form-select" value={category} onChange={(event) => { setCategory(event.target.value); setBrand('') }}>
               <option value="">Tất cả loại xe</option>

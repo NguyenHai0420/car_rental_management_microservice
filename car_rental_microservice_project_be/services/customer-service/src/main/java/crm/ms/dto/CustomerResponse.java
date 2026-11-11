@@ -26,6 +26,7 @@ public class CustomerResponse {
     private LoyaltyTier loyaltyTier;
     private Integer totalRentals;
     private String avatarUrl;
+    private DriverLicenseResponse driverLicense;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

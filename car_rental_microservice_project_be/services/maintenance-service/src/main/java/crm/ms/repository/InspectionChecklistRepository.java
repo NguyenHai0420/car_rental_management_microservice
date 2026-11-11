@@ -15,4 +15,3 @@ public interface InspectionChecklistRepository extends JpaRepository<InspectionC
 
     Optional<InspectionChecklist> findByIdAndScheduleId(UUID id, UUID scheduleId);
 }
-

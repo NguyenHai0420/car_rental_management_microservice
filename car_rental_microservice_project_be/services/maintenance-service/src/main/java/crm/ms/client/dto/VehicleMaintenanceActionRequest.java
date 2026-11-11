@@ -15,4 +15,3 @@ public class VehicleMaintenanceActionRequest {
     private UUID maintenanceId;
     private String reason;
 }
-

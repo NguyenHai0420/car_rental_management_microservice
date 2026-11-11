@@ -108,4 +108,3 @@ public class RequestFingerprintCalculator {
         return currency.trim().toUpperCase(Locale.ROOT);
     }
 }
-

@@ -22,4 +22,3 @@ public class ExternalVehicleOperationResponse {
     private String rejectionReason;
     private Instant processedAt;
 }
-

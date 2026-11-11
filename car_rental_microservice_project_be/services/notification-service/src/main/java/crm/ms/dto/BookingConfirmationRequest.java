@@ -72,4 +72,3 @@ public class BookingConfirmationRequest {
     @Builder.Default
     private String currency = "VND";
 }
-

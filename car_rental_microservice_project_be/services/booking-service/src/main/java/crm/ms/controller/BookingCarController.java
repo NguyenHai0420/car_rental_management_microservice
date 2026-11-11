@@ -102,6 +102,19 @@ public class BookingCarController {
                                 .build());
         }
 
+        /** Customer-service reads the caller's history, or another customer's history for staff/admin. */
+        @GetMapping("/by-user/{keycloakUserId}")
+        @PreAuthorize("#keycloakUserId == authentication.name or hasAnyRole('ADMIN', 'STAFF')")
+        public ResponseEntity<ResponseApi> getBookingsByUserId(
+                        @PathVariable("keycloakUserId") String keycloakUserId) {
+                List<BookingResponse> bookings = bookingService.getMyBookings(keycloakUserId);
+                return ResponseEntity.ok(ResponseApi.builder()
+                                .code(HttpStatus.OK)
+                                .message("Danh sách đơn đặt xe của người dùng")
+                                .data(bookings)
+                                .build());
+        }
+
         /**
          * Quản lý toàn bộ danh sách đơn đặt xe (Role: ADMIN, VEHICLE_OWNER).
          */

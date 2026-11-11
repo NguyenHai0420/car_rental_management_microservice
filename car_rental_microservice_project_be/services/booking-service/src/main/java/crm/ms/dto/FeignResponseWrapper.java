@@ -13,4 +13,3 @@ public class FeignResponseWrapper<T> {
     private String message;
     private T data;
 }
-

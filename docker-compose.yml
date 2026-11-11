@@ -1,0 +1,223 @@
+# Whole car rental stack in Docker: `docker compose up -d --build` from this folder.
+# Web http://localhost:5173 · Gateway http://localhost:8080 · Keycloak http://localhost:8180 (admin/admin)
+# Eureka http://localhost:8761 · MinIO console http://localhost:9001 · MySQL localhost:3307 (root/1234)
+# Realm, DB init script: car_rental_microservice_project_be/docker/ (shared with the infra-only compose there).
+name: car-rental
+
+x-backend: &backend
+  image: car-rental-backend:local
+  build: ./car_rental_microservice_project_be
+  restart: unless-stopped
+  depends_on: &backend-deps
+    mysql:
+      condition: service_healthy
+    eureka-service:
+      condition: service_healthy
+    keycloak:
+      condition: service_healthy
+
+x-backend-env: &backend-env
+  DB_HOST: mysql
+  DB_PORT: "3306"
+  DB_USER: root
+  DB_USERNAME: root
+  DB_PASSWORD: ${MYSQL_ROOT_PASSWORD:-1234}
+  EUREKA_URI: http://eureka-service:8761/eureka/
+  EUREKA_SERVER_URL: http://eureka-service:8761/eureka/
+  # Container hostnames don't resolve for each other; register in Eureka by IP.
+  EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+  # Tokens are issued for localhost:8180 (the browser's URL); keys are fetched inside the Docker network.
+  KEYCLOAK_ISSUER_URI: http://localhost:8180/realms/car-rental-realm
+  SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/car-rental-realm/protocol/openid-connect/certs
+  # Shared secrets between gateway / services (local dev values).
+  MAINTENANCE_GATEWAY_SECRET: ${MAINTENANCE_GATEWAY_SECRET:-local-maintenance-gateway-secret}
+  NOTIFICATION_GATEWAY_SECRET: ${NOTIFICATION_GATEWAY_SECRET:-local-notification-gateway-secret}
+  MAINTENANCE_INTERNAL_TOKEN: ${MAINTENANCE_INTERNAL_TOKEN:-local-maintenance-internal-token}
+  NOTIFICATION_INTERNAL_TOKEN: ${NOTIFICATION_INTERNAL_TOKEN:-local-notification-internal-token}
+  SPRING_JPA_SHOW_SQL: "false"
+  JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=50
+
+services:
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-1234}
+      TZ: Asia/Ho_Chi_Minh
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./car_rental_microservice_project_be/docker/mysql/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    command: ["start-dev", "--import-realm"]
+    restart: unless-stopped
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      # Same issuer (iss) for the browser and for services calling Keycloak inside Docker.
+      KC_HOSTNAME: http://localhost:8180
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      KC_HEALTH_ENABLED: "true"
+    ports:
+      - "8180:8080"
+    volumes:
+      - ./car_rental_microservice_project_be/docker/keycloak:/opt/keycloak/data/import:ro
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q '200 OK' <&3"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  minio:
+    # Same pinned image as services/minio-service/docker-compose.yml (ships the `mc` client used below).
+    image: &minio-image ghcr.io/coollabsio/minio@sha256:69b55a1c1c5dc285ce04db96689f5b2102317fc77a50680a1874ca6efd1c87f9
+    command: server /data --console-address ":9001"
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  minio-init:
+    image: *minio-image
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+      MINIO_PUBLIC_BUCKETS: vehicle-images
+      MINIO_PRIVATE_BUCKETS: vehicle-documents,customer-images
+    volumes:
+      - ./car_rental_microservice_project_be/services/minio-service/init-buckets.sh:/init-buckets.sh:ro
+    entrypoint: ["/bin/sh", "/init-buckets.sh"]
+    restart: "no"
+
+  eureka-service:
+    image: car-rental-backend:local
+    build: ./car_rental_microservice_project_be
+    command: ["java", "-jar", "eureka-service.jar"]
+    restart: unless-stopped
+    ports:
+      - "8761:8761"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8761/actuator/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+  minio-service:
+    <<: *backend
+    command: ["java", "-jar", "minio-service.jar"]
+    # Allow services running from IntelliJ to reach the storage API on localhost.
+    ports:
+      - "127.0.0.1:${MINIO_HTTP_PORT:-8087}:8087"
+    depends_on:
+      eureka-service:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    environment:
+      <<: *backend-env
+      FILE_SERVICE_BIND_ADDRESS: 0.0.0.0
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_PUBLIC_ENDPOINT: http://localhost:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+
+  vehicle-service:
+    <<: *backend
+    command: ["java", "-jar", "vehicle-service.jar"]
+    environment:
+      <<: *backend-env
+      FILE_SERVICE_URL: http://minio-service:8087
+
+  customer-service:
+    <<: *backend
+    command: ["java", "-jar", "customer-service.jar"]
+    environment:
+      <<: *backend-env
+
+  booking-service:
+    <<: *backend
+    command: ["java", "-jar", "booking-service.jar"]
+    environment:
+      <<: *backend-env
+      NOTIFICATION_SERVICE_URL: http://notification-service:8086
+
+  payment-service:
+    <<: *backend
+    command: ["java", "-jar", "payment-service.jar"]
+    environment:
+      <<: *backend-env
+
+  maintenance-service:
+    <<: *backend
+    command: ["java", "-jar", "maintenance-service.jar"]
+    environment:
+      <<: *backend-env
+      # Default is `validate`, which fails on the empty Docker database.
+      JPA_DDL_AUTO: update
+
+  notification-service:
+    <<: *backend
+    command: ["java", "-jar", "notification-service.jar"]
+    environment:
+      <<: *backend-env
+      JPA_DDL_AUTO: update
+
+  api-gateway:
+    <<: *backend
+    command: ["java", "-jar", "api-gateway.jar"]
+    depends_on:
+      eureka-service:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      <<: *backend-env
+      KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/car-rental-realm/protocol/openid-connect/certs
+      # application.yml routes to localhost:808x; inside Docker each service is its own host.
+      SPRING_APPLICATION_JSON: >-
+        {"spring":{"cloud":{"gateway":{"routes":[
+        {"id":"vehicle-service","uri":"http://vehicle-service:8081","predicates":["Path=/api/v1/vehicles/**"]},
+        {"id":"customer-service","uri":"http://customer-service:8082","predicates":["Path=/api/v1/customers/**"]},
+        {"id":"booking-service","uri":"http://booking-service:8083","predicates":["Path=/api/v1/bookings/**"]},
+        {"id":"payment-service","uri":"http://payment-service:8084","predicates":["Path=/api/v1/payments/**, /api/v1/pricing/**"]},
+        {"id":"maintenance-service","uri":"http://maintenance-service:8085","predicates":["Path=/api/v1/maintenances/**"]},
+        {"id":"notification-service","uri":"http://notification-service:8086","predicates":["Path=/api/v1/notifications/**"]}
+        ]}}}}
+
+  frontend:
+    build: ./car_rental_microservice_project_fe
+    image: car-rental-frontend:local
+    restart: unless-stopped
+    depends_on:
+      - api-gateway
+    ports:
+      - "5173:80"
+
+volumes:
+  mysql-data:
+  minio-data:

@@ -21,4 +21,3 @@ public class ExternalVehicleResponse {
     private String status;
     private BigDecimal mileageKm;
 }
-

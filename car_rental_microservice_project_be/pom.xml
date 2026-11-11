@@ -25,7 +25,7 @@
         <maven.compiler.target>21</maven.compiler.target>
         <spring-boot.version>3.3.4</spring-boot.version>
         <spring-cloud.version>2023.0.3</spring-cloud.version>
-        <lombok.version>1.18.34</lombok.version>
+        <lombok.version>1.18.36</lombok.version>
         <mapstruct.version>1.6.3</mapstruct.version>
         <lombok-mapstruct-binding.version>0.2.0</lombok-mapstruct-binding.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -89,6 +89,12 @@
                     <groupId>org.springframework.boot</groupId>
                     <artifactId>spring-boot-maven-plugin</artifactId>
                     <version>${spring-boot.version}</version>
+                    <!-- No spring-boot-starter-parent here, so bind repackage explicitly to get runnable jars. -->
+                    <executions>
+                        <execution>
+                            <goals><goal>repackage</goal></goals>
+                        </execution>
+                    </executions>
                 </plugin>
             </plugins>
         </pluginManagement>

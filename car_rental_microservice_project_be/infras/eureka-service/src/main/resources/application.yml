@@ -1,3 +1,4 @@
+
 server:
   port: ${SERVER_PORT:8761}
 
@@ -11,6 +12,8 @@ eureka:
   client:
     register-with-eureka: false
     fetch-registry: false
+    jersey:
+      enabled: false
     service-url:
       defaultZone: ${EUREKA_SERVER_URL:http://${eureka.instance.hostname}:${server.port}/eureka/}
   server:
@@ -21,4 +24,3 @@ management:
     web:
       exposure:
         include: health,info
-

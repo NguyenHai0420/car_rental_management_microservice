@@ -24,4 +24,3 @@ public class CompleteMaintenanceRequest {
     @Size(max = 2000, message = "notes must not exceed 2000 characters")
     private String notes;
 }
-

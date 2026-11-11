@@ -9,4 +9,3 @@ public interface BookingClient {
 
     ExternalBookingConflictResponse checkBookingConflict(UUID vehicleId, Instant from, Instant to);
 }
-

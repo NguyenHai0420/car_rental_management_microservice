@@ -20,4 +20,3 @@ public class MaintenanceConflictResponse {
     private boolean hasConflict;
     private List<MaintenanceResponse> conflictingSchedules;
 }
-

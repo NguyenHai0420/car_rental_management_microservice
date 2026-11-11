@@ -67,4 +67,3 @@ public class PaymentConfirmationRequest {
     @JsonDeserialize(using = FlexibleUtcLocalDateTimeDeserializer.class)
     private LocalDateTime paidAt;
 }
-

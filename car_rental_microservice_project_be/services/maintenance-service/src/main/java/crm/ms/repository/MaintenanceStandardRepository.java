@@ -9,4 +9,3 @@ import java.util.UUID;
 @Repository
 public interface MaintenanceStandardRepository extends JpaRepository<MaintenanceStandard, UUID> {
 }
-

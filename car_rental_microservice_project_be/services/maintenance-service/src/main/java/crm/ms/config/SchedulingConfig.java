@@ -9,4 +9,3 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @ConditionalOnProperty(name = "maintenance.sync.scheduler.enabled", havingValue = "true", matchIfMissing = true)
 public class SchedulingConfig {
 }
-

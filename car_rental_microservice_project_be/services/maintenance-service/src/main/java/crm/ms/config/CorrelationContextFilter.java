@@ -43,4 +43,3 @@ public class CorrelationContextFilter extends OncePerRequestFilter {
         }
     }
 }
-

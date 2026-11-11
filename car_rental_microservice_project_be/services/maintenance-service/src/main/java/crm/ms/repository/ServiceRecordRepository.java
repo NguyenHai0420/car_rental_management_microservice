@@ -14,4 +14,3 @@ public interface ServiceRecordRepository extends JpaRepository<ServiceRecord, UU
 
     List<ServiceRecord> findByVehicleIdOrderByServiceDateDesc(UUID vehicleId);
 }
-

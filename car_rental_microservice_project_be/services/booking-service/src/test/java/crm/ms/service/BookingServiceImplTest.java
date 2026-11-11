@@ -163,7 +163,7 @@ class BookingServiceImplTest {
     }
 
     @Test
-    void confirmBooking_confirmsAndPublishesRabbitNotification() {
+    void confirmBooking_sendsTheNotificationServiceBookingContract() {
         UUID bookingId = UUID.randomUUID();
         UUID vehicleId = UUID.randomUUID();
         Booking existing = Booking.builder()
@@ -188,7 +188,17 @@ class BookingServiceImplTest {
         BookingResponse res = bookingService.confirmBooking(bookingId, "PAY-001", "payment-service");
 
         assertThat(res.getStatus()).isEqualTo(BookingStatus.CONFIRMED);
-        verify(notificationClient).sendNotification(any(NotificationRequest.class));
+        ArgumentCaptor<NotificationRequest> notification = ArgumentCaptor.forClass(NotificationRequest.class);
+        verify(notificationClient).sendNotification(notification.capture());
+        NotificationRequest request = notification.getValue();
+        assertThat(request.getIdempotencyKey()).isEqualTo("booking-confirmed:" + bookingId);
+        assertThat(request.getBookingId()).isEqualTo(bookingId);
+        assertThat(request.getBookingCode()).isEqualTo(existing.getBookingCode());
+        assertThat(request.getCustomerEmail()).isEqualTo(existing.getCustomerEmail());
+        assertThat(request.getCustomerName()).isEqualTo(existing.getCustomerName());
+        assertThat(request.getPickupDatetime()).isEqualTo(existing.getPickupDatetime());
+        assertThat(request.getReturnDatetime()).isEqualTo(existing.getReturnDatetime());
+        assertThat(request.getEstimatedTotal()).isEqualByComparingTo(existing.getEstimatedTotal());
     }
 
     @Test

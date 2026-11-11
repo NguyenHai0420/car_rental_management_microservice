@@ -26,4 +26,3 @@ public class InspectionChecklistResponse {
     private LocalDateTime inspectedAt;
     private LocalDateTime createdAt;
 }
-
