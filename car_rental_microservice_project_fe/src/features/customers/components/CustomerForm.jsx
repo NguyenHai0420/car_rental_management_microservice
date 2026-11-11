@@ -1,11 +1,29 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { customerError } from '../services/customer'
+import { customerError, uploadCustomerImage } from '../services/customer'
 
 export function CustomerForm({ initialData, onSave, cancelTo = '/' }) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [avatarUrl, setAvatarUrl] = useState(initialData?.avatarUrl ?? '')
+
+  async function handleAvatarChange(event) {
+    const file = event.target.files?.[0]
+    if (!file) return
+    setError('')
+    setUploadingAvatar(true)
+    try {
+      const res = await uploadCustomerImage(file)
+      const url = res?.url || res
+      setAvatarUrl(url)
+    } catch (err) {
+      setError(customerError(err))
+    } finally {
+      setUploadingAvatar(false)
+    }
+  }
 
   async function submit(event) {
     event.preventDefault()
@@ -16,7 +34,7 @@ export function CustomerForm({ initialData, onSave, cancelTo = '/' }) {
       phone: form.get('phone')?.trim() || null,
       dateOfBirth: form.get('dateOfBirth') || null,
       gender: form.get('gender') || null,
-      avatarUrl: form.get('avatarUrl')?.trim() || null,
+      avatarUrl: avatarUrl?.trim() || null,
     }
 
     setSaving(true)
@@ -101,12 +119,22 @@ export function CustomerForm({ initialData, onSave, cancelTo = '/' }) {
         </label>
 
         <label style={{ gridColumn: '1 / -1' }}>
-          Đường dẫn ảnh đại diện (Avatar URL)
+          Ảnh đại diện (Chọn tệp từ máy tính)
+          <input
+            type="file"
+            accept="image/*"
+            disabled={saving || uploadingAvatar}
+            onChange={handleAvatarChange}
+            style={{ marginBottom: 6, padding: '4px' }}
+          />
+          {uploadingAvatar && <span style={{ fontSize: '12px', color: '#0284c7', display: 'block', marginBottom: 4 }}>⏳ Đang tải ảnh lên MinIO...</span>}
           <input
             name="avatarUrl"
-            defaultValue={initialData?.avatarUrl ?? ''}
+            value={avatarUrl}
+            onChange={(e) => setAvatarUrl(e.target.value)}
             maxLength={500}
-            placeholder="https://example.com/avatar.jpg"
+            placeholder="MinIO URL (tự động điền sau khi chọn tệp)"
+            style={{ fontSize: '12px', color: 'var(--muted)' }}
           />
         </label>
 

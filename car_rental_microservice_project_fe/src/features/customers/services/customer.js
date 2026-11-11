@@ -44,6 +44,15 @@ export const getMyRentalHistory = (signal) =>
 export const getCustomerRentalHistory = (id, signal) =>
   apiClient.get(`${base(id)}/rentals`, { signal }).then(data)
 
+// 11. Tải ảnh lên MinIO Storage
+export const uploadCustomerImage = (file) => {
+  const formData = new FormData()
+  formData.append('file', file)
+  return apiClient.post(`${customers}/upload`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }).then(data)
+}
+
 // Helper định dạng thông báo lỗi từ backend
 export function customerError(error) {
   if (error?.response?.status === 401) {
