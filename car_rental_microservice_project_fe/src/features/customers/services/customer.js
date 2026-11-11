@@ -36,6 +36,14 @@ export const verifyDriverLicense = (id, fields) =>
 export const checkCustomerEligibility = (id, signal) =>
   apiClient.get(`${base(id)}/eligibility`, { signal }).then((res) => res.data)
 
+// 9. Khách hàng xem lịch sử các chuyến thuê xe của mình
+export const getMyRentalHistory = (signal) =>
+  apiClient.get(`${customers}/me/rentals`, { signal }).then(data)
+
+// 10. Staff/Admin: Xem lịch sử thuê xe của một khách hàng cụ thể
+export const getCustomerRentalHistory = (id, signal) =>
+  apiClient.get(`${base(id)}/rentals`, { signal }).then(data)
+
 // Helper định dạng thông báo lỗi từ backend
 export function customerError(error) {
   if (error?.response?.status === 401) {

@@ -2,21 +2,31 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Alert, Spin } from 'antd'
 import { useAuth } from '../../../app/providers/auth-context'
-import { getMyProfile, updateMyProfile, submitDriverLicense, customerError } from '../services/customer'
+import {
+  getMyProfile,
+  updateMyProfile,
+  submitDriverLicense,
+  getMyRentalHistory,
+  customerError,
+} from '../services/customer'
 import { CustomerForm } from '../components/CustomerForm'
 import { DriverLicenseForm } from '../components/DriverLicenseForm'
 import { DriverLicenseCard } from '../components/DriverLicenseCard'
+import { RentalHistoryTable } from '../components/RentalHistoryTable'
 
 export function ProfilePage() {
   const auth = useAuth()
   const [profile, setProfile] = useState(null)
+  const [rentals, setRentals] = useState([])
   const [loading, setLoading] = useState(true)
+  const [rentalsLoading, setRentalsLoading] = useState(false)
   const [error, setError] = useState('')
   const [showLicenseEdit, setShowLicenseEdit] = useState(false)
 
   useEffect(() => {
     if (auth.ready && auth.authenticated) {
       loadProfile()
+      loadRentals()
     } else if (auth.ready && !auth.authenticated) {
       setLoading(false)
     }
@@ -35,6 +45,18 @@ export function ProfilePage() {
     }
   }
 
+  async function loadRentals() {
+    setRentalsLoading(true)
+    try {
+      const data = await getMyRentalHistory()
+      setRentals(data || [])
+    } catch (err) {
+      console.warn('Could not load rental history:', err)
+    } finally {
+      setRentalsLoading(false)
+    }
+  }
+
   return (
     <div style={{ maxWidth: '960px', margin: '0 auto' }}>
       <div className="page-header" style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -43,7 +65,7 @@ export function ProfilePage() {
             Hồ sơ khách hàng
           </h1>
           <p className="subtitle" style={{ margin: 0, color: 'var(--muted, #64748b)' }}>
-            Quản lý thông tin tài khoản và giấy phép lái xe để thuê xe
+            Quản lý thông tin tài khoản, giấy phép lái xe và lịch sử chuyến đi
           </p>
         </div>
         <Link to="/" className="btn btn-outline-secondary" style={{ padding: '8px 16px', borderRadius: '8px', textDecoration: 'none' }}>
@@ -90,7 +112,7 @@ export function ProfilePage() {
             </div>
             <div className="stat" style={{ background: '#fff', padding: '16px', borderRadius: '12px', border: '1px solid var(--line, #e2e8f0)' }}>
               <span style={{ fontSize: '13px', color: 'var(--muted, #64748b)', display: 'block', marginBottom: '4px' }}>Hạng khách hàng</span>
-              <strong style={{ fontSize: '18px', color: '#0284c7' }}>{profile.loyaltyTier || 'REGULAR'}</strong>
+              <strong style={{ fontSize: '18px', color: '#0284c7' }}>{profile.loyaltyTier || 'BRONZE'}</strong>
             </div>
             <div className="stat" style={{ background: '#fff', padding: '16px', borderRadius: '12px', border: '1px solid var(--line, #e2e8f0)' }}>
               <span style={{ fontSize: '13px', color: 'var(--muted, #64748b)', display: 'block', marginBottom: '4px' }}>Lượt thuê thành công</span>
@@ -146,6 +168,16 @@ export function ProfilePage() {
                 onEditClick={() => setShowLicenseEdit(true)}
               />
             )}
+          </div>
+
+          <div className="media-section" style={{ background: '#fff', borderRadius: '16px', padding: '24px', marginBottom: '24px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', border: '1px solid var(--line, #e2e8f0)' }}>
+            <div className="section-heading" style={{ marginBottom: '20px' }}>
+              <h2 style={{ fontSize: '20px', margin: '0 0 4px' }}>Lịch sử chuyến đi</h2>
+              <span style={{ fontSize: '13px', color: 'var(--muted, #64748b)' }}>
+                Các chuyến xe đã thuê và đánh giá dịch vụ
+              </span>
+            </div>
+            <RentalHistoryTable rentals={rentals} loading={rentalsLoading} />
           </div>
         </>
       )}

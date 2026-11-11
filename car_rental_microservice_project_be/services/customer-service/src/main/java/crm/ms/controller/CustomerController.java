@@ -141,4 +141,32 @@ public class CustomerController {
                 .data(response)
                 .build());
     }
+
+    // 10. Khách hàng xem lịch sử thuê xe của chính mình
+    @GetMapping("/me/rentals")
+    public ResponseEntity<ResponseApi> getMyRentalHistory(
+            @RequestHeader("X-User-ID") String userId
+    ) {
+        log.info("Fetching rental history for X-User-ID: {}", userId);
+        List<RentalHistoryResponse> history = customerService.getCurrentCustomerRentalHistory(userId);
+        return ResponseEntity.ok(ResponseApi.builder()
+                .code(HttpStatus.OK)
+                .message("Customer rental history retrieved successfully")
+                .data(history)
+                .build());
+    }
+
+    // 11. Staff/Admin: Xem lịch sử thuê xe của một khách hàng cụ thể
+    @GetMapping("/{id}/rentals")
+    public ResponseEntity<ResponseApi> getCustomerRentalHistory(
+            @PathVariable("id") UUID id
+    ) {
+        log.info("Staff fetching rental history for customer id: {}", id);
+        List<RentalHistoryResponse> history = customerService.getCustomerRentalHistory(id);
+        return ResponseEntity.ok(ResponseApi.builder()
+                .code(HttpStatus.OK)
+                .message("Customer rental history retrieved successfully")
+                .data(history)
+                .build());
+    }
 }

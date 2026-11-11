@@ -1,19 +1,30 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { getCustomerById, verifyDriverLicense, customerError } from '../services/customer'
+import {
+  getCustomerById,
+  verifyDriverLicense,
+  getCustomerRentalHistory,
+  customerError,
+} from '../services/customer'
 import { DriverLicenseCard } from '../components/DriverLicenseCard'
+import { RentalHistoryTable } from '../components/RentalHistoryTable'
 
 export function CustomerDetailPage() {
   const { id } = useParams()
   const [customer, setCustomer] = useState(null)
+  const [rentals, setRentals] = useState([])
   const [loading, setLoading] = useState(true)
+  const [rentalsLoading, setRentalsLoading] = useState(false)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const [actionError, setActionError] = useState('')
   const [actionSuccess, setActionSuccess] = useState('')
 
   useEffect(() => {
-    if (id) loadCustomer()
+    if (id) {
+      loadCustomer()
+      loadRentals()
+    }
   }, [id])
 
   async function loadCustomer() {
@@ -26,6 +37,18 @@ export function CustomerDetailPage() {
       setError(customerError(err))
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function loadRentals() {
+    setRentalsLoading(true)
+    try {
+      const data = await getCustomerRentalHistory(id)
+      setRentals(data || [])
+    } catch (err) {
+      console.warn('Could not load rentals for customer:', err)
+    } finally {
+      setRentalsLoading(false)
     }
   }
 
@@ -58,40 +81,59 @@ export function CustomerDetailPage() {
     }
   }
 
-  if (loading) return <p className="empty">Đang tải thông tin khách hàng…</p>
-  if (error) {
-    return (
-      <div className="notice error">
-        <p>{error}</p>
-        <Link to="/vehicles/customers">← Quay lại danh sách</Link>
-      </div>
-    )
-  }
-  if (!customer) return null
+  if (loading) return <p className="notice">Đang tải thông tin khách hàng…</p>
+  if (error) return <p className="notice error">{error}</p>
+  if (!customer) return <p className="empty">Không tìm thấy thông tin khách hàng.</p>
 
   const license = customer.driverLicense
 
   return (
-    <div style={{ maxWidth: '960px' }}>
-      <div className="page-header">
+    <div>
+      <div className="page-header" style={{ marginBottom: '24px' }}>
         <div>
-          <h1>Hồ sơ khách hàng: {customer.fullName}</h1>
-          <p className="subtitle">ID: {customer.id} | Email: {customer.email}</p>
+          <h1 style={{ fontSize: '24px', margin: '0 0 4px' }}>
+            Hồ sơ: {customer.fullName}
+          </h1>
+          <p className="subtitle" style={{ margin: 0 }}>
+            {customer.email} • ID: {customer.id}
+          </p>
         </div>
         <Link to="/vehicles/customers" className="secondary" style={{ padding: '8px 16px', borderRadius: '8px', textDecoration: 'none' }}>
           ← Danh sách khách hàng
         </Link>
       </div>
 
-      <div className="media-section">
+      <div className="stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+        <div className="stat">
+          <span>Trạng thái hồ sơ</span>
+          <strong style={{ color: customer.status === 'ACTIVE' ? 'var(--ok, #16a34a)' : 'var(--warn, #d97706)' }}>
+            {customer.status}
+          </strong>
+        </div>
+        <div className="stat">
+          <span>Hạng thành viên</span>
+          <strong style={{ color: '#0284c7' }}>{customer.loyaltyTier || 'BRONZE'}</strong>
+        </div>
+        <div className="stat">
+          <span>Tổng số lượt thuê</span>
+          <strong>{customer.totalRentals || 0} chuyến</strong>
+        </div>
+        <div className="stat">
+          <span>Trạng thái GPLX</span>
+          <strong style={{ color: license?.verificationStatus === 'VERIFIED' ? 'var(--ok, #16a34a)' : 'var(--warn, #d97706)' }}>
+            {license ? license.verificationStatus : 'CHƯA NỘP'}
+          </strong>
+        </div>
+      </div>
+
+      <div className="media-section" style={{ marginBottom: '24px' }}>
         <div className="section-heading">
           <h2>Thông tin cá nhân</h2>
-          <span className="badge">Tài khoản: {customer.status}</span>
         </div>
         <dl className="fleet-detail-fields">
           <div>
             <dt>Họ và tên</dt>
-            <dd>{customer.fullName || '—'}</dd>
+            <dd>{customer.fullName}</dd>
           </div>
           <div>
             <dt>Email</dt>
@@ -110,21 +152,13 @@ export function CustomerDetailPage() {
             <dd>{customer.gender || '—'}</dd>
           </div>
           <div>
-            <dt>Hạng thành viên</dt>
-            <dd>{customer.loyaltyTier}</dd>
-          </div>
-          <div>
-            <dt>Tổng số lần thuê</dt>
-            <dd>{customer.totalRentals} lượt</dd>
-          </div>
-          <div>
             <dt>Ngày tham gia</dt>
             <dd>{customer.createdAt ? new Date(customer.createdAt).toLocaleDateString('vi-VN') : '—'}</dd>
           </div>
         </dl>
       </div>
 
-      <div className="media-section">
+      <div className="media-section" style={{ marginBottom: '24px' }}>
         <div className="section-heading">
           <h2>Giấy phép lái xe</h2>
           {license && (
@@ -171,7 +205,16 @@ export function CustomerDetailPage() {
           <p className="empty">Khách hàng này chưa nộp giấy phép lái xe.</p>
         )}
       </div>
+
+      <div className="media-section">
+        <div className="section-heading" style={{ marginBottom: '16px' }}>
+          <h2>Lịch sử các chuyến thuê xe</h2>
+          <span className="badge">Tổng: {rentals.length} chuyến</span>
+        </div>
+        <RentalHistoryTable rentals={rentals} loading={rentalsLoading} />
+      </div>
     </div>
   )
 }
 
+export default CustomerDetailPage
