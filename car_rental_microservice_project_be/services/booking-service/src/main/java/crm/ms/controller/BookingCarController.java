@@ -102,7 +102,10 @@ public class BookingCarController {
                                 .build());
         }
 
-        /** Customer-service reads the caller's history, or another customer's history for staff/admin. */
+        /**
+         * Customer-service reads the caller's history, or another customer's history
+         * for staff/admin.
+         */
         @GetMapping("/by-user/{keycloakUserId}")
         @PreAuthorize("#keycloakUserId == authentication.name or hasAnyRole('ADMIN', 'STAFF')")
         public ResponseEntity<ResponseApi> getBookingsByUserId(

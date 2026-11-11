@@ -15,7 +15,7 @@ minio:
 storage:
   max-file-size: ${FILE_SERVICE_MAX_FILE_SIZE:10MB}
   max-presign-expiry: ${FILE_SERVICE_MAX_PRESIGN_EXPIRY:10m}
-  public-buckets: ${FILE_SERVICE_PUBLIC_BUCKETS:vehicle-images}
+  public-buckets: ${FILE_SERVICE_PUBLIC_BUCKETS:vehicle-images,customer-images}
   clients:
     vehicle-service:
       api-key: ${FILE_SERVICE_VEHICLE_API_KEY:local-vehicle-file-service-key}
