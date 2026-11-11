@@ -98,6 +98,10 @@ class VehicleManagementTest {
         mvc.perform(staff(filters)).andExpect(status().isOk()).andExpect(jsonPath("$.data.page.size").value(1))
                 .andExpect(jsonPath("$.data.page.totalElements").value(1))
                 .andExpect(jsonPath("$.data.content[0].vin").value(vin));
+        String vehicleName = saved.path("brand").asText() + " " + saved.path("modelName").asText();
+        mvc.perform(staff(get(BASE).param("q", vehicleName.toLowerCase(Locale.ROOT))))
+                .andExpect(jsonPath("$.data.page.totalElements").value(1))
+                .andExpect(jsonPath("$.data.content[0].vin").value(vin));
         mvc.perform(staff(get(BASE).param("q", "%"))).andExpect(jsonPath("$.data.content").isEmpty());
         mvc.perform(staff(get(BASE).param("q", vin).param("status", "RENTED")))
                 .andExpect(jsonPath("$.data.content").isEmpty());
@@ -149,10 +153,26 @@ class VehicleManagementTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content.length()").value(1))
                 .andExpect(jsonPath("$.data.content[0].id").value(shown.path("id").asText()))
+                .andExpect(jsonPath("$.data.content[0].categoryId").value(categoryId))
+                .andExpect(jsonPath("$.data.content[0].categoryName").value(shown.path("categoryName").asText()))
                 .andExpect(jsonPath("$.data.content[0].brand").value("Toyota"))
                 .andExpect(jsonPath("$.data.content[0].imageUrl").value("http://cdn/cover"))
+                .andExpect(jsonPath("$.data.content[0].sizeClass").doesNotHaveJsonPath())
                 .andExpect(jsonPath("$.data.content[0].vin").doesNotExist());
         mvc.perform(get(BASE + "/showroom").param("size", "49")).andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void bookingIntegrationReturnsCategoryWithoutASeparateClassification() throws Exception {
+        when(storage.publicUrl(anyString(), anyString())).thenAnswer(call -> "http://cdn/" + call.getArgument(1));
+        JsonNode saved = create(newPayload());
+        mvc.perform(get(BASE + "/available"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[?(@.vehicleId == '%s')].categoryId", saved.path("id").asText())
+                        .value(saved.path("categoryId").asText()))
+                .andExpect(jsonPath("$.data[?(@.vehicleId == '%s')].categoryName", saved.path("id").asText())
+                        .value(saved.path("categoryName").asText()))
+                .andExpect(jsonPath("$.data[*].sizeClass").isEmpty());
     }
 
     @Test
@@ -276,7 +296,7 @@ class VehicleManagementTest {
     private String newCategoryId() throws Exception {
         int suffix = IDENTIFIER.incrementAndGet();
         return data(mvc.perform(staff(post(BASE + "/categories").contentType(APPLICATION_JSON)
-                .content(json.createObjectNode().put("name", "SUV " + suffix).put("sizeClass", "SUV").toString())))
+                .content(json.createObjectNode().put("name", "SUV " + suffix).toString())))
                 .andExpect(status().isCreated()).andReturn()).path("id").asText();
     }
 
@@ -304,17 +324,45 @@ class VehicleManagementTest {
     }
 
     @Test
+    void categoryNeedsOnlyANameAndValidatesTheRemainingFields() throws Exception {
+        String name = "Sedan " + IDENTIFIER.incrementAndGet();
+        ObjectNode payload = json.createObjectNode().put("name", " " + name + " ");
+        JsonNode saved = data(mvc.perform(staff(post(BASE + "/categories").contentType(APPLICATION_JSON)
+                .content(payload.toString())))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.data.name").value(name))
+                .andExpect(jsonPath("$.data.isActive").value(true))
+                .andExpect(jsonPath("$.data.sizeClass").doesNotHaveJsonPath()).andReturn());
+        assertThat(saved.path("description").isNull()).isTrue();
+        mvc.perform(staff(get(BASE + "/categories")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[?(@.id == '%s')].name", saved.path("id").asText()).value(name))
+                .andExpect(jsonPath("$.data[*].sizeClass").isEmpty());
+
+        for (ObjectNode invalid : List.of(json.createObjectNode(), payload.deepCopy().putNull("name"),
+                payload.deepCopy().put("name", " "), payload.deepCopy().put("name", "x".repeat(51)),
+                payload.deepCopy().put("description", "x".repeat(256)))) {
+            mvc.perform(staff(post(BASE + "/categories").contentType(APPLICATION_JSON).content(invalid.toString())))
+                    .andExpect(status().isBadRequest());
+            mvc.perform(staff(put(BASE + "/categories/" + saved.path("id").asText())
+                    .contentType(APPLICATION_JSON).content(invalid.toString())))
+                    .andExpect(status().isBadRequest());
+        }
+    }
+
+    @Test
     void categoriesAndModelsCanBeEditedAndRemovedUnlessInUse() throws Exception {
         String categoryId = newCategoryId();
         String other = newCategoryId();
         String renamed = "Renamed " + IDENTIFIER.incrementAndGet();
         mvc.perform(staff(put(BASE + "/categories/" + categoryId).contentType(APPLICATION_JSON).content(
-                json.createObjectNode().put("name", renamed).put("sizeClass", "LUXURY").toString())))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.data.name").value(renamed)).andExpect(jsonPath("$.data.sizeClass").value("LUXURY"));
+                json.createObjectNode().put("name", renamed).put("description", "Updated category").toString())))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.name").value(renamed))
+                .andExpect(jsonPath("$.data.description").value("Updated category"))
+                .andExpect(jsonPath("$.data.sizeClass").doesNotHaveJsonPath());
         mvc.perform(staff(put(BASE + "/categories/" + other).contentType(APPLICATION_JSON).content(
-                json.createObjectNode().put("name", renamed).put("sizeClass", "SUV").toString()))).andExpect(status().isConflict());
+                json.createObjectNode().put("name", renamed).toString()))).andExpect(status().isConflict());
         mvc.perform(staff(put(BASE + "/categories/" + UUID.randomUUID()).contentType(APPLICATION_JSON).content(
-                json.createObjectNode().put("name", "x").put("sizeClass", "SUV").toString()))).andExpect(status().isNotFound());
+                json.createObjectNode().put("name", "x").toString()))).andExpect(status().isNotFound());
 
         ObjectNode payload = payloadFor(categoryId);
         JsonNode vehicle = create(payload);

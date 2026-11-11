@@ -5,7 +5,7 @@ import { usePaging } from '../hooks/usePaging'
 import { useCatalogSave } from '../hooks/useCatalogSave'
 import { useVehicleCatalog } from '../hooks/useVehicleQuery'
 import { createVehicleModel, deleteVehicleModel, updateVehicleModel, vehicleError } from '../services/vehicle'
-import { fuelTypes, transmissions } from '../vehicle-fields'
+import { fuelTypes, matchesSearch, transmissions } from '../vehicle-fields'
 
 function EnumSelect({ name, options, value = '' }) {
   return <select name={name} defaultValue={value} required>
@@ -18,8 +18,16 @@ export function VehicleModelPage() {
   const catalog = useVehicleCatalog()
   const { saving, message, error, save, run } = useCatalogSave(catalog.reload)
   const [editing, setEditing] = useState(null)
-  const paging = usePaging(catalog.data?.models ?? [])
+  const [query, setQuery] = useState('')
+  const [categoryId, setCategoryId] = useState('')
+  const [fuelType, setFuelType] = useState('')
   const categories = catalog.data?.categories ?? []
+  const models = (catalog.data?.models ?? []).filter((model) => (!categoryId || model.categoryId === categoryId)
+    && (!fuelType || model.fuelType === fuelType)
+    && matchesSearch(query, model.brand, model.modelName, model.manufactureYear, model.categoryName))
+  const paging = usePaging(models)
+  const filtered = Boolean(query.trim() || categoryId || fuelType)
+  const changeFilter = (set) => (event) => { set(event.target.value); paging.setPage(0) }
 
   async function submit(event) {
     const body = (fields) => ({
@@ -54,7 +62,24 @@ export function VehicleModelPage() {
     <div className="section-layout">
       <div>
         {catalog.loading && <p className="notice" role="status">Đang tải mẫu xe…</p>}
-        {catalog.data && (catalog.data.models.length
+        {catalog.data?.models.length > 0 && <div className="fleet-filters catalog-filters" role="search">
+          <label>Tìm mẫu xe<input type="search" value={query} onChange={changeFilter(setQuery)} placeholder="Hãng, tên mẫu hoặc năm…" /></label>
+          <label>Loại xe
+            <select value={categoryId} onChange={changeFilter(setCategoryId)}>
+              <option value="">Tất cả loại xe</option>
+              {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+            </select>
+          </label>
+          <label>Nhiên liệu
+            <select value={fuelType} onChange={changeFilter(setFuelType)}>
+              <option value="">Tất cả nhiên liệu</option>
+              {Object.entries(fuelTypes).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
+          </label>
+          {filtered && <div className="fleet-actions"><span className="hint">{models.length} mẫu xe phù hợp</span>
+            <button type="button" className="secondary" onClick={() => { setQuery(''); setCategoryId(''); setFuelType(''); paging.setPage(0) }}>Xóa bộ lọc</button></div>}
+        </div>}
+        {catalog.data && (models.length
           ? <><div className="fleet-table-scroll"><table className="fleet-table">
             <thead><tr><th scope="col">Mẫu xe</th><th scope="col">Loại xe</th><th scope="col">Năm</th><th scope="col">Số chỗ</th>
               <th scope="col">Nhiên liệu</th><th scope="col">Hộp số</th><th scope="col"><span className="sr-only">Thao tác</span></th></tr></thead>
@@ -67,7 +92,7 @@ export function VehicleModelPage() {
             </tr>)}</tbody></table></div>
           <Pager paging={paging} label="Phân trang mẫu xe" />
           </>
-          : <p className="empty">Chưa có mẫu xe. Hãy tạo mẫu xe đầu tiên ở khung bên cạnh.</p>)}
+          : <p className="empty">{filtered ? 'Không có mẫu xe khớp bộ lọc.' : 'Chưa có mẫu xe. Hãy tạo mẫu xe đầu tiên ở khung bên cạnh.'}</p>)}
       </div>
       {catalog.data && (categories.length
         ? <form className="upload-form" key={editing?.id ?? 'new'} onSubmit={submit}>

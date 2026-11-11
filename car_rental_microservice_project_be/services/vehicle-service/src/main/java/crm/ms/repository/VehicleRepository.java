@@ -40,7 +40,8 @@ public interface VehicleRepository extends JpaRepository<Vehicle, UUID> {
               and (:categoryId is null or v.category.id = :categoryId)
               and (:modelId is null or v.model.id = :modelId)
               and (:keyword is null or locate(:keyword, upper(v.vin)) > 0
-                                    or locate(:keyword, upper(v.licensePlate)) > 0)
+                                    or locate(:keyword, upper(v.licensePlate)) > 0
+                                    or locate(:keyword, upper(concat(v.model.brand, ' ', v.model.modelName))) > 0)
             """)
     Page<Vehicle> findActive(@Param("keyword") String keyword, @Param("status") VehicleStatus status,
                              @Param("categoryId") UUID categoryId, @Param("modelId") UUID modelId,

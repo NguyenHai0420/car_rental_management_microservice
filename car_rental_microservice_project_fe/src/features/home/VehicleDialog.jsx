@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../app/providers/auth-context'
 import { useVehicleQuery } from '../vehicles/hooks/useVehicleQuery'
 import { listVehicleImages } from '../vehicles/services/vehicle'
-import { formatPrice, fuelTypes, sizeClasses, transmissions } from '../vehicles/vehicle-fields'
+import { formatPrice, fuelTypes, transmissions } from '../vehicles/vehicle-fields'
 import { CarPhoto } from './CarPhoto'
 
 export function VehicleDialog({ car, onClose }) {
@@ -24,7 +24,7 @@ export function VehicleDialog({ car, onClose }) {
 
   const facts = [['Năm sản xuất', car.manufactureYear], ['Số chỗ', `${car.seatCount} chỗ`],
     ['Hộp số', transmissions[car.transmission]], ['Nhiên liệu', fuelTypes[car.fuelType]],
-    ['Phân hạng', sizeClasses[car.sizeClass]], ['Màu xe', car.color], ['Nhận xe tại', car.location]]
+    ['Màu xe', car.color], ['Nhận xe tại', car.location]]
 
   return <dialog ref={ref} className="car-dialog" aria-labelledby="car-dialog-title" onClose={onClose}
     onClick={(event) => { if (event.target === ref.current) onClose() }}>

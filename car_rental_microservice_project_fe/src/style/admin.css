@@ -93,3 +93,7 @@ a.fleet-button:hover { background: var(--brand-2); }
 }
 
 .row-actions { display: flex; gap: 6px; justify-content: flex-end; } .row-actions button { min-height: 32px; padding: 4px 12px; font-size: 13px; }
+
+/* Quick filters on the category/model pages (narrower column next to the form). */
+.catalog-filters { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); align-items: end; }
+.catalog-filters .fleet-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }

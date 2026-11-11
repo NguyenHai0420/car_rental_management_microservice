@@ -31,7 +31,7 @@ public class VehicleCatalogService {
     @Transactional
     public VehicleCatalog.Category createCategory(VehicleCatalog.CategoryRequest request) {
         VehicleCategory category = VehicleCategory.builder().name(request.name().strip())
-                .description(request.description()).sizeClass(request.sizeClass()).isActive(true).build();
+                .description(request.description()).isActive(true).build();
         return mapper.toResponse(categories.saveAndFlush(category));
     }
 
@@ -53,7 +53,6 @@ public class VehicleCatalogService {
         VehicleCategory category = category(id);
         category.setName(request.name().strip());
         category.setDescription(request.description());
-        category.setSizeClass(request.sizeClass());
         return mapper.toResponse(categories.saveAndFlush(category));
     }
 

@@ -7,6 +7,7 @@ import {
   getVehicleDocumentUrl, listVehicleCategories, listVehicleModels, listVehicles, listVehicleStatusHistory,
   lookupVehicleByLicensePlate, updateVehicle, updateVehicleCategory, updateVehicleModel, uploadVehicleDocument, uploadVehicleImage, vehicleError,
 } from './vehicle.js'
+import { matchesSearch } from '../vehicle-fields.js'
 
 const fleet = '/api/v1/vehicles'
 let received
@@ -115,7 +116,7 @@ test('status uses PATCH and preserves conflict messages from the gateway', async
 })
 
 test('catalog creates and lists categories and models via vehicle routes', async () => {
-  const category = { name: 'SUV', sizeClass: 'SUV' }
+  const category = { name: 'SUV', description: 'Xe gầm cao' }
   const model = { brand: 'Toyota', modelName: 'RAV4', manufactureYear: 2025, seatCount: 5, fuelType: 'HYBRID', transmission: 'AUTOMATIC' }
   for (const [segment, read, write, fields, change, remove] of [
     ['categories', listVehicleCategories, createVehicleCategory, category, updateVehicleCategory, deleteVehicleCategory],
@@ -136,4 +137,11 @@ test('catalog creates and lists categories and models via vehicle routes', async
     assert.equal(received.method, 'DELETE')
     assert.equal(received.path, `${fleet}/${segment}/id%2F1`)
   }
+})
+
+test('matchesSearch ignores case, accents and word order', () => {
+  assert.ok(matchesSearch('vios toyota', 'Toyota', 'Vios', 'Sedan'))
+  assert.ok(matchesSearch('xe dien', 'VinFast VF8', 'Xe điện'))
+  assert.ok(matchesSearch('  ', 'anything'))
+  assert.ok(!matchesSearch('camry', 'Toyota', 'Vios'))
 })

@@ -34,3 +34,8 @@ docker compose up -d --build
 - MinIO console: <http://localhost:9001> (`minioadmin` / `minioadmin`), MySQL: `localhost:3307` (`root` / `1234`)
 
 Lần đầu build mất vài phút. Xem log: `docker compose logs -f <service>`. Dừng: `docker compose down` (thêm `-v` để xóa dữ liệu MySQL/MinIO). Sau khi sửa code chạy lại `docker compose up -d --build`.
+
+Khi chạy Java từ IntelliJ và dùng MinIO trong Docker, đặt
+`FILE_SERVICE_URL=http://localhost:8087`. Compose mở API lưu file ở
+`127.0.0.1:8087`; cổng `9000` là S3 và `9001` là giao diện quản trị MinIO.
+Các service chạy trong Docker dùng `FILE_SERVICE_URL=http://minio-service:8087`.

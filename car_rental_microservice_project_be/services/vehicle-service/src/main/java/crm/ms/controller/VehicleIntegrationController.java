@@ -85,7 +85,6 @@ public class VehicleIntegrationController {
             map.put("modelName", v.getModel().getModelName());
             map.put("categoryId", v.getCategory().getId());
             map.put("categoryName", v.getCategory().getName());
-            map.put("sizeClass", v.getCategory().getSizeClass() != null ? v.getCategory().getSizeClass().name() : null);
             map.put("color", v.getColor());
             map.put("seatCount", v.getModel().getSeatCount());
             map.put("fuelType", v.getModel().getFuelType() != null ? v.getModel().getFuelType().name() : null);

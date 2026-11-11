@@ -9,8 +9,7 @@ export function mapShowroomCarToPricingVehicle(car, tierByCategory = {}) {
   const rawRate = Number(car.dailyRate) > 0 ? Number(car.dailyRate) : Number(tier?.baseDailyRate) || 90000;
   const isLarge =
     Number(car.seatCount) >= 7 ||
-    String(car.categoryName || "").toLowerCase().includes("suv") ||
-    String(car.sizeClass || "").toUpperCase() === "SUV";
+    String(car.categoryName || "").toLowerCase().includes("suv");
 
   return {
     id: `showroom-${car.id}`,

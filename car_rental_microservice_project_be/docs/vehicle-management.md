@@ -44,7 +44,7 @@ Các đường dẫn dưới đây có tiền tố `/api/v1/vehicles`. Dùng Bea
 | DELETE | `/{id}` | Xóa mềm, trả 200. |
 | PATCH | `/{id}/status` | `status` và `reason` tùy chọn, tối đa 500 ký tự. |
 | GET | `/{id}/status-history` | Các lần đổi trạng thái, mới nhất trước. |
-| GET, POST | `/categories` | Liệt kê hoặc tạo loại xe với `name`, `sizeClass` và `description` tùy chọn. |
+| GET, POST | `/categories` | Liệt kê hoặc tạo loại xe với `name` bắt buộc và `description` tùy chọn. |
 | PUT, DELETE | `/categories/{id}` | Sửa loại xe, hoặc xóa khi không còn mẫu xe nào thuộc loại đó (nếu còn: 409). |
 | GET, POST | `/models` | Liệt kê hoặc tạo mẫu xe với `brand`, `modelName`, `manufactureYear`, `fuelType`, `seatCount`, `transmission` và `engineCapacityCc` tùy chọn. |
 | PUT, DELETE | `/models/{id}` | Sửa mẫu xe (đổi loại xe thì loại của các xe thuộc mẫu đó đổi theo), hoặc xóa khi chưa có xe nào dùng, kể cả xe đã xóa mềm (nếu có: 409). |
@@ -57,7 +57,7 @@ Gọi endpoint gốc bằng `/api/v1/vehicles` không có dấu gạch chéo cu�
 - VIN và biển số duy nhất ở MySQL, kể cả với xe đã xóa mềm. Trùng khóa, bước chuyển sai và xóa xe trong trạng thái bị chặn trả `409`. Dữ liệu sai định dạng trả `400`. Thiếu xác thực trả `401` và thiếu quyền trả `403`.
 - Xe mới ở trạng thái `AVAILABLE`. Chỉ PATCH trạng thái ghi lịch sử, gồm trạng thái cũ, trạng thái mới, lý do nếu có, subject của người thực hiện và thời điểm. Gửi lại trạng thái đang có trả `200` và không sinh bản ghi mới. Bộ lọc `AVAILABLE` dùng trạng thái hiện tại của xe.
 - Chỉ xóa mềm xe `AVAILABLE` hoặc `DECOMMISSIONED`. Xe bị ẩn khỏi danh sách. Chi tiết, lịch sử và API media theo UUID của xe đã xóa trả `404`. MySQL giữ xe và các bản ghi liên quan, MinIO giữ file.
-- Các bảng, cột và khóa duy nhất phục vụ chức năng này đã có trong entity. Bản này không cần migration schema mới. Với DB dùng schema media cũ, làm theo [migration media hiện có](minio-vehicle-media.md#migration-schema-cũ).
+- Loại xe chỉ có tên, mô tả và trạng thái hoạt động; không có trường phân hạng ở loại xe hoặc mẫu xe. Với DB cũ, áp dụng [migration xóa cột phân hạng](../services/vehicle-service/src/main/resources/db/manual/003_drop_vehicle_category_size_class.sql) theo hướng dẫn dưới đây. Với DB dùng schema media cũ, làm theo [migration media hiện có](minio-vehicle-media.md#migration-schema-cũ).
 
 | Trạng thái hiện tại | Có thể chuyển sang |
 | --- | --- |
@@ -66,6 +66,14 @@ Gọi endpoint gốc bằng `/api/v1/vehicles` không có dấu gạch chéo cu�
 | `RENTED` | `AVAILABLE` |
 | `IN_MAINTENANCE` | `AVAILABLE` |
 | `DECOMMISSIONED` | Trạng thái cuối |
+
+## Cập nhật database cũ
+
+1. Dừng vehicle-service và sao lưu bảng `vehicle_categories`.
+2. Chọn database `vehicle_db`, chạy một lần script `services/vehicle-service/src/main/resources/db/manual/003_drop_vehicle_category_size_class.sql`. Script xóa cột phân hạng, giữ nguyên ID loại xe và các liên kết mẫu xe/xe. Hibernate `ddl-auto=update` không tự xóa cột cũ; cần chạy migration trước khi khởi động bản mới hoặc chạy seed.
+3. Build và khởi động lại vehicle-service, booking-service; cập nhật frontend để dùng API đã bỏ phân hạng. Cơ chế tính giá theo `categoryId` giữ nguyên.
+
+Database mới không chạy migration này: Hibernate tạo bảng theo entity mới. Script seed chỉ dùng cho database phát triển vì sẽ xóa dữ liệu đội xe hiện có.
 
 ## Kiểm thử
 
