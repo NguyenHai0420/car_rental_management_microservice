@@ -22,3 +22,8 @@
 
 # IDE
 .vscode/
+
+# Documents & Reports
+*.docx
+~$*
+build_report.js

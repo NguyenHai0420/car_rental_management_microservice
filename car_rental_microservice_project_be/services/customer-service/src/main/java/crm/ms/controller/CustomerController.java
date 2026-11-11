@@ -127,4 +127,18 @@ public class CustomerController {
         CustomerEligibilityResponse response = customerService.checkEligibility(id);
         return ResponseEntity.ok(response);
     }
+
+    // 9. API nội bộ cung cấp cho Booking Service: Kiểm tra điều kiện thuê theo Keycloak User ID
+    @GetMapping("/by-keycloak/{keycloakUserId}/eligibility")
+    public ResponseEntity<ResponseApi> checkEligibilityByKeycloak(
+            @PathVariable("keycloakUserId") String keycloakUserId
+    ) {
+        log.info("Booking Service checking eligibility for Keycloak User ID: {}", keycloakUserId);
+        CustomerEligibilityResponse response = customerService.checkEligibilityByKeycloak(keycloakUserId);
+        return ResponseEntity.ok(ResponseApi.builder()
+                .code(HttpStatus.OK)
+                .message("Customer eligibility retrieved")
+                .data(response)
+                .build());
+    }
 }

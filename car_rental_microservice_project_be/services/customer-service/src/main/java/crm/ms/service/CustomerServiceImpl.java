@@ -172,62 +172,108 @@ public class CustomerServiceImpl implements CustomerService {
     @Transactional(readOnly = true)
     public CustomerEligibilityResponse checkEligibility(UUID customerId) {
         Customer customer = customerRepository.findById(customerId).orElse(null);
+        return buildEligibilityResponse(customer, customerId, null);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CustomerEligibilityResponse checkEligibilityByKeycloak(String keycloakUserId) {
+        UUID keycloakUuid;
+        try {
+            keycloakUuid = UUID.fromString(keycloakUserId);
+        } catch (IllegalArgumentException e) {
+            return CustomerEligibilityResponse.builder()
+                    .keycloakUserId(keycloakUserId)
+                    .eligible(false)
+                    .reason("Invalid Keycloak user ID format")
+                    .build();
+        }
+        Customer customer = customerRepository.findByKeycloakUserId(keycloakUuid).orElse(null);
+        return buildEligibilityResponse(customer, customer != null ? customer.getId() : null, keycloakUserId);
+    }
+
+    private CustomerEligibilityResponse buildEligibilityResponse(Customer customer, UUID customerId, String keycloakUserId) {
         if (customer == null) {
             return CustomerEligibilityResponse.builder()
                     .customerId(customerId)
+                    .keycloakUserId(keycloakUserId)
                     .eligible(false)
-                    .reason("Customer not found")
+                    .reason("Khách hàng chưa hoàn thiện hồ sơ hoặc chưa tồn tại")
                     .build();
         }
 
+        String actualKeycloakId = customer.getKeycloakUserId() != null ? customer.getKeycloakUserId().toString() : keycloakUserId;
+
         if (customer.getStatus() == CustomerStatus.BLACKLISTED || customer.getStatus() == CustomerStatus.SUSPENDED) {
             return CustomerEligibilityResponse.builder()
-                    .customerId(customerId)
+                    .customerId(customer.getId())
+                    .keycloakUserId(actualKeycloakId)
+                    .fullName(customer.getFullName())
+                    .email(customer.getEmail())
+                    .phone(customer.getPhone())
                     .eligible(false)
                     .customerStatus(customer.getStatus())
-                    .reason("Customer account is " + customer.getStatus())
+                    .reason("Tài khoản khách hàng đang bị " + customer.getStatus())
                     .build();
         }
 
         DriverLicense license = customer.getDriverLicense();
         if (license == null) {
             return CustomerEligibilityResponse.builder()
-                    .customerId(customerId)
+                    .customerId(customer.getId())
+                    .keycloakUserId(actualKeycloakId)
+                    .fullName(customer.getFullName())
+                    .email(customer.getEmail())
+                    .phone(customer.getPhone())
                     .eligible(false)
                     .customerStatus(customer.getStatus())
-                    .reason("Customer has not submitted a driver license")
+                    .reason("Khách hàng chưa nộp giấy phép lái xe")
                     .build();
         }
 
         if (license.getVerificationStatus() != VerificationStatus.VERIFIED) {
             return CustomerEligibilityResponse.builder()
-                    .customerId(customerId)
+                    .customerId(customer.getId())
+                    .keycloakUserId(actualKeycloakId)
+                    .fullName(customer.getFullName())
+                    .email(customer.getEmail())
+                    .phone(customer.getPhone())
                     .eligible(false)
                     .customerStatus(customer.getStatus())
                     .licenseVerificationStatus(license.getVerificationStatus())
-                    .reason("Driver license status is " + license.getVerificationStatus() + ", not VERIFIED")
+                    .licenseClass(license.getLicenseClass())
+                    .reason("Giấy phép lái xe đang ở trạng thái " + license.getVerificationStatus() + ", chưa được duyệt")
                     .build();
         }
 
         if (license.getExpiryDate() != null && license.getExpiryDate().isBefore(LocalDate.now())) {
             return CustomerEligibilityResponse.builder()
-                    .customerId(customerId)
+                    .customerId(customer.getId())
+                    .keycloakUserId(actualKeycloakId)
+                    .fullName(customer.getFullName())
+                    .email(customer.getEmail())
+                    .phone(customer.getPhone())
                     .eligible(false)
                     .customerStatus(customer.getStatus())
                     .licenseVerificationStatus(license.getVerificationStatus())
+                    .licenseClass(license.getLicenseClass())
                     .licenseExpiryDate(license.getExpiryDate())
-                    .reason("Driver license has expired on " + license.getExpiryDate())
+                    .reason("Giấy phép lái xe đã hết hạn vào ngày " + license.getExpiryDate())
                     .build();
         }
 
         return CustomerEligibilityResponse.builder()
-                .customerId(customerId)
+                .customerId(customer.getId())
+                .keycloakUserId(actualKeycloakId)
+                .fullName(customer.getFullName())
+                .email(customer.getEmail())
+                .phone(customer.getPhone())
                 .eligible(true)
                 .customerStatus(customer.getStatus())
                 .licenseVerificationStatus(license.getVerificationStatus())
                 .licenseClass(license.getLicenseClass())
                 .licenseExpiryDate(license.getExpiryDate())
-                .reason("Customer is eligible for renting a vehicle")
+                .reason("Khách hàng đủ điều kiện thuê xe")
                 .build();
     }
 }

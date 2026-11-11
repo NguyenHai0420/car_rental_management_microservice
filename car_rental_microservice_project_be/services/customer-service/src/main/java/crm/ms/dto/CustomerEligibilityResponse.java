@@ -15,6 +15,10 @@ import java.util.UUID;
 @Builder
 public class CustomerEligibilityResponse {
     private UUID customerId;
+    private String keycloakUserId;
+    private String fullName;
+    private String email;
+    private String phone;
     private boolean eligible;
     private String reason;
     private CustomerStatus customerStatus;

@@ -22,4 +22,6 @@ public interface CustomerService {
     DriverLicenseResponse verifyDriverLicense(UUID customerId, VerifyLicenseRequest request, String staffUserName);
 
     CustomerEligibilityResponse checkEligibility(UUID customerId);
+
+    CustomerEligibilityResponse checkEligibilityByKeycloak(String keycloakUserId);
 }
