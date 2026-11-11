@@ -11,3 +11,4 @@ public interface BookingClient {
     @GetMapping("/api/v1/bookings/by-user/{keycloakUserId}")
     BookingListResponseWrapper getBookingsByUserId(@PathVariable("keycloakUserId") String keycloakUserId);
 }
+
