@@ -34,3 +34,12 @@ management:
     web:
       exposure:
         include: health,info
+
+app:
+  file-service:
+    url: ${FILE_SERVICE_URL:http://localhost:8087}
+    service-name: customer-service
+    service-key: ${FILE_SERVICE_CUSTOMER_API_KEY:local-customer-file-service-key}
+    bucket: customer-images
+    key-prefix: customers/
+

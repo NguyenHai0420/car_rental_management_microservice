@@ -1,21 +1,40 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { customerError } from '../services/customer'
+import { customerError, uploadCustomerImage } from '../services/customer'
 
 export function CustomerForm({ initialData, onSave, cancelTo = '/' }) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [avatarUrl, setAvatarUrl] = useState(initialData?.avatarUrl ?? '')
+
+  async function handleAvatarChange(event) {
+    const file = event.target.files?.[0]
+    if (!file) return
+    setError('')
+    setUploadingAvatar(true)
+    try {
+      const res = await uploadCustomerImage(file)
+      const url = res?.url || res
+      setAvatarUrl(url)
+    } catch (err) {
+      setError(customerError(err))
+    } finally {
+      setUploadingAvatar(false)
+    }
+  }
 
   async function submit(event) {
     event.preventDefault()
     const form = new FormData(event.currentTarget)
     const fields = {
       fullName: form.get('fullName')?.trim(),
+      email: form.get('email')?.trim() || null,
       phone: form.get('phone')?.trim() || null,
       dateOfBirth: form.get('dateOfBirth') || null,
       gender: form.get('gender') || null,
-      avatarUrl: form.get('avatarUrl')?.trim() || null,
+      avatarUrl: avatarUrl?.trim() || null,
     }
 
     setSaving(true)
@@ -58,6 +77,19 @@ export function CustomerForm({ initialData, onSave, cancelTo = '/' }) {
         </label>
 
         <label>
+          Email liên hệ
+          <input
+            name="email"
+            type="email"
+            defaultValue={initialData?.email ?? ''}
+            required
+            maxLength={150}
+            placeholder="customer@carrental.vn"
+            autoComplete="email"
+          />
+        </label>
+
+        <label>
           Số điện thoại
           <input
             name="phone"
@@ -87,13 +119,29 @@ export function CustomerForm({ initialData, onSave, cancelTo = '/' }) {
         </label>
 
         <label style={{ gridColumn: '1 / -1' }}>
-          Đường dẫn ảnh đại diện (Avatar URL)
-          <input
-            name="avatarUrl"
-            defaultValue={initialData?.avatarUrl ?? ''}
-            maxLength={500}
-            placeholder="https://example.com/avatar.jpg"
-          />
+          Ảnh đại diện (Chọn tệp từ máy tính)
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 6 }}>
+            {avatarUrl && (
+              <img
+                src={avatarUrl}
+                alt="Avatar"
+                style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--line)' }}
+                onError={(e) => { e.currentTarget.style.display = 'none' }}
+              />
+            )}
+            <div style={{ flex: 1 }}>
+              <input
+                type="file"
+                accept="image/*"
+                disabled={saving || uploadingAvatar}
+                onChange={handleAvatarChange}
+                style={{ padding: '6px' }}
+              />
+              {uploadingAvatar && <span style={{ fontSize: '12px', color: '#0284c7', display: 'block', marginTop: 4 }}>⏳ Đang tải ảnh lên hệ thống...</span>}
+              {avatarUrl && !uploadingAvatar && <span style={{ fontSize: '12px', color: '#16a34a', display: 'block', marginTop: 4 }}>✓ Đã chọn ảnh đại diện</span>}
+            </div>
+          </div>
+          <input type="hidden" name="avatarUrl" value={avatarUrl ?? ''} />
         </label>
 
         <div className="fleet-actions">

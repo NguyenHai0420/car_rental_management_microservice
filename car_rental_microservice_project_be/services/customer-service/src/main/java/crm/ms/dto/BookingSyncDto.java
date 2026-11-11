@@ -25,3 +25,4 @@ public class BookingSyncDto {
     private BigDecimal estimatedTotal;
     private String currency;
 }
+

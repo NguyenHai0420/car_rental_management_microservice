@@ -1,12 +1,35 @@
 import { useState } from 'react'
-import { customerError } from '../services/customer'
+import { customerError, uploadCustomerImage } from '../services/customer'
 
 export function DriverLicenseForm({ license, onSubmitLicense }) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [uploadError, setUploadError] = useState('')
+  const [uploadingFront, setUploadingFront] = useState(false)
+  const [uploadingBack, setUploadingBack] = useState(false)
   const [frontUrl, setFrontUrl] = useState(license?.frontImageUrl ?? '')
   const [backUrl, setBackUrl] = useState(license?.backImageUrl ?? '')
+
+  async function handleFileChange(event, isFront) {
+    const file = event.target.files?.[0]
+    if (!file) return
+    setUploadError('')
+    if (isFront) setUploadingFront(true)
+    else setUploadingBack(true)
+
+    try {
+      const res = await uploadCustomerImage(file)
+      const url = res?.url || res
+      if (isFront) setFrontUrl(url)
+      else setBackUrl(url)
+    } catch (err) {
+      setUploadError(customerError(err))
+    } finally {
+      if (isFront) setUploadingFront(false)
+      else setUploadingBack(false)
+    }
+  }
 
   async function submit(event) {
     event.preventDefault()
@@ -19,6 +42,11 @@ export function DriverLicenseForm({ license, onSubmitLicense }) {
       issuingAuthority: form.get('issuingAuthority')?.trim() || null,
       frontImageUrl: form.get('frontImageUrl')?.trim(),
       backImageUrl: form.get('backImageUrl')?.trim(),
+    }
+
+    if (!fields.frontImageUrl || !fields.backImageUrl) {
+      setError('Vui lòng chọn tải lên đầy đủ ảnh mặt trước và mặt sau của GPLX.')
+      return
     }
 
     setSaving(true)
@@ -49,6 +77,12 @@ export function DriverLicenseForm({ license, onSubmitLicense }) {
       {success && (
         <p className="notice" style={{ color: '#16a34a', borderColor: '#86efac' }} role="status">
           ✓ {success}
+        </p>
+      )}
+
+      {uploadError && (
+        <p className="notice error" role="alert">
+          {uploadError}
         </p>
       )}
 
@@ -105,27 +139,31 @@ export function DriverLicenseForm({ license, onSubmitLicense }) {
         </label>
 
         <label>
-          Đường dẫn ảnh mặt trước (Front Image URL)
+          Ảnh mặt trước GPLX (Chọn tệp từ máy)
           <input
-            name="frontImageUrl"
-            value={frontUrl}
-            onChange={(e) => setFrontUrl(e.target.value)}
-            required
-            maxLength={500}
-            placeholder="https://..."
+            type="file"
+            accept="image/*"
+            disabled={saving || uploadingFront}
+            onChange={(e) => handleFileChange(e, true)}
+            style={{ marginBottom: 6, padding: '6px' }}
           />
+          {uploadingFront && <span style={{ fontSize: '12px', color: '#0284c7', display: 'block', marginBottom: 4 }}>⏳ Đang tải ảnh lên hệ thống...</span>}
+          {frontUrl && !uploadingFront && <span style={{ fontSize: '12px', color: '#16a34a', display: 'block' }}>✓ Đã có ảnh mặt trước</span>}
+          <input type="hidden" name="frontImageUrl" value={frontUrl} />
         </label>
 
         <label>
-          Đường dẫn ảnh mặt sau (Back Image URL)
+          Ảnh mặt sau GPLX (Chọn tệp từ máy)
           <input
-            name="backImageUrl"
-            value={backUrl}
-            onChange={(e) => setBackUrl(e.target.value)}
-            required
-            maxLength={500}
-            placeholder="https://..."
+            type="file"
+            accept="image/*"
+            disabled={saving || uploadingBack}
+            onChange={(e) => handleFileChange(e, false)}
+            style={{ marginBottom: 6, padding: '6px' }}
           />
+          {uploadingBack && <span style={{ fontSize: '12px', color: '#0284c7', display: 'block', marginBottom: 4 }}>⏳ Đang tải ảnh lên hệ thống...</span>}
+          {backUrl && !uploadingBack && <span style={{ fontSize: '12px', color: '#16a34a', display: 'block' }}>✓ Đã có ảnh mặt sau</span>}
+          <input type="hidden" name="backImageUrl" value={backUrl} />
         </label>
 
         {(frontUrl || backUrl) && (

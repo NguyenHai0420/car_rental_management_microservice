@@ -16,3 +16,4 @@ public class BookingListResponseWrapper {
     private String message;
     private List<BookingSyncDto> data;
 }
+

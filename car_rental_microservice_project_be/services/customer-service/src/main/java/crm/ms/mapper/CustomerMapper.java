@@ -7,9 +7,11 @@ import crm.ms.dto.RentalHistoryResponse;
 import crm.ms.entity.Customer;
 import crm.ms.entity.CustomerRentalHistory;
 import crm.ms.entity.DriverLicense;
+import org.mapstruct.BeanMapping;
 import org.mapstruct.Builder;
 import org.mapstruct.Mapper;
 import org.mapstruct.MappingTarget;
+import org.mapstruct.NullValuePropertyMappingStrategy;
 import org.mapstruct.ReportingPolicy;
 
 @Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE, builder = @Builder(disableBuilder = true))
@@ -19,5 +21,8 @@ public interface CustomerMapper {
     CustomerResponse fromEntity(Customer customer);
     DriverLicenseResponse toDriverLicenseResponse(DriverLicense driverLicense);
     RentalHistoryResponse toRentalHistoryResponse(CustomerRentalHistory history);
+
+    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     void updateEntityFromRequest(CustomerRequest request, @MappingTarget Customer customer);
 }
+
