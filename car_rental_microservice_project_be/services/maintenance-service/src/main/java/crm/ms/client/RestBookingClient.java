@@ -5,10 +5,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import crm.ms.client.dto.ExternalBookingConflictResponse;
 import crm.ms.config.MaintenanceClientProperties;
 import crm.ms.config.RestClientConfig;
+import crm.ms.exception.BusinessException;
 import crm.ms.exception.ExternalServiceUnavailableException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.ResourceAccessException;
@@ -23,16 +23,18 @@ import java.util.UUID;
 @Slf4j
 public class RestBookingClient implements BookingClient {
 
+    private static final String SERVICE_LABEL = "Booking Service";
+
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
+    private final String serviceName;
     private final String internalToken;
 
     @Autowired
     public RestBookingClient(
             MaintenanceClientProperties properties,
             Map<String, RestClient.Builder> restClientBuilders,
-            ObjectMapper objectMapper,
-            @Value("${maintenance.security.internal-token:}") String internalToken) {
+            ObjectMapper objectMapper) {
         String baseUrl = properties.getBookingService().getBaseUrl();
         RestClient.Builder builder = RestClientConfig.selectBuilder(
                 baseUrl,
@@ -41,12 +43,25 @@ public class RestBookingClient implements BookingClient {
         );
         this.restClient = builder.baseUrl(baseUrl).build();
         this.objectMapper = objectMapper;
-        this.internalToken = internalToken;
+        this.serviceName = properties.getServiceName();
+        this.internalToken = properties.getBookingService().getInternalToken();
+        if (this.internalToken == null || this.internalToken.isBlank()) {
+            log.warn("maintenance.clients.booking-service.internal-token is not configured; outbound internal calls will fail closed if Booking Service enforces service auth");
+        }
     }
 
     public RestBookingClient(RestClient restClient, ObjectMapper objectMapper, String internalToken) {
+        this(restClient, objectMapper, "maintenance-service", internalToken);
+    }
+
+    public RestBookingClient(
+            RestClient restClient,
+            ObjectMapper objectMapper,
+            String serviceName,
+            String internalToken) {
         this.restClient = restClient;
         this.objectMapper = objectMapper;
+        this.serviceName = serviceName;
         this.internalToken = internalToken;
     }
 
@@ -61,16 +76,14 @@ public class RestBookingClient implements BookingClient {
                             .build(vehicleId))
                     .accept(MediaType.APPLICATION_JSON);
 
-            InternalClientHeaders.applyServiceHeaders(spec, internalToken);
+            InternalClientHeaders.applyServiceHeaders(spec, serviceName, internalToken);
 
             String rawBody = spec.retrieve().body(String.class);
             return unwrapBookingResponse(rawBody);
         } catch (RestClientResponseException ex) {
-            log.error("Booking Service HTTP error {} checking conflicts for vehicleId={}: {}",
-                    ex.getStatusCode().value(), vehicleId, ex.getResponseBodyAsString());
-            throw new ExternalServiceUnavailableException(
-                    "Booking Service failed (HTTP " + ex.getStatusCode().value() + ") while verifying rental conflicts",
-                    ex);
+            log.warn("Booking Service HTTP {} checking conflicts for vehicleId={}",
+                    ex.getStatusCode().value(), vehicleId);
+            throw InternalClientHeaders.mapDownstreamException(SERVICE_LABEL, "vehicle", vehicleId, ex, objectMapper);
         } catch (ResourceAccessException ex) {
             log.error("Booking Service unreachable/timeout checking conflicts for vehicleId={}: {}",
                     vehicleId, ex.getMessage());
@@ -91,7 +104,7 @@ public class RestBookingClient implements BookingClient {
                         "Booking Service response missing required 'hasConflict' field");
             }
             return objectMapper.treeToValue(target, ExternalBookingConflictResponse.class);
-        } catch (ExternalServiceUnavailableException ex) {
+        } catch (BusinessException ex) {
             throw ex;
         } catch (Exception ex) {
             throw new ExternalServiceUnavailableException("Failed to parse Booking Service conflict response", ex);
