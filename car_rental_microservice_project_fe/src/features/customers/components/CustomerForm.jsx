@@ -120,22 +120,28 @@ export function CustomerForm({ initialData, onSave, cancelTo = '/' }) {
 
         <label style={{ gridColumn: '1 / -1' }}>
           Ảnh đại diện (Chọn tệp từ máy tính)
-          <input
-            type="file"
-            accept="image/*"
-            disabled={saving || uploadingAvatar}
-            onChange={handleAvatarChange}
-            style={{ marginBottom: 6, padding: '4px' }}
-          />
-          {uploadingAvatar && <span style={{ fontSize: '12px', color: '#0284c7', display: 'block', marginBottom: 4 }}>⏳ Đang tải ảnh lên MinIO...</span>}
-          <input
-            name="avatarUrl"
-            value={avatarUrl}
-            onChange={(e) => setAvatarUrl(e.target.value)}
-            maxLength={500}
-            placeholder="MinIO URL (tự động điền sau khi chọn tệp)"
-            style={{ fontSize: '12px', color: 'var(--muted)' }}
-          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 6 }}>
+            {avatarUrl && (
+              <img
+                src={avatarUrl}
+                alt="Avatar"
+                style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--line)' }}
+                onError={(e) => { e.currentTarget.style.display = 'none' }}
+              />
+            )}
+            <div style={{ flex: 1 }}>
+              <input
+                type="file"
+                accept="image/*"
+                disabled={saving || uploadingAvatar}
+                onChange={handleAvatarChange}
+                style={{ padding: '6px' }}
+              />
+              {uploadingAvatar && <span style={{ fontSize: '12px', color: '#0284c7', display: 'block', marginTop: 4 }}>⏳ Đang tải ảnh lên hệ thống...</span>}
+              {avatarUrl && !uploadingAvatar && <span style={{ fontSize: '12px', color: '#16a34a', display: 'block', marginTop: 4 }}>✓ Đã chọn ảnh đại diện</span>}
+            </div>
+          </div>
+          <input type="hidden" name="avatarUrl" value={avatarUrl ?? ''} />
         </label>
 
         <div className="fleet-actions">
