@@ -12,16 +12,7 @@
   font: 16px/1.5 var(--font); color: var(--ink); background: var(--bg); color-scheme: light;
   -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --ink: #e5e7eb; --ink-2: #cbd5e1; --muted: #94a3b8; --line: #263041; --line-2: #334155;
-    --bg: #0b1220; --surface: #111a2b; --surface-2: #17233a;
-    --brand: #2dd4bf; --brand-2: #5eead4; --brand-soft: #0f3d3a; --brand-ink: #99f6e4;
-    --danger: #fda29b; --danger-soft: #3b1713; --ok: #75e0a7; --ok-soft: #0c2e1f;
-    --warn: #fec84b; --warn-soft: #3a2a0a; --info: #93c5fd; --info-soft: #14294d; --violet: #c4b5fd; --violet-soft: #2a1f4d;
-    --shadow-md: 0 8px 24px -8px rgb(0 0 0 / .6); color-scheme: dark;
-  }
-}
+/* Dark mode override disabled to keep light theme consistent with customer showroom */
 * { box-sizing: border-box; }
 /* Undo the parts of Bootstrap's reboot the admin console was not written for. */
 h1, h2, h3 { font-weight: 700; }

@@ -22,6 +22,9 @@ import { VehicleModelPage } from '../features/vehicles/pages/VehicleModelPage'
 import { VehicleDetailPage } from '../features/vehicles/pages/VehicleDetailPage'
 import { VehicleFormPage } from '../features/vehicles/pages/VehicleFormPage'
 import { VehicleListPage } from '../features/vehicles/pages/VehicleListPage'
+import { ProfilePage } from '../features/customers/pages/ProfilePage'
+import { CustomerListPage } from '../features/customers/pages/CustomerListPage'
+import { CustomerDetailPage } from '../features/customers/pages/CustomerDetailPage'
 import { HomePage } from '../features/home/HomePage'
 import { PricingPage } from '../features/payments/pages/PricingPage'
 import { PaymentPage } from '../features/payments/pages/PaymentPage'
@@ -120,6 +123,8 @@ export default function App() {
         <Route path=":id" element={<VehicleDetailPage />} />
         <Route path=":id/edit" element={<VehicleFormPage />} />
         <Route path="bookings" element={<AdminBookingManagementPage />} />
+        <Route path="customers" element={<CustomerListPage />} />
+        <Route path="customers/:id" element={<CustomerDetailPage />} />
       </Route>
       <Route path="/rent" element={<PricingPage />} />
       <Route path="/pricing" element={<PricingPage />} />
@@ -159,11 +164,7 @@ export default function App() {
           path="/profile"
           element={
             <PrivateRoute>
-              <ModulePlaceholder
-                title="Hồ Sơ Khách Hàng & GPLX (Customer Service)"
-                owner="DA"
-                serviceName="customer-service (:8082)"
-              />
+              <ProfilePage />
             </PrivateRoute>
           }
         />
