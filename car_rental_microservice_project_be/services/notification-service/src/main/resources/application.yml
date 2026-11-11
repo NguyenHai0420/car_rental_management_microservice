@@ -4,33 +4,85 @@ service:
   version: 1.0.0
   port: 8086
 
+server:
+  port: ${SERVER_PORT:${service.port}}
+
 spring:
   application:
     name: notification-service
   datasource:
-    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3307}/notification_db
-    username: ${DB_USER:root}
-    password: ${DB_PASSWORD:1234}
+    url: ${NOTIFICATION_DB_URL:${DB_URL:jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3307}/notification_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true}}
+    username: ${NOTIFICATION_DB_USERNAME:${DB_USERNAME:${DB_USER:root}}}
+    password: ${NOTIFICATION_DB_PASSWORD:${DB_PASSWORD:1234}}
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
+    open-in-view: false
     hibernate:
-      ddl-auto: update
-    show-sql: true
+      ddl-auto: ${JPA_DDL_AUTO:validate}
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+    show-sql: false
     properties:
       hibernate:
         format_sql: true
+        jdbc:
+          time_zone: UTC
+  jackson:
+    time-zone: UTC
   security:
     oauth2:
       resourceserver:
         jwt:
           issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/car-rental-realm}
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    default-encoding: UTF-8
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          connectiontimeout: ${MAIL_CONNECT_TIMEOUT_MS:5000}
+          timeout: ${MAIL_READ_TIMEOUT_MS:5000}
+          writetimeout: ${MAIL_WRITE_TIMEOUT_MS:5000}
 
 eureka:
+  instance:
+    prefer-ip-address: ${EUREKA_PREFER_IP_ADDRESS:true}
   client:
     service-url:
-      defaultZone: ${EUREKA_URI:http://localhost:8761/eureka/}
-  instance:
-    prefer-ip-address: true
+      defaultZone: ${EUREKA_SERVER_URL:${EUREKA_URI:http://localhost:8761/eureka/}}
 
-server:
-  port: ${service.port}
+notification:
+  mail:
+    from-address: ${MAIL_FROM_ADDRESS:${MAIL_USERNAME:noreply@carrental.local}}
+    from-name: ${MAIL_FROM_NAME:Car Rental System}
+    enforce-allowlist: ${MAIL_ENFORCE_ALLOWLIST:false}
+    allowed-recipients: ${MAIL_ALLOWED_RECIPIENTS:}
+  retry:
+    max-attempts: ${NOTIFICATION_MAX_RETRIES:3}
+    base-delay-seconds: ${NOTIFICATION_RETRY_BASE_DELAY_SECONDS:30}
+    stale-sending-timeout-seconds: ${NOTIFICATION_STALE_SENDING_TIMEOUT_SECONDS:120}
+  recovery:
+    enabled: ${NOTIFICATION_RECOVERY_ENABLED:true}
+    interval-ms: ${NOTIFICATION_RECOVERY_INTERVAL_MS:30000}
+  security:
+    enabled: ${NOTIFICATION_SECURITY_ENABLED:true}
+    require-gateway-secret: ${NOTIFICATION_REQUIRE_GATEWAY_SECRET:true}
+    gateway-secret: ${NOTIFICATION_GATEWAY_SECRET:}
+    internal-token: ${NOTIFICATION_INTERNAL_TOKEN:}
+    allowed-roles: ${NOTIFICATION_ALLOWED_ROLES:ADMIN,STAFF,SYSTEM,SERVICE}
+
+management:
+  health:
+    mail:
+      enabled: ${MAIL_HEALTH_CHECK_ENABLED:false}
+  endpoints:
+    web:
+      exposure:
+        include: health,info

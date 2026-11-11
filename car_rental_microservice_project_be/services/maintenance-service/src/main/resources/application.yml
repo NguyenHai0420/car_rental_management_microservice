@@ -4,21 +4,31 @@ service:
   version: 1.0.0
   port: 8085
 
+server:
+  port: ${SERVER_PORT:${service.port}}
+
 spring:
   application:
     name: maintenance-service
   datasource:
-    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3307}/maintenance_db
-    username: ${DB_USER:root}
-    password: ${DB_PASSWORD:1234}
+    url: ${MAINTENANCE_DB_URL:${DB_URL:jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3307}/maintenance_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true}}
+    username: ${MAINTENANCE_DB_USERNAME:${DB_USERNAME:${DB_USER:root}}}
+    password: ${MAINTENANCE_DB_PASSWORD:${DB_PASSWORD:1234}}
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
+    open-in-view: false
     hibernate:
-      ddl-auto: update
-    show-sql: true
+      ddl-auto: ${JPA_DDL_AUTO:validate}
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+    show-sql: false
     properties:
       hibernate:
         format_sql: true
+        jdbc:
+          time_zone: UTC
+  jackson:
+    time-zone: UTC
   security:
     oauth2:
       resourceserver:
@@ -26,11 +36,35 @@ spring:
           issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/car-rental-realm}
 
 eureka:
+  instance:
+    prefer-ip-address: ${EUREKA_PREFER_IP_ADDRESS:true}
   client:
     service-url:
-      defaultZone: ${EUREKA_URI:http://localhost:8761/eureka/}
-  instance:
-    prefer-ip-address: true
+      defaultZone: ${EUREKA_SERVER_URL:${EUREKA_URI:http://localhost:8761/eureka/}}
 
-server:
-  port: ${service.port}
+maintenance:
+  clients:
+    vehicle-service:
+      base-url: ${VEHICLE_SERVICE_URL:http://vehicle-service}
+    booking-service:
+      base-url: ${BOOKING_SERVICE_URL:http://booking-service}
+    connect-timeout-ms: ${CLIENT_CONNECT_TIMEOUT_MS:3000}
+    read-timeout-ms: ${CLIENT_READ_TIMEOUT_MS:5000}
+  sync:
+    scheduler:
+      enabled: ${MAINTENANCE_SYNC_SCHEDULER_ENABLED:true}
+    interval-ms: ${MAINTENANCE_SYNC_INTERVAL_MS:60000}
+    max-retries: ${MAINTENANCE_SYNC_MAX_RETRIES:5}
+    retry-delay-seconds: ${MAINTENANCE_SYNC_RETRY_DELAY_SECONDS:30}
+  security:
+    enabled: ${MAINTENANCE_SECURITY_ENABLED:true}
+    require-gateway-secret: ${MAINTENANCE_REQUIRE_GATEWAY_SECRET:true}
+    gateway-secret: ${MAINTENANCE_GATEWAY_SECRET:}
+    internal-token: ${MAINTENANCE_INTERNAL_TOKEN:}
+    allowed-roles: ${MAINTENANCE_ALLOWED_ROLES:ADMIN,STAFF,SYSTEM,SERVICE}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
