@@ -105,6 +105,19 @@ public class BookingCarController {
     }
 
     /**
+     * API nội bộ cung cấp cho Customer Service lấy lịch sử thuê xe theo Keycloak User ID.
+     */
+    @GetMapping("/by-user/{keycloakUserId}")
+    public ResponseEntity<ResponseApi> getBookingsByUserId(@PathVariable String keycloakUserId) {
+        List<BookingResponse> bookings = bookingService.getMyBookings(keycloakUserId);
+        return ResponseEntity.ok(ResponseApi.builder()
+                .code(HttpStatus.OK)
+                .message("Danh sách đơn đặt xe của người dùng")
+                .data(bookings)
+                .build());
+    }
+
+    /**
      * Quản lý toàn bộ danh sách đơn đặt xe (Role: ADMIN, VEHICLE_OWNER).
      */
     @GetMapping
