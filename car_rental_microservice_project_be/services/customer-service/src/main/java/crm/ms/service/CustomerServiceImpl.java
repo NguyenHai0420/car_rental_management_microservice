@@ -8,6 +8,7 @@ import crm.ms.enums.LoyaltyTier;
 import crm.ms.enums.VerificationStatus;
 import crm.ms.exception.BusinessException;
 import crm.ms.mapper.CustomerMapper;
+import crm.ms.repository.CustomerRentalHistoryRepository;
 import crm.ms.repository.CustomerRepository;
 import crm.ms.repository.DriverLicenseRepository;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,7 @@ public class CustomerServiceImpl implements CustomerService {
 
     private final CustomerRepository customerRepository;
     private final DriverLicenseRepository driverLicenseRepository;
+    private final CustomerRentalHistoryRepository rentalHistoryRepository;
     private final CustomerMapper customerMapper;
 
     @Override
@@ -275,5 +277,40 @@ public class CustomerServiceImpl implements CustomerService {
                 .licenseExpiryDate(license.getExpiryDate())
                 .reason("Khách hàng đủ điều kiện thuê xe")
                 .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<RentalHistoryResponse> getCurrentCustomerRentalHistory(String keycloakUserIdStr) {
+        UUID keycloakUserId;
+        try {
+            keycloakUserId = UUID.fromString(keycloakUserIdStr);
+        } catch (IllegalArgumentException e) {
+            log.warn("Invalid keycloakUserId format: {}", keycloakUserIdStr);
+            return List.of();
+        }
+
+        Customer customer = customerRepository.findByKeycloakUserId(keycloakUserId).orElse(null);
+        if (customer == null) {
+            return List.of();
+        }
+
+        return rentalHistoryRepository.findByCustomerIdOrderByRentalStartDesc(customer.getId())
+                .stream()
+                .map(customerMapper::toRentalHistoryResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<RentalHistoryResponse> getCustomerRentalHistory(UUID customerId) {
+        if (!customerRepository.existsById(customerId)) {
+            throw new BusinessException(1, 404, "Customer not found: " + customerId);
+        }
+
+        return rentalHistoryRepository.findByCustomerIdOrderByRentalStartDesc(customerId)
+                .stream()
+                .map(customerMapper::toRentalHistoryResponse)
+                .toList();
     }
 }

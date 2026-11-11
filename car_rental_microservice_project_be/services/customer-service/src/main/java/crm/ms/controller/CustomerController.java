@@ -7,6 +7,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -139,6 +142,36 @@ public class CustomerController {
                 .code(HttpStatus.OK)
                 .message("Customer eligibility retrieved")
                 .data(response)
+                .build());
+    }
+
+    // 10. Khách hàng xem lịch sử thuê xe của chính mình
+    @GetMapping("/me/rentals")
+    public ResponseEntity<ResponseApi> getMyRentalHistory(
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        String userId = jwt.getSubject();
+        log.info("Fetching rental history for X-User-ID: {}", userId);
+        List<RentalHistoryResponse> history = customerService.getCurrentCustomerRentalHistory(userId);
+        return ResponseEntity.ok(ResponseApi.builder()
+                .code(HttpStatus.OK)
+                .message("Customer rental history retrieved successfully")
+                .data(history)
+                .build());
+    }
+
+    // 11. Staff/Admin: Xem lịch sử thuê xe của một khách hàng cụ thể
+    @GetMapping("/{id}/rentals")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
+    public ResponseEntity<ResponseApi> getCustomerRentalHistory(
+            @PathVariable("id") UUID id
+    ) {
+        log.info("Staff fetching rental history for customer id: {}", id);
+        List<RentalHistoryResponse> history = customerService.getCustomerRentalHistory(id);
+        return ResponseEntity.ok(ResponseApi.builder()
+                .code(HttpStatus.OK)
+                .message("Customer rental history retrieved successfully")
+                .data(history)
                 .build());
     }
 }

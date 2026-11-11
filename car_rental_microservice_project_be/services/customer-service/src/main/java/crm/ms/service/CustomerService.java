@@ -24,4 +24,8 @@ public interface CustomerService {
     CustomerEligibilityResponse checkEligibility(UUID customerId);
 
     CustomerEligibilityResponse checkEligibilityByKeycloak(String keycloakUserId);
+
+    List<RentalHistoryResponse> getCurrentCustomerRentalHistory(String keycloakUserId);
+
+    List<RentalHistoryResponse> getCustomerRentalHistory(UUID customerId);
 }
