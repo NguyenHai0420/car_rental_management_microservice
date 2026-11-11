@@ -1,27 +1,57 @@
 service:
-    name: vehicle-service
-    description: Vehicle Service
-    version: 1.0.0
-    port: 8081
+  name: vehicle-service
+  description: Vehicle Service
+  version: 1.0.0
+  port: 8081
 
-Spring:
-    application:
-        name: vehicle-service
-    datasource:
-        url: jdbc:mysql://localhost:3306/vehicle_db
-        username: root
-        password: 1234
-        driver-class-name: com.mysql.cj.jdbc.Driver
-    jpa:
-        hibernate:
-            ddl-auto: update
-            naming:
-                physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
-        show-sql: true
-        properties:
-            hibernate:
-              format_sql: true
-              dialect: org.hibernate.dialect.MySQL8Dialect
+spring:
+  application:
+    name: vehicle-service
+  datasource:
+    url: ${DB_URL:jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3307}/vehicle_db}
+    username: ${DB_USER:${DB_USERNAME:root}}
+    password: ${DB_PASSWORD:1234}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MySQL8Dialect
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 12MB
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/car-rental-realm}
+
+file-service:
+  url: ${FILE_SERVICE_URL:http://localhost:8087}
+  service-name: vehicle-service
+  api-key: ${FILE_SERVICE_VEHICLE_API_KEY:local-vehicle-file-service-key}
+  connect-timeout: ${FILE_SERVICE_CONNECT_TIMEOUT:3s}
+  request-timeout: ${FILE_SERVICE_REQUEST_TIMEOUT:60s}
+
+media:
+  management-roles: ${VEHICLE_MEDIA_MANAGEMENT_ROLES:ADMIN,STAFF}
+  storage:
+    image-bucket: ${VEHICLE_IMAGE_BUCKET:${MINIO_IMAGE_BUCKET:vehicle-images}}
+    document-bucket: ${VEHICLE_DOCUMENT_BUCKET:${MINIO_DOCUMENT_BUCKET:vehicle-documents}}
+    presign-expiry: ${VEHICLE_PRESIGN_EXPIRY:${MINIO_PRESIGN_EXPIRY:10m}}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URI:${EUREKA_SERVER_URL:http://localhost:8761/eureka/}}
+  instance:
+    prefer-ip-address: true
 
 server:
   port: ${service.port}

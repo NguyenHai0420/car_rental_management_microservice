@@ -49,10 +49,12 @@ public class PaymentTransaction {
     private BigDecimal amount;
 
     @Column(nullable = false, length = 3)
+    @Builder.Default
     private String currency = "VND";
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 15)
+    @Builder.Default
     private TransactionStatus status = TransactionStatus.PENDING;
 
     /** ID giao dịch từ cổng thanh toán */

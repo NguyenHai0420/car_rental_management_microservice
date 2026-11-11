@@ -3,6 +3,8 @@ package crm.ms.entity;
 import crm.ms.enums.SlotStatus;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -28,14 +30,16 @@ public class RentalSlot {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(nullable = false, updatable = false)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(nullable = false, updatable = false, length = 36)
     private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "booking_id", nullable = false, foreignKey = @ForeignKey(name = "fk_rslots_booking"))
     private Booking booking;
 
-    @Column(name = "vehicle_id", nullable = false)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(name = "vehicle_id", nullable = false, length = 36)
     private UUID vehicleId;
 
     @Column(name = "slot_date", nullable = false)
@@ -43,6 +47,7 @@ public class RentalSlot {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "slot_status", nullable = false, length = 15)
+    @Builder.Default
     private SlotStatus slotStatus = SlotStatus.RESERVED;
 
     @Column(name = "created_at", nullable = false, updatable = false)

@@ -3,6 +3,8 @@ package crm.ms.entity;
 import crm.ms.enums.BookingStatus;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -21,6 +23,7 @@ import java.util.UUID;
         @UniqueConstraint(name = "uk_bookings_code", columnNames = "booking_code")
 }, indexes = {
         @Index(name = "idx_bookings_customer", columnList = "customer_id"),
+        @Index(name = "idx_bookings_keycloak_user", columnList = "keycloak_user_id"),
         @Index(name = "idx_bookings_vehicle", columnList = "vehicle_id"),
         @Index(name = "idx_bookings_status", columnList = "status"),
         @Index(name = "idx_bookings_pickup_dt", columnList = "pickup_datetime"),
@@ -36,7 +39,8 @@ public class Booking {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(nullable = false, updatable = false)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(nullable = false, updatable = false, length = 36)
     private UUID id;
 
     /** Human-readable code: BK-20261011-001 */
@@ -44,15 +48,31 @@ public class Booking {
     private String bookingCode;
 
     /** Reference to Customer Service — NOT a FK (cross-service) */
-    @Column(name = "customer_id", nullable = false)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(name = "customer_id", nullable = false, length = 36)
     private UUID customerId;
 
+    /** Keycloak JWT sub for direct ownership query */
+    @Column(name = "keycloak_user_id", length = 36)
+    private String keycloakUserId;
+
+    @Column(name = "customer_name", length = 100)
+    private String customerName;
+
+    @Column(name = "customer_email", length = 150)
+    private String customerEmail;
+
     /** Reference to Vehicle Service — NOT a FK (cross-service) */
-    @Column(name = "vehicle_id", nullable = false)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(name = "vehicle_id", nullable = false, length = 36)
     private UUID vehicleId;
+
+    @Column(name = "vehicle_info", length = 255)
+    private String vehicleInfo;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 15)
+    @Builder.Default
     private BookingStatus status = BookingStatus.PENDING;
 
     @Column(name = "pickup_datetime", nullable = false)
@@ -86,9 +106,11 @@ public class Booking {
     private BigDecimal estimatedTotal;
 
     @Column(name = "deposit_required", nullable = false, precision = 12, scale = 2)
+    @Builder.Default
     private BigDecimal depositRequired = BigDecimal.ZERO;
 
     @Column(nullable = false, length = 3)
+    @Builder.Default
     private String currency = "VND";
 
     @Column(columnDefinition = "TEXT")
@@ -98,6 +120,7 @@ public class Booking {
     private String cancellationReason;
 
     @Column(name = "is_deleted", nullable = false)
+    @Builder.Default
     private Boolean isDeleted = false;
 
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -116,7 +139,7 @@ public class Booking {
     @Builder.Default
     private List<RentalSlot> rentalSlots = new ArrayList<>();
 
-    @OneToMany(mappedBy = "booking", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "booking", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<BookingStatusHistory> statusHistories = new ArrayList<>();
 

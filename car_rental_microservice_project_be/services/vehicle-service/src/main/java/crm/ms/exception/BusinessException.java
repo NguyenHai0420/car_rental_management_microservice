@@ -14,4 +14,11 @@ public class BusinessException extends RuntimeException {
         this.code = code;
         this.message = message;
     }
+
+    public BusinessException(int type, int code, String message, Throwable cause) {
+        super(message, cause);
+        this.type = type;
+        this.code = code;
+        this.message = message;
+    }
 }
