@@ -91,3 +91,5 @@ a.fleet-button:hover { background: var(--brand-2); }
   .fleet-filters, .fleet-fields, .fleet-catalog, .fleet-detail-fields, .fleet-status-form { grid-template-columns: 1fr; }
   .media-section { padding: 16px; } .page-header, .document-card { flex-direction: column; }
 }
+
+.row-actions { display: flex; gap: 6px; justify-content: flex-end; } .row-actions button { min-height: 32px; padding: 4px 12px; font-size: 13px; }

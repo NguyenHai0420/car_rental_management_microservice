@@ -240,6 +240,7 @@ class VehicleManagementTest {
     @ParameterizedTest
     @CsvSource({
             "GET, /", "POST, /", "GET, /categories", "POST, /categories", "GET, /models", "POST, /models",
+            "PUT, /categories/{id}", "DELETE, /categories/{id}", "PUT, /models/{id}", "DELETE, /models/{id}",
             "GET, /{id}", "PUT, /{id}", "DELETE, /{id}", "PATCH, /{id}/status", "GET, /{id}/status-history"
     })
     void administrativeRoutesRequireAnIdentityAndExactFleetRole(String method, String suffix) throws Exception {
@@ -300,6 +301,46 @@ class VehicleManagementTest {
         model.put("categoryId", UUID.randomUUID().toString());
         mvc.perform(staff(post(BASE + "/models").contentType(APPLICATION_JSON).content(model.toString())))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void categoriesAndModelsCanBeEditedAndRemovedUnlessInUse() throws Exception {
+        String categoryId = newCategoryId();
+        String other = newCategoryId();
+        String renamed = "Renamed " + IDENTIFIER.incrementAndGet();
+        mvc.perform(staff(put(BASE + "/categories/" + categoryId).contentType(APPLICATION_JSON).content(
+                json.createObjectNode().put("name", renamed).put("sizeClass", "LUXURY").toString())))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.name").value(renamed)).andExpect(jsonPath("$.data.sizeClass").value("LUXURY"));
+        mvc.perform(staff(put(BASE + "/categories/" + other).contentType(APPLICATION_JSON).content(
+                json.createObjectNode().put("name", renamed).put("sizeClass", "SUV").toString()))).andExpect(status().isConflict());
+        mvc.perform(staff(put(BASE + "/categories/" + UUID.randomUUID()).contentType(APPLICATION_JSON).content(
+                json.createObjectNode().put("name", "x").put("sizeClass", "SUV").toString()))).andExpect(status().isNotFound());
+
+        ObjectNode payload = payloadFor(categoryId);
+        JsonNode vehicle = create(payload);
+        String modelId = payload.path("modelId").asText();
+        mvc.perform(staff(delete(BASE + "/categories/" + categoryId))).andExpect(status().isConflict());
+        mvc.perform(staff(delete(BASE + "/models/" + modelId))).andExpect(status().isConflict());
+
+        // Moving the model moves the category its vehicles show.
+        mvc.perform(staff(put(BASE + "/models/" + modelId).contentType(APPLICATION_JSON).content(json.createObjectNode()
+                .put("categoryId", other).put("brand", "Toyota").put("modelName", "Edited").put("manufactureYear", 2024)
+                .put("fuelType", "GASOLINE").put("seatCount", 7).put("transmission", "MANUAL").toString())))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.categoryId").value(other))
+                .andExpect(jsonPath("$.data.modelName").value("Edited")).andExpect(jsonPath("$.data.seatCount").value(7));
+        mvc.perform(staff(get(BASE + "/" + vehicle.path("id").asText()))).andExpect(jsonPath("$.data.categoryId").value(other));
+        mvc.perform(staff(put(BASE + "/models/" + UUID.randomUUID()).contentType(APPLICATION_JSON).content(json.createObjectNode()
+                .put("categoryId", other).put("brand", "Toyota").put("modelName", "Edited").put("manufactureYear", 2024)
+                .put("fuelType", "GASOLINE").put("seatCount", 7).put("transmission", "MANUAL").toString()))).andExpect(status().isNotFound());
+
+        // The emptied category and an unused model can go.
+        mvc.perform(staff(delete(BASE + "/categories/" + categoryId))).andExpect(status().isOk());
+        mvc.perform(staff(delete(BASE + "/categories/" + categoryId))).andExpect(status().isNotFound());
+        JsonNode spare = data(mvc.perform(staff(post(BASE + "/models").contentType(APPLICATION_JSON).content(json.createObjectNode()
+                .put("categoryId", other).put("brand", "Kia").put("modelName", "Spare " + IDENTIFIER.incrementAndGet()).put("manufactureYear", 2024)
+                .put("fuelType", "GASOLINE").put("seatCount", 4).put("transmission", "MANUAL").toString()))).andReturn());
+        mvc.perform(staff(delete(BASE + "/models/" + spare.path("id").asText()))).andExpect(status().isOk());
+        mvc.perform(staff(delete(BASE + "/models/" + spare.path("id").asText()))).andExpect(status().isNotFound());
     }
 
     @Test

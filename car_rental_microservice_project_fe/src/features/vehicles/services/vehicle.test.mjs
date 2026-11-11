@@ -3,9 +3,9 @@ import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
 import apiClient, { setAccessTokenProvider } from '../../../services/axios-client.js'
 import {
-  changeVehicleStatus, createVehicle, createVehicleCategory, createVehicleModel, deleteVehicle, getVehicle,
+  changeVehicleStatus, createVehicle, createVehicleCategory, createVehicleModel, deleteVehicle, deleteVehicleCategory, deleteVehicleModel, getVehicle,
   getVehicleDocumentUrl, listVehicleCategories, listVehicleModels, listVehicles, listVehicleStatusHistory,
-  lookupVehicleByLicensePlate, updateVehicle, uploadVehicleDocument, uploadVehicleImage, vehicleError,
+  lookupVehicleByLicensePlate, updateVehicle, updateVehicleCategory, updateVehicleModel, uploadVehicleDocument, uploadVehicleImage, vehicleError,
 } from './vehicle.js'
 
 const fleet = '/api/v1/vehicles'
@@ -117,9 +117,9 @@ test('status uses PATCH and preserves conflict messages from the gateway', async
 test('catalog creates and lists categories and models via vehicle routes', async () => {
   const category = { name: 'SUV', sizeClass: 'SUV' }
   const model = { brand: 'Toyota', modelName: 'RAV4', manufactureYear: 2025, seatCount: 5, fuelType: 'HYBRID', transmission: 'AUTOMATIC' }
-  for (const [segment, read, write, fields] of [
-    ['categories', listVehicleCategories, createVehicleCategory, category],
-    ['models', listVehicleModels, createVehicleModel, model],
+  for (const [segment, read, write, fields, change, remove] of [
+    ['categories', listVehicleCategories, createVehicleCategory, category, updateVehicleCategory, deleteVehicleCategory],
+    ['models', listVehicleModels, createVehicleModel, model, updateVehicleModel, deleteVehicleModel],
   ]) {
     await read()
     assert.equal(received.method, 'GET')
@@ -128,5 +128,12 @@ test('catalog creates and lists categories and models via vehicle routes', async
     assert.equal(received.method, 'POST')
     assert.equal(received.path, `${fleet}/${segment}`)
     assert.deepEqual(JSON.parse(received.body), fields)
+    await change('id/1', fields)
+    assert.equal(received.method, 'PUT')
+    assert.equal(received.path, `${fleet}/${segment}/id%2F1`)
+    assert.deepEqual(JSON.parse(received.body), fields)
+    await remove('id/1')
+    assert.equal(received.method, 'DELETE')
+    assert.equal(received.path, `${fleet}/${segment}/id%2F1`)
   }
 })

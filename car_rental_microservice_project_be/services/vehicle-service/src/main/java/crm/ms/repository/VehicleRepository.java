@@ -1,12 +1,14 @@
 package crm.ms.repository;
 
 import crm.ms.entity.Vehicle;
+import crm.ms.entity.VehicleCategory;
 import crm.ms.enums.VehicleStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import jakarta.persistence.LockModeType;
@@ -16,6 +18,16 @@ import java.util.UUID;
 
 public interface VehicleRepository extends JpaRepository<Vehicle, UUID> {
     Optional<Vehicle> findByIdAndIsDeletedFalse(UUID id);
+
+    /** Counts removed vehicles too: their rows still reference the model and category. */
+    long countByModelId(UUID modelId);
+
+    boolean existsByCategoryId(UUID categoryId);
+
+    /** Vehicles keep a copy of their model's category; keep it in step when the model moves. */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("update Vehicle v set v.category = :category where v.model.id = :modelId")
+    void moveModelVehicles(@Param("modelId") UUID modelId, @Param("category") VehicleCategory category);
 
     @Query("select v.id from Vehicle v where v.licensePlate = :plate and v.isDeleted = false")
     Optional<UUID> findActiveIdByLicensePlate(@Param("plate") String plate);
