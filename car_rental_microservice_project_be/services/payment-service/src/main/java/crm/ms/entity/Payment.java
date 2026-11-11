@@ -70,6 +70,11 @@ public class Payment {
     @Column(name = "total_amount", nullable = false, precision = 12, scale = 2)
     private BigDecimal totalAmount = BigDecimal.ZERO;
 
+    /** Tiền cọc giữ xe yêu cầu */
+    @Column(name = "deposit_required", nullable = false, precision = 12, scale = 2)
+    @Builder.Default
+    private BigDecimal depositRequired = BigDecimal.ZERO;
+
     @Column(name = "deposit_paid", nullable = false, precision = 12, scale = 2)
     private BigDecimal depositPaid = BigDecimal.ZERO;
 
