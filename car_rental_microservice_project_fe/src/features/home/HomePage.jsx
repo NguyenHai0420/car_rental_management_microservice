@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useVehicleQuery } from '../vehicles/hooks/useVehicleQuery'
 import { listShowroom, vehicleError } from '../vehicles/services/vehicle'
+import { matchesSearch } from '../vehicles/vehicle-fields'
 import { BrandLogo } from './BrandLogo'
 import { CarCard } from './CarCard'
 import { HeroSlider } from './HeroSlider'
@@ -20,6 +21,21 @@ export function HomePage() {
   const [category, setCategory] = useState('')
   const [term, setTerm] = useState('')
   const [selected, setSelected] = useState(null)
+
+  useEffect(() => {
+    const hash = window.location.hash
+    if (hash) {
+      const id = hash.replace('#', '')
+      if (id === 'top') {
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+      } else {
+        const el = document.getElementById(id)
+        if (el) {
+          setTimeout(() => el.scrollIntoView({ behavior: 'smooth' }), 150)
+        }
+      }
+    }
+  }, [])
   const cars = showroom.data?.content
   const brands = useMemo(() => group(cars ?? [], (car) => car.brand), [cars])
   const categories = useMemo(() => [...new Map((cars ?? []).map((car) => [car.categoryId, car.categoryName])).entries()], [cars])
@@ -27,9 +43,8 @@ export function HomePage() {
   const slides = useMemo(() => (cars ?? []).filter((car) => car.imageUrl).slice(0, 5), [cars])
   const filtering = Boolean(brand || category || term.trim())
   const sections = useMemo(() => {
-    const q = term.trim().toLowerCase()
     return group((cars ?? []).filter((car) => (!brand || car.brand === brand) && (!category || car.categoryId === category)
-      && (!q || `${car.brand} ${car.modelName}`.toLowerCase().includes(q))), (car) => car.brand)
+      && matchesSearch(term, car.brand, car.modelName, car.categoryName)), (car) => car.brand)
   }, [cars, brand, category, term])
   const total = sections.reduce((sum, [, list]) => sum + list.length, 0)
   const pickBrand = (name) => { setBrand((current) => current === name ? '' : name); setCategory(''); setTerm('') }
@@ -42,14 +57,13 @@ export function HomePage() {
       <HeroSlider cars={slides} onOpen={setSelected} />
       <div className="container finder-wrap"><form className="finder" role="search" onSubmit={(event) => { event.preventDefault(); document.getElementById('xe')?.scrollIntoView({ behavior: 'smooth' }) }}>
         <div className="row g-2 align-items-center">
-          <div className="col-12 col-md"><label className="input-group"><span className="input-group-text"><i className="bi bi-search" aria-hidden="true" /></span><span className="sr-only">Tìm hãng hoặc mẫu xe</span>
-            <input className="form-control" type="search" placeholder="Tìm hãng hoặc mẫu xe…" value={term} onChange={(event) => { setTerm(event.target.value); setBrand('') }} /></label></div>
+          <div className="col-12 col-md"><label className="input-group"><span className="input-group-text"><i className="bi bi-search" aria-hidden="true" /></span><span className="sr-only">Tìm theo tên xe</span>
+            <input className="form-control" type="search" placeholder="Tìm tên xe, hãng hoặc mẫu xe (VD: Vios, Toyota Camry)…" value={term} onChange={(event) => { setTerm(event.target.value); setBrand('') }} /></label></div>
           <div className="col-12 col-md-4"><label><span className="sr-only">Loại xe</span>
             <select className="form-select" value={category} onChange={(event) => { setCategory(event.target.value); setBrand('') }}>
               <option value="">Tất cả loại xe</option>
               {categories.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label></div>
           <div className="col-12 col-md-auto"><button className="btn btn-danger w-100 px-4" type="submit"><i className="bi bi-search me-2" aria-hidden="true" />Tìm xe</button></div>
-          <p className="col-12 col-xl-auto finder-stats">{cars ? <><strong>{cars.length}</strong> xe sẵn sàng · <strong>{brands.length}</strong> hãng</> : 'Đang tải…'}</p>
         </div>
       </form></div>
 

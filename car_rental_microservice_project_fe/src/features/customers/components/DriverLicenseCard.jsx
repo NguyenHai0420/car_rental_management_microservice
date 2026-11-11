@@ -98,4 +98,3 @@ export function DriverLicenseCard({ license, onEditClick }) {
     </div>
   )
 }
-

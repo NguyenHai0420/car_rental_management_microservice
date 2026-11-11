@@ -26,4 +26,3 @@ public class VehicleAvailabilityDto {
     private BigDecimal mileageKm;
     private String location;
 }
-

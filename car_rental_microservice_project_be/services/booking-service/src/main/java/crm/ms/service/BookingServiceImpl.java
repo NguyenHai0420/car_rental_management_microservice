@@ -1,6 +1,7 @@
 package crm.ms.service;
 
 import crm.ms.client.ExternalValidationService;
+import crm.ms.client.NotificationClient;
 import crm.ms.client.VehicleClient;
 import crm.ms.dto.*;
 import crm.ms.entity.Booking;
@@ -8,10 +9,8 @@ import crm.ms.entity.BookingStatusHistory;
 import crm.ms.entity.RentalSlot;
 import crm.ms.enums.BookingStatus;
 import crm.ms.enums.SlotStatus;
-import crm.ms.event.EmailNotificationCommand;
 import crm.ms.exception.BusinessException;
 import crm.ms.mapper.BookingMapper;
-import crm.ms.messaging.NotificationRabbitPublisher;
 import crm.ms.repository.BookingRepository;
 import crm.ms.repository.RentalSlotRepository;
 import lombok.RequiredArgsConstructor;
@@ -24,7 +23,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.text.NumberFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -37,13 +35,12 @@ import java.util.*;
 public class BookingServiceImpl implements BookingService {
 
     private static final DateTimeFormatter CODE_DATE_FMT = DateTimeFormatter.ofPattern("yyyyMMdd");
-    private static final DateTimeFormatter EMAIL_DT_FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
     private final BookingRepository bookingRepository;
     private final RentalSlotRepository rentalSlotRepository;
     private final ExternalValidationService externalValidationService;
     private final VehicleClient vehicleClient;
-    private final NotificationRabbitPublisher notificationRabbitPublisher;
+    private final NotificationClient notificationClient;
     private final BookingMapper bookingMapper;
 
     @Value("${booking.deposit-rate:0.30}")
@@ -71,6 +68,7 @@ public class BookingServiceImpl implements BookingService {
 
         return vehicles.stream()
                 .filter(v -> !busySet.contains(v.getVehicleId()))
+                .filter(v -> "AVAILABLE".equalsIgnoreCase(v.getVehicleStatus()))
                 .filter(v -> categoryId == null || categoryId.equals(v.getCategoryId()))
                 .filter(v -> minSeats == null || (v.getSeatCount() != null && v.getSeatCount() >= minSeats))
                 .filter(v -> location == null || location.isBlank() ||
@@ -148,6 +146,12 @@ public class BookingServiceImpl implements BookingService {
         recordStatusHistory(booking, null, BookingStatus.PENDING, "Khởi tạo đơn đặt xe, chờ thanh toán cọc", keycloakUserId);
         Booking saved = bookingRepository.saveAndFlush(booking);
 
+        try {
+            vehicleClient.updateStatus(saved.getVehicleId(), "RESERVED", null);
+        } catch (Exception e) {
+            log.warn("Failed to notify vehicle-service about RESERVED status for vehicleId={}: {}", saved.getVehicleId(), e.getMessage());
+        }
+
         log.info("Created booking {} (id={}) for vehicleId={}", saved.getBookingCode(), saved.getId(), saved.getVehicleId());
         return bookingMapper.fromEntity(saved);
     }
@@ -222,6 +226,12 @@ public class BookingServiceImpl implements BookingService {
 
         recordStatusHistory(booking, oldStatus, BookingStatus.CANCELLED, reason, keycloakUserId);
         Booking saved = bookingRepository.saveAndFlush(booking);
+
+        try {
+            vehicleClient.updateStatus(saved.getVehicleId(), "AVAILABLE", null);
+        } catch (Exception e) {
+            log.warn("Failed to notify vehicle-service about AVAILABLE status on cancel for vehicleId={}: {}", saved.getVehicleId(), e.getMessage());
+        }
 
         log.info("Cancelled booking {} (reason: {})", saved.getBookingCode(), reason);
         return bookingMapper.fromEntity(saved);
@@ -298,7 +308,7 @@ public class BookingServiceImpl implements BookingService {
     private List<AvailableVehicleResponse> fetchVehiclesFromServiceOrMock() {
         try {
             FeignResponseWrapper<List<AvailableVehicleResponse>> response = vehicleClient.getAvailableVehicles();
-            if (response != null && response.getData() != null && !response.getData().isEmpty()) {
+            if (response != null && response.getData() != null) {
                 return response.getData();
             }
         } catch (Exception e) {
@@ -314,7 +324,6 @@ public class BookingServiceImpl implements BookingService {
                             .brand("Toyota")
                             .modelName("Camry 2.5Q")
                             .categoryName("Sedan")
-                            .sizeClass("MIDSIZE")
                             .color("Đen")
                             .seatCount(5)
                             .fuelType("Xăng")
@@ -330,7 +339,6 @@ public class BookingServiceImpl implements BookingService {
                             .brand("Ford")
                             .modelName("Everest Titanium 4x4")
                             .categoryName("SUV")
-                            .sizeClass("FULLSIZE")
                             .color("Trắng ngọc trai")
                             .seatCount(7)
                             .fuelType("Dầu Diesel")
@@ -346,7 +354,6 @@ public class BookingServiceImpl implements BookingService {
                             .brand("Hyundai")
                             .modelName("Tucson 2.0 Turbo")
                             .categoryName("Crossover")
-                            .sizeClass("COMPACT")
                             .color("Đỏ đô")
                             .seatCount(5)
                             .fuelType("Xăng")
@@ -389,29 +396,26 @@ public class BookingServiceImpl implements BookingService {
         if (booking.getCustomerEmail() == null || booking.getCustomerEmail().isBlank()) {
             return;
         }
-        String formattedTotal = NumberFormat.getNumberInstance(Locale.US).format(booking.getEstimatedTotal());
-        EmailNotificationCommand cmd = EmailNotificationCommand.builder()
-                .templateCode("BOOKING_CONFIRMED")
-                .channel("EMAIL")
-                .recipient(booking.getCustomerEmail())
-                .recipientName(booking.getCustomerName() != null ? booking.getCustomerName() : "Quý khách")
-                .placeholders(Map.of(
-                        "customer_name", booking.getCustomerName() != null ? booking.getCustomerName() : "Quý khách",
-                        "booking_code", booking.getBookingCode(),
-                        "vehicle_info", nullSafe(booking.getVehicleInfo()),
-                        "pickup_datetime", booking.getPickupDatetime().format(EMAIL_DT_FMT),
-                        "pickup_location", booking.getPickupLocation(),
-                        "return_datetime", booking.getReturnDatetime().format(EMAIL_DT_FMT),
-                        "total_amount", formattedTotal
-                ))
-                .sourceService("booking-service")
-                .sourceEvent("BookingConfirmed")
-                .referenceId(booking.getId())
+        NotificationRequest req = NotificationRequest.builder()
+                .idempotencyKey("booking-confirmed:" + booking.getId())
+                .bookingId(booking.getId())
+                .bookingCode(booking.getBookingCode())
+                .customerEmail(booking.getCustomerEmail())
+                .customerName(booking.getCustomerName() != null ? booking.getCustomerName() : "Quý khách")
+                .vehicleName(booking.getVehicleInfo())
+                .pickupDatetime(booking.getPickupDatetime())
+                .returnDatetime(booking.getReturnDatetime())
+                .pickupLocation(booking.getPickupLocation())
+                .estimatedTotal(booking.getEstimatedTotal())
+                .depositRequired(booking.getDepositRequired())
+                .currency("VND")
                 .build();
         try {
-            notificationRabbitPublisher.sendEmailCommand(cmd);
+            notificationClient.sendNotification(req);
+            log.info("Sent booking confirmed notification via Feign REST to notification-service [code={}, recipient={}]",
+                    booking.getBookingCode(), booking.getCustomerEmail());
         } catch (Exception e) {
-            log.warn("Failed to publish booking confirmed email command to RabbitMQ: {}", e.getMessage());
+            log.warn("Failed to notify notification-service via Feign REST: {}", e.getMessage());
         }
     }
 

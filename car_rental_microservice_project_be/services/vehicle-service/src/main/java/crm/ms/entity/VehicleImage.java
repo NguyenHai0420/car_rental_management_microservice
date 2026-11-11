@@ -9,7 +9,7 @@ import java.util.UUID;
 
 /**
  * Ảnh xe: ngoại thất, nội thất, biển số, ...
- * File thực tế lưu trên MinIO, bảng này chỉ lưu URL.
+ * File thực tế lưu trên object storage, bảng này lưu object key bền vững.
  */
 @Entity
 @Table(name = "vehicle_images", indexes = {
@@ -36,8 +36,14 @@ public class VehicleImage {
     @Column(name = "image_type", nullable = false, length = 20)
     private ImageType imageType;
 
-    @Column(name = "file_url", nullable = false, length = 500)
-    private String fileUrl;
+    @Column(name = "object_key", nullable = false, length = 500)
+    private String objectKey;
+
+    @Column(name = "content_type", nullable = false, length = 100)
+    private String contentType;
+
+    @Column(name = "created_by", length = 100)
+    private String createdBy;
 
     @Column(name = "file_name", length = 255)
     private String fileName;
@@ -46,9 +52,11 @@ public class VehicleImage {
     private Long fileSizeBytes;
 
     @Column(name = "sort_order", nullable = false)
+    @Builder.Default
     private Integer sortOrder = 0;
 
     @Column(name = "is_primary", nullable = false)
+    @Builder.Default
     private Boolean isPrimary = false;
 
     @Column(name = "created_at", nullable = false, updatable = false)

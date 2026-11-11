@@ -19,4 +19,3 @@ public class PickupBookingRequest {
 
     private String notes;
 }
-

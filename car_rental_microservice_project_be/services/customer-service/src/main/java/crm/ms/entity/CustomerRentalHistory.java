@@ -10,9 +10,8 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 /**
- * CQRS Read Model — Bản sao lịch sử thuê xe, sync từ Booking Service qua Kafka.
- * Phục vụ hiển thị lịch sử và đánh giá trên Customer Portal.
- * Source of truth nằm ở booking_db.
+ * Read model for the customer rental history API.
+ * History rows are refreshed from booking-service when rental history is requested.
  */
 @Entity
 @Table(name = "customer_rental_history", indexes = {
@@ -57,10 +56,12 @@ public class CustomerRentalHistory {
     private BigDecimal totalAmount;
 
     @Column(nullable = false, length = 3)
+    @Builder.Default
     private String currency = "VND";
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 15)
+    @Builder.Default
     private RentalHistoryStatus status = RentalHistoryStatus.ACTIVE;
 
     /** 1-5 star rating */

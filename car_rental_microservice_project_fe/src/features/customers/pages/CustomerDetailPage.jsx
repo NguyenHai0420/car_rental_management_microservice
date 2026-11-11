@@ -13,44 +13,45 @@ export function CustomerDetailPage() {
   const { id } = useParams()
   const [customer, setCustomer] = useState(null)
   const [rentals, setRentals] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [rentalsLoading, setRentalsLoading] = useState(false)
+  const [loadedId, setLoadedId] = useState(null)
+  const [rentalsLoadedId, setRentalsLoadedId] = useState(null)
+  const loading = loadedId !== id
+  const rentalsLoading = rentalsLoadedId !== id
   const [error, setError] = useState('')
+  const [rentalsError, setRentalsError] = useState('')
   const [saving, setSaving] = useState(false)
   const [actionError, setActionError] = useState('')
   const [actionSuccess, setActionSuccess] = useState('')
 
   useEffect(() => {
-    if (id) {
-      loadCustomer()
-      loadRentals()
-    }
+    if (!id) return
+    const controller = new AbortController()
+    getCustomerById(id, controller.signal)
+      .then((data) => {
+        if (controller.signal.aborted) return
+        setCustomer(data)
+        setError('')
+      })
+      .catch((err) => {
+        if (!controller.signal.aborted) setError(customerError(err))
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoadedId(id)
+      })
+    getCustomerRentalHistory(id, controller.signal)
+      .then((data) => {
+        if (controller.signal.aborted) return
+        setRentals(data || [])
+        setRentalsError('')
+      })
+      .catch((err) => {
+        if (!controller.signal.aborted) setRentalsError(customerError(err))
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setRentalsLoadedId(id)
+      })
+    return () => controller.abort()
   }, [id])
-
-  async function loadCustomer() {
-    setLoading(true)
-    setError('')
-    try {
-      const data = await getCustomerById(id)
-      setCustomer(data)
-    } catch (err) {
-      setError(customerError(err))
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  async function loadRentals() {
-    setRentalsLoading(true)
-    try {
-      const data = await getCustomerRentalHistory(id)
-      setRentals(data || [])
-    } catch (err) {
-      console.warn('Could not load rentals for customer:', err)
-    } finally {
-      setRentalsLoading(false)
-    }
-  }
 
   async function handleVerify(event) {
     event.preventDefault()
@@ -211,7 +212,9 @@ export function CustomerDetailPage() {
           <h2>Lịch sử các chuyến thuê xe</h2>
           <span className="badge">Tổng: {rentals.length} chuyến</span>
         </div>
-        <RentalHistoryTable rentals={rentals} loading={rentalsLoading} />
+        {rentalsError
+          ? <p className="notice error" role="alert">{rentalsError}</p>
+          : <RentalHistoryTable rentals={rentals} loading={rentalsLoading} />}
       </div>
     </div>
   )

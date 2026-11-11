@@ -1,6 +1,5 @@
 package crm.ms.entity;
 
-import crm.ms.enums.SizeClass;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -32,11 +31,8 @@ public class VehicleCategory {
     @Column(length = 255)
     private String description;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "size_class", nullable = false, length = 20)
-    private SizeClass sizeClass;
-
     @Column(name = "is_active", nullable = false)
+    @Builder.Default
     private Boolean isActive = true;
 
     @Column(name = "created_at", nullable = false, updatable = false)

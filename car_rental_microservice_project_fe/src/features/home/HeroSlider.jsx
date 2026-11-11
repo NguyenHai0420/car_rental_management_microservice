@@ -26,7 +26,17 @@ export function HeroSlider({ cars, onOpen }) {
         <p className="kicker">Thuê xe tự lái · Giao xe nhanh</p>
         <h1>Chọn chiếc xe <span>phù hợp</span> cho hành trình của bạn</h1>
         <p className="lead">Đội xe được kiểm định, hình ảnh thật, giá theo ngày minh bạch.</p>
-        <a className="btn btn-danger btn-lg px-4" href="#xe" tabIndex={active === 0 ? 0 : -1}>Xem xe sẵn sàng <i className="bi bi-arrow-right" aria-hidden="true" /></a>
+        <a
+          className="btn btn-danger btn-lg px-4"
+          href="#xe"
+          tabIndex={active === 0 ? 0 : -1}
+          onClick={(e) => {
+            e.preventDefault()
+            document.getElementById('xe')?.scrollIntoView({ behavior: 'smooth' })
+          }}
+        >
+          Xem xe sẵn sàng <i className="bi bi-arrow-right" aria-hidden="true" />
+        </a>
       </div>
     </div>
     {cars.map((car, i) => {

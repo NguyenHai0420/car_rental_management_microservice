@@ -18,7 +18,6 @@ public class AvailableVehicleResponse {
     private String modelName;
     private UUID categoryId;
     private String categoryName;
-    private String sizeClass;
     private String color;
     private Integer seatCount;
     private String fuelType;

@@ -13,13 +13,13 @@ import java.util.List;
 @Configuration
 public class CorsConfig {
 
-    @Value("${app.cors.allowed-origins:http://localhost:5173,http://localhost:3000}")
+    @Value("${app.cors.allowed-origins:http://localhost:5173,http://localhost:3000,http://localhost:8080}")
     private String allowedOrigins;
 
     @Value("${app.cors.allowed-methods:GET,POST,PUT,DELETE,PATCH,OPTIONS}")
     private String allowedMethods;
 
-    @Value("${app.cors.allowed-headers:Authorization,Content-Type,Accept,X-Correlation-Id,Origin,X-Requested-With}")
+    @Value("${app.cors.allowed-headers:Authorization,Content-Type,Accept,X-Correlation-ID,X-Correlation-Id,Origin,X-Requested-With}")
     private String allowedHeaders;
 
     @Bean
@@ -28,6 +28,7 @@ public class CorsConfig {
         corsConfiguration.setAllowedOrigins(csv(allowedOrigins));
         corsConfiguration.setAllowedMethods(csv(allowedMethods));
         corsConfiguration.setAllowedHeaders(csv(allowedHeaders));
+        corsConfiguration.setExposedHeaders(List.of("X-Correlation-ID", "X-Correlation-Id"));
         corsConfiguration.setAllowCredentials(true);
         corsConfiguration.setMaxAge(3600L);
 

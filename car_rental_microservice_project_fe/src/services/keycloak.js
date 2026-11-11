@@ -11,7 +11,13 @@ let initialization
 export function initializeAuth() {
   if (!keycloak) return Promise.resolve(false)
   // Keep one initialization across React StrictMode remounts.
-  initialization ??= keycloak.init({ onLoad: 'check-sso', pkceMethod: 'S256', checkLoginIframe: false })
+  initialization ??= keycloak.init({
+    onLoad: 'check-sso',
+    pkceMethod: 'S256',
+    silentCheckSsoRedirectUri: `${window.location.origin}/silent-check-sso.html`,
+    silentCheckSsoFallback: false,
+    checkLoginIframe: false,
+  })
   return initialization
 }
 

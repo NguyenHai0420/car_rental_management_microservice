@@ -14,4 +14,3 @@ public interface CustomerRentalHistoryRepository extends JpaRepository<CustomerR
     List<CustomerRentalHistory> findByCustomerKeycloakUserIdOrderByRentalStartDesc(UUID keycloakUserId);
     Optional<CustomerRentalHistory> findByBookingId(UUID bookingId);
 }
-

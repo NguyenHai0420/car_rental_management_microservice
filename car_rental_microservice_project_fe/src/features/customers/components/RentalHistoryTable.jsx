@@ -95,4 +95,3 @@ export function RentalHistoryTable({ rentals = [], loading = false }) {
 }
 
 export default RentalHistoryTable
-

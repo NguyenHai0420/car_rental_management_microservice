@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../app/providers/auth-context'
 import { useVehicleQuery } from '../vehicles/hooks/useVehicleQuery'
 import { listVehicleImages } from '../vehicles/services/vehicle'
-import { formatPrice, fuelTypes, sizeClasses, transmissions } from '../vehicles/vehicle-fields'
+import { formatPrice, fuelTypes, transmissions } from '../vehicles/vehicle-fields'
 import { CarPhoto } from './CarPhoto'
 
 export function VehicleDialog({ car, onClose }) {
@@ -24,7 +24,7 @@ export function VehicleDialog({ car, onClose }) {
 
   const facts = [['Năm sản xuất', car.manufactureYear], ['Số chỗ', `${car.seatCount} chỗ`],
     ['Hộp số', transmissions[car.transmission]], ['Nhiên liệu', fuelTypes[car.fuelType]],
-    ['Phân hạng', sizeClasses[car.sizeClass]], ['Màu xe', car.color], ['Nhận xe tại', car.location]]
+    ['Màu xe', car.color], ['Nhận xe tại', car.location]]
 
   return <dialog ref={ref} className="car-dialog" aria-labelledby="car-dialog-title" onClose={onClose}
     onClick={(event) => { if (event.target === ref.current) onClose() }}>
@@ -39,7 +39,18 @@ export function VehicleDialog({ car, onClose }) {
         <div><p className="eyebrow">{car.categoryName}</p><h2 id="car-dialog-title">{name}</h2></div>
         <p className="price">{formatPrice(car.dailyRate)}{car.dailyRate != null && <small> /ngày</small>}</p>
         <dl className="info-list">{facts.filter(([, value]) => value).map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
-        {auth.authenticated ? (
+        <div className="d-grid gap-2">
+          <button
+            type="button"
+            className="btn btn-outline-danger btn-lg w-100"
+            onClick={() => {
+              onClose()
+              navigate('/pricing', { state: { showroomCar: { ...car, imageUrl: urls[0] || car.imageUrl } } })
+            }}
+          >
+            Tính giá thuê xe này
+          </button>
+          {auth.authenticated ? (
           <button
             className="btn btn-danger btn-lg w-100"
             onClick={() => {
@@ -61,7 +72,8 @@ export function VehicleDialog({ car, onClose }) {
             <i className="bi bi-box-arrow-in-right me-2" aria-hidden="true" />
             Đăng nhập để đặt xe
           </button>
-        )}
+          )}
+        </div>
       </div>
     </div>
   </dialog>

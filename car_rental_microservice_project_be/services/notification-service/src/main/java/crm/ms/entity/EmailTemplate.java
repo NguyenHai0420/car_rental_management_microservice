@@ -39,6 +39,7 @@ public class EmailTemplate {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
+    @Builder.Default
     private NotificationChannel channel = NotificationChannel.EMAIL;
 
     @Column(length = 100)
@@ -57,15 +58,19 @@ public class EmailTemplate {
     private String placeholders;
 
     @Column(name = "sender_name", length = 100)
+    @Builder.Default
     private String senderName = "Car Rental System";
 
     @Column(name = "sender_email", length = 150)
+    @Builder.Default
     private String senderEmail = "noreply@carrental.vn";
 
     @Column(name = "is_active", nullable = false)
+    @Builder.Default
     private Boolean isActive = true;
 
     @Column(nullable = false)
+    @Builder.Default
     private Integer version = 1;
 
     @Column(name = "created_at", nullable = false, updatable = false)

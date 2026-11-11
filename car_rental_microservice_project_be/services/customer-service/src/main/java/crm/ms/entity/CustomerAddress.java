@@ -33,6 +33,7 @@ public class CustomerAddress {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "address_type", nullable = false, length = 10)
+    @Builder.Default
     private AddressType addressType = AddressType.HOME;
 
     @Column(nullable = false, length = 255)
@@ -54,9 +55,11 @@ public class CustomerAddress {
     private String postalCode;
 
     @Column(nullable = false, length = 50)
+    @Builder.Default
     private String country = "Vietnam";
 
     @Column(name = "is_default", nullable = false)
+    @Builder.Default
     private Boolean isDefault = false;
 
     @Column(name = "created_at", nullable = false, updatable = false)

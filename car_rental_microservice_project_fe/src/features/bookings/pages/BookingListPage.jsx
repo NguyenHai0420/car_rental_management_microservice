@@ -119,12 +119,13 @@ export const BookingListPage = () => {
   }, [searchVehicles]);
 
   const bookingModalVehicle = useMemo(() => {
-    if (closedVehicleId && (selectedVehicle?.id === closedVehicleId || vehicleIdParam === closedVehicleId)) {
+    const currentId = selectedVehicle?.vehicleId || selectedVehicle?.id;
+    if (closedVehicleId && (currentId === closedVehicleId || vehicleIdParam === closedVehicleId)) {
       return null;
     }
     if (selectedVehicle) return selectedVehicle;
     if (vehicleIdParam && vehicles?.length > 0) {
-      return vehicles.find((v) => v.id === vehicleIdParam) || null;
+      return vehicles.find((v) => v.id === vehicleIdParam || v.vehicleId === vehicleIdParam) || null;
     }
     return null;
   }, [selectedVehicle, closedVehicleId, vehicleIdParam, vehicles]);
@@ -135,7 +136,7 @@ export const BookingListPage = () => {
   };
 
   const closeBookingModal = () => {
-    setClosedVehicleId(bookingModalVehicle?.id || "closed");
+    setClosedVehicleId(bookingModalVehicle?.vehicleId || bookingModalVehicle?.id || "closed");
     setSelectedVehicle(null);
   };
 

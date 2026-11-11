@@ -55,7 +55,7 @@ export function VehicleListPage() {
     <div className="section-heading">
       <div>
         <h2 id="fleet-list-heading">Danh sách xe</h2>
-        <p className="subtitle">Tìm theo biển số hoặc VIN và lọc theo thông tin hiện tại của xe.</p>
+        <p className="subtitle">Tìm theo tên xe, biển số hoặc VIN và lọc theo thông tin hiện tại của xe.</p>
       </div>
       <Link to="/vehicles/new" className="fleet-button">Thêm xe</Link>
     </div>
@@ -66,7 +66,7 @@ export function VehicleListPage() {
     </div>}
     {state?.notice && <p className="notice success" role="status">{state.notice}</p>}
     <form className="fleet-filters" key={JSON.stringify([q, status, categoryId, modelId])} onSubmit={filter}>
-      <label>Biển số hoặc VIN<input name="q" type="search" defaultValue={q} /></label>
+      <label>Tên xe, biển số hoặc VIN<input name="q" type="search" defaultValue={q} placeholder="VD: Toyota Vios, 51A-12345…" /></label>
       <label><span id="fleet-filter-status">Trạng thái</span>
         <select aria-labelledby="fleet-filter-status" name="status" defaultValue={status}>
           <option value="">Tất cả trạng thái</option>

@@ -25,7 +25,7 @@ public interface VehicleClient {
     @GetMapping("/api/v1/vehicles/available")
     FeignResponseWrapper<List<AvailableVehicleResponse>> getAvailableVehicles();
 
-    @PatchMapping("/api/v1/vehicles/{vehicleId}/status")
+    @PatchMapping("/api/v1/vehicles/{vehicleId}/rental-status")
     FeignResponseWrapper<Void> updateStatus(
             @PathVariable("vehicleId") UUID vehicleId,
             @RequestParam("status") String status,

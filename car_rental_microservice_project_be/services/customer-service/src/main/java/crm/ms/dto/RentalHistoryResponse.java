@@ -28,4 +28,3 @@ public class RentalHistoryResponse {
     private LocalDateTime reviewedAt;
     private LocalDateTime syncedAt;
 }
-

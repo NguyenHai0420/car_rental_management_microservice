@@ -3,7 +3,7 @@ package crm.ms.filters;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
-import org.springframework.http.HttpHeaders;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
@@ -21,15 +21,22 @@ import java.util.Set;
 @Component
 public class KecloakHeaderFilter implements GlobalFilter, Ordered {
 
+    @Value("${app.trust.maintenance-gateway-secret:}")
+    private String maintenanceGatewaySecret = "";
+
+    @Value("${app.trust.notification-gateway-secret:}")
+    private String notificationGatewaySecret = "";
+
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         ServerWebExchange cleanExchange = exchange.mutate()
                 .request(request -> request.headers(headers -> {
-                    headers.remove(HttpHeaders.AUTHORIZATION);
                     headers.remove(Constants.USER_ID);
                     headers.remove(Constants.USER_EMAIL);
                     headers.remove(Constants.USER_NAME);
                     headers.remove(Constants.USER_ROLES);
+                    headers.remove(Constants.GATEWAY_SECRET);
+                    headers.remove(Constants.INTERNAL_SERVICE_TOKEN);
                 }))
                 .build();
 
@@ -39,9 +46,13 @@ public class KecloakHeaderFilter implements GlobalFilter, Ordered {
                 .map(JwtAuthenticationToken.class::cast)
                 .map(authentication -> {
                     Jwt jwt = authentication.getToken();
+                    String gatewaySecret = gatewaySecretForPath(exchange.getRequest().getPath().value());
 
                     return cleanExchange.mutate()
                             .request(request -> request.headers(headers -> {
+                                if (!gatewaySecret.isBlank()) {
+                                    headers.set(Constants.GATEWAY_SECRET, gatewaySecret);
+                                }
                                 if (jwt.getSubject() != null) {
                                     headers.set(Constants.USER_ID, jwt.getSubject());
                                 }
@@ -68,6 +79,16 @@ public class KecloakHeaderFilter implements GlobalFilter, Ordered {
                 })
                 .defaultIfEmpty(cleanExchange)
                 .flatMap(chain::filter);
+    }
+
+    private String gatewaySecretForPath(String path) {
+        if (path.equals("/api/v1/maintenances") || path.startsWith("/api/v1/maintenances/")) {
+            return maintenanceGatewaySecret;
+        }
+        if (path.equals("/api/v1/notifications") || path.startsWith("/api/v1/notifications/")) {
+            return notificationGatewaySecret;
+        }
+        return "";
     }
 
     private String extractRoles(Jwt jwt) {

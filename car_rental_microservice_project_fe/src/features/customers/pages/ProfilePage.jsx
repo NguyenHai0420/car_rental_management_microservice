@@ -19,17 +19,39 @@ export function ProfilePage() {
   const [profile, setProfile] = useState(null)
   const [rentals, setRentals] = useState([])
   const [loading, setLoading] = useState(true)
-  const [rentalsLoading, setRentalsLoading] = useState(false)
+  const [rentalsLoading, setRentalsLoading] = useState(true)
   const [error, setError] = useState('')
+  const [rentalsError, setRentalsError] = useState('')
   const [showLicenseEdit, setShowLicenseEdit] = useState(false)
 
   useEffect(() => {
-    if (auth.ready && auth.authenticated) {
-      loadProfile()
-      loadRentals()
-    } else if (auth.ready && !auth.authenticated) {
-      setLoading(false)
-    }
+    if (!auth.ready || !auth.authenticated) return
+    const controller = new AbortController()
+    getMyProfile(controller.signal)
+      .then((data) => {
+        if (controller.signal.aborted) return
+        setProfile(data)
+        setError('')
+      })
+      .catch((err) => {
+        if (!controller.signal.aborted) setError(customerError(err))
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false)
+      })
+    getMyRentalHistory(controller.signal)
+      .then((data) => {
+        if (controller.signal.aborted) return
+        setRentals(data || [])
+        setRentalsError('')
+      })
+      .catch((err) => {
+        if (!controller.signal.aborted) setRentalsError(customerError(err))
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setRentalsLoading(false)
+      })
+    return () => controller.abort()
   }, [auth.ready, auth.authenticated])
 
   async function loadProfile() {
@@ -42,18 +64,6 @@ export function ProfilePage() {
       setError(customerError(err))
     } finally {
       setLoading(false)
-    }
-  }
-
-  async function loadRentals() {
-    setRentalsLoading(true)
-    try {
-      const data = await getMyRentalHistory()
-      setRentals(data || [])
-    } catch (err) {
-      console.warn('Could not load rental history:', err)
-    } finally {
-      setRentalsLoading(false)
     }
   }
 
@@ -177,7 +187,9 @@ export function ProfilePage() {
                 Các chuyến xe đã thuê và đánh giá dịch vụ
               </span>
             </div>
-            <RentalHistoryTable rentals={rentals} loading={rentalsLoading} />
+            {rentalsError
+              ? <p className="notice error" role="alert">{rentalsError}</p>
+              : <RentalHistoryTable rentals={rentals} loading={rentalsLoading} />}
           </div>
         </>
       )}

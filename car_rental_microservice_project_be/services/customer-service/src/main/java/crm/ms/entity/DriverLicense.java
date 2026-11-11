@@ -41,6 +41,7 @@ public class DriverLicense {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "license_class", nullable = false, length = 5)
+    @Builder.Default
     private LicenseClass licenseClass = LicenseClass.B2;
 
     @Column(name = "issue_date", nullable = false)
@@ -60,6 +61,7 @@ public class DriverLicense {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "verification_status", nullable = false, length = 10)
+    @Builder.Default
     private VerificationStatus verificationStatus = VerificationStatus.PENDING;
 
     @Column(name = "verified_at")

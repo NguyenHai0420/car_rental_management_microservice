@@ -164,4 +164,3 @@ export function DriverLicenseForm({ license, onSubmitLicense }) {
     </form>
   )
 }
-
