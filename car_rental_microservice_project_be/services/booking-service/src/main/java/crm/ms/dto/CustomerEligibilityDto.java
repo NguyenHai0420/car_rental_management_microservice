@@ -23,4 +23,3 @@ public class CustomerEligibilityDto {
     private String licenseClass;
     private LocalDate licenseExpiryDate;
 }
-

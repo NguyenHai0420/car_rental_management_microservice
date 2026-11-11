@@ -22,8 +22,13 @@ export const listVehicleStatusHistory = (vehicleId, signal) =>
 
 export const listVehicleCategories = (signal) => apiClient.get(`${vehicles}/categories`, { signal }).then(data)
 export const createVehicleCategory = (fields) => apiClient.post(`${vehicles}/categories`, fields).then(data)
+export const updateVehicleCategory = (id, fields) => apiClient.put(`${vehicles}/categories/${encodeURIComponent(id)}`, fields).then(data)
+export const deleteVehicleCategory = (id) => apiClient.delete(`${vehicles}/categories/${encodeURIComponent(id)}`).then(data)
 export const listVehicleModels = (signal) => apiClient.get(`${vehicles}/models`, { signal }).then(data)
 export const createVehicleModel = (fields) => apiClient.post(`${vehicles}/models`, fields).then(data)
+
+export const updateVehicleModel = (id, fields) => apiClient.put(`${vehicles}/models/${encodeURIComponent(id)}`, fields).then(data)
+export const deleteVehicleModel = (id) => apiClient.delete(`${vehicles}/models/${encodeURIComponent(id)}`).then(data)
 
 export function vehicleError(error) {
   if (error?.response?.status === 401) return 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'

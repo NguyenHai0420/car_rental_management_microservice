@@ -44,5 +44,11 @@ booking:
   deposit-rate: 0.30
   mock-external-services: ${BOOKING_MOCK_EXTERNAL:true}
 
+app:
+  services:
+    notification-service:
+      url: ${NOTIFICATION_SERVICE_URL:http://localhost:8086}
+      internal-token: ${NOTIFICATION_INTERNAL_TOKEN:}
+
 server:
   port: ${service.port}

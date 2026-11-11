@@ -51,7 +51,7 @@ class VehicleMediaPersistenceTest {
         // Previous test rollback callbacks run after Spring's default Mockito reset listener.
         clearInvocations(storage);
         VehicleCategory category = em.persist(VehicleCategory.builder().name("SUV-" + UUID.randomUUID())
-                .sizeClass(SizeClass.SUV).isActive(true).build());
+                .isActive(true).build());
         VehicleModel model = em.persist(VehicleModel.builder().brand("Test").modelName(UUID.randomUUID().toString())
                 .manufactureYear(2026).fuelType(FuelType.GASOLINE).transmission(Transmission.AUTOMATIC).seatCount(5).build());
         Vehicle vehicle = em.persistAndFlush(Vehicle.builder().category(category).model(model)

@@ -23,7 +23,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.text.NumberFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -36,7 +35,6 @@ import java.util.*;
 public class BookingServiceImpl implements BookingService {
 
     private static final DateTimeFormatter CODE_DATE_FMT = DateTimeFormatter.ofPattern("yyyyMMdd");
-    private static final DateTimeFormatter EMAIL_DT_FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
     private final BookingRepository bookingRepository;
     private final RentalSlotRepository rentalSlotRepository;
@@ -326,7 +324,6 @@ public class BookingServiceImpl implements BookingService {
                             .brand("Toyota")
                             .modelName("Camry 2.5Q")
                             .categoryName("Sedan")
-                            .sizeClass("MIDSIZE")
                             .color("Đen")
                             .seatCount(5)
                             .fuelType("Xăng")
@@ -342,7 +339,6 @@ public class BookingServiceImpl implements BookingService {
                             .brand("Ford")
                             .modelName("Everest Titanium 4x4")
                             .categoryName("SUV")
-                            .sizeClass("FULLSIZE")
                             .color("Trắng ngọc trai")
                             .seatCount(7)
                             .fuelType("Dầu Diesel")
@@ -358,7 +354,6 @@ public class BookingServiceImpl implements BookingService {
                             .brand("Hyundai")
                             .modelName("Tucson 2.0 Turbo")
                             .categoryName("Crossover")
-                            .sizeClass("COMPACT")
                             .color("Đỏ đô")
                             .seatCount(5)
                             .fuelType("Xăng")
@@ -401,25 +396,19 @@ public class BookingServiceImpl implements BookingService {
         if (booking.getCustomerEmail() == null || booking.getCustomerEmail().isBlank()) {
             return;
         }
-        String formattedTotal = NumberFormat.getNumberInstance(Locale.US).format(booking.getEstimatedTotal());
         NotificationRequest req = NotificationRequest.builder()
-                .templateCode("BOOKING_CONFIRMED")
-                .channel("EMAIL")
-                .recipient(booking.getCustomerEmail())
-                .recipientName(booking.getCustomerName() != null ? booking.getCustomerName() : "Quý khách")
-                .subject("Xác nhận đơn đặt xe #" + booking.getBookingCode())
-                .placeholders(Map.of(
-                        "customer_name", booking.getCustomerName() != null ? booking.getCustomerName() : "Quý khách",
-                        "booking_code", booking.getBookingCode(),
-                        "vehicle_info", nullSafe(booking.getVehicleInfo()),
-                        "pickup_datetime", booking.getPickupDatetime().format(EMAIL_DT_FMT),
-                        "pickup_location", booking.getPickupLocation(),
-                        "return_datetime", booking.getReturnDatetime().format(EMAIL_DT_FMT),
-                        "total_amount", formattedTotal
-                ))
-                .sourceService("booking-service")
-                .sourceEvent("BookingConfirmed")
-                .referenceId(booking.getId())
+                .idempotencyKey("booking-confirmed:" + booking.getId())
+                .bookingId(booking.getId())
+                .bookingCode(booking.getBookingCode())
+                .customerEmail(booking.getCustomerEmail())
+                .customerName(booking.getCustomerName() != null ? booking.getCustomerName() : "Quý khách")
+                .vehicleName(booking.getVehicleInfo())
+                .pickupDatetime(booking.getPickupDatetime())
+                .returnDatetime(booking.getReturnDatetime())
+                .pickupLocation(booking.getPickupLocation())
+                .estimatedTotal(booking.getEstimatedTotal())
+                .depositRequired(booking.getDepositRequired())
+                .currency("VND")
                 .build();
         try {
             notificationClient.sendNotification(req);

@@ -17,11 +17,16 @@ import java.util.UUID;
  *                              → FAILED → RETRY → SENT/DEAD_LETTER
  */
 @Entity
-@Table(name = "notification_logs", indexes = {
+@Table(name = "notification_logs",
+        uniqueConstraints = {
+                @jakarta.persistence.UniqueConstraint(name = "uk_nlogs_idempotency_key", columnNames = "idempotency_key")
+        },
+        indexes = {
         @Index(name = "idx_nlogs_template", columnList = "template_id"),
         @Index(name = "idx_nlogs_status", columnList = "status"),
         @Index(name = "idx_nlogs_recipient", columnList = "recipient"),
         @Index(name = "idx_nlogs_retry", columnList = "status, next_retry_at"),
+        @Index(name = "idx_nlogs_sending_lock", columnList = "status, locked_at"),
         @Index(name = "idx_nlogs_source", columnList = "source_service, source_event"),
         @Index(name = "idx_nlogs_reference", columnList = "reference_id"),
         @Index(name = "idx_nlogs_created", columnList = "created_at")
@@ -42,10 +47,20 @@ public class NotificationLog {
     @JoinColumn(name = "template_id", foreignKey = @ForeignKey(name = "fk_nlogs_template"))
     private EmailTemplate template;
 
+    @Column(name = "idempotency_key", nullable = false, length = 150)
+    private String idempotencyKey;
+
+    @Column(name = "request_hash", nullable = false, length = 64)
+    private String requestHash;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
     @Builder.Default
     private NotificationChannel channel = NotificationChannel.EMAIL;
+
+    @Column(name = "is_html", nullable = false)
+    @Builder.Default
+    private Boolean isHtml = Boolean.FALSE;
 
     /** Email / Phone / Device Token */
     @Column(nullable = false, length = 200)
@@ -102,8 +117,17 @@ public class NotificationLog {
     @Column(name = "delivered_at")
     private LocalDateTime deliveredAt;
 
+    @Column(name = "locked_by", length = 100)
+    private String lockedBy;
+
+    @Column(name = "locked_at")
+    private LocalDateTime lockedAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    @Column(name = "updated_at", nullable = false)
+    private LocalDateTime updatedAt;
 
     @OneToMany(mappedBy = "notificationLog", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
@@ -111,6 +135,15 @@ public class NotificationLog {
 
     @PrePersist
     protected void onCreate() {
-        createdAt = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(java.time.ZoneOffset.UTC);
+        if (createdAt == null) {
+            createdAt = now;
+        }
+        updatedAt = now;
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now(java.time.ZoneOffset.UTC);
     }
 }

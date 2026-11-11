@@ -56,4 +56,3 @@ public class SecurityConfig {
                 .collect(Collectors.toList());
     }
 }
-

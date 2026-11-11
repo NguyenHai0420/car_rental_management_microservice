@@ -1,15 +1,12 @@
-service:
-  name: customer-service
-  description: Customer Service
-  version: 1.0.0
-  port: 8082
+server:
+  port: ${SERVER_PORT:8082}
 
 spring:
   application:
     name: customer-service
   datasource:
-    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3307}/customer_db
-    username: ${DB_USER:root}
+    url: ${DB_URL:jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3307}/customer_db?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true}
+    username: ${DB_USERNAME:${DB_USER:root}}
     password: ${DB_PASSWORD:1234}
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
@@ -28,9 +25,12 @@ spring:
 eureka:
   client:
     service-url:
-      defaultZone: ${EUREKA_URI:http://localhost:8761/eureka/}
+      defaultZone: ${EUREKA_SERVER_URL:${EUREKA_URI:http://localhost:8761/eureka/}}
   instance:
     prefer-ip-address: true
 
-server:
-  port: ${service.port}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

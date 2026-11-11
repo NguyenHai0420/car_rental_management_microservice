@@ -21,4 +21,3 @@ public class NotificationResponse {
     private String status;
     private LocalDateTime sentAt;
 }
-

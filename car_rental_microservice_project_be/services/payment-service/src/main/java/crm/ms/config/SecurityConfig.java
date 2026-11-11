@@ -2,6 +2,7 @@ package crm.ms.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -29,6 +30,8 @@ public class SecurityConfig {
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/pricing/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/pricing/calculate").permitAll()
                         .requestMatchers("/api/v1/payments/callback/**", "/api/v1/payments/webhook/**").permitAll()
                         .anyRequest().authenticated()
                 )
@@ -56,4 +59,3 @@ public class SecurityConfig {
                 .collect(Collectors.toList());
     }
 }
-

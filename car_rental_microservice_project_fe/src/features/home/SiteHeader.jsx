@@ -12,7 +12,11 @@ export function SiteHeader() {
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const isBookingActive = location.pathname.startsWith('/bookings')
+  const isProfileActive = location.pathname.startsWith('/profile')
   const isHome = location.pathname === '/'
+  const isPricing = location.pathname === '/pricing' || location.pathname === '/rent'
+  const isHistory = location.pathname.startsWith('/payment/history') || location.pathname.startsWith('/payments/history')
+  const isPayment = location.pathname.startsWith('/payment') && !isHistory
 
   const handleNavClick = (event, href) => {
     event.preventDefault()
@@ -68,6 +72,9 @@ export function SiteHeader() {
               </a>
             </li>
           ))}
+          <li className="nav-item"><Link className="nav-link text-nowrap" to="/pricing" aria-current={isPricing ? 'page' : undefined} onClick={() => setOpen(false)}>Tính giá &amp; Thuê xe</Link></li>
+          <li className="nav-item"><Link className="nav-link text-nowrap" to="/payment" aria-current={isPayment ? 'page' : undefined} onClick={() => setOpen(false)}>Thanh toán</Link></li>
+          <li className="nav-item"><Link className="nav-link text-nowrap" to="/payment/history" aria-current={isHistory ? 'page' : undefined} onClick={() => setOpen(false)}>Lịch sử thanh toán</Link></li>
           {auth.authenticated ? (
             <li className="nav-item">
               <Link
@@ -76,7 +83,7 @@ export function SiteHeader() {
                 aria-current={isBookingActive ? 'page' : undefined}
                 onClick={() => setOpen(false)}
               >
-                <i className="bi me-1" aria-hidden="true" />
+                <i className="bi bi-clock-history me-1" aria-hidden="true" />
                 Đơn thuê của tôi
               </Link>
             </li>
@@ -92,6 +99,14 @@ export function SiteHeader() {
               </Link>
             </li>
           )}
+          {auth.authenticated && (
+            <li className="nav-item">
+              <Link className="nav-link text-nowrap" to="/profile" aria-current={isProfileActive ? 'page' : undefined} onClick={() => setOpen(false)}>
+                <i className="bi bi-person-circle me-1" aria-hidden="true" />
+                Hồ sơ của tôi
+              </Link>
+            </li>
+          )}
           {auth.canManageFleet && (
             <li className="nav-item">
               <Link className="nav-link text-nowrap" to="/vehicles" onClick={() => setOpen(false)}>
@@ -103,13 +118,13 @@ export function SiteHeader() {
         <div className="account d-flex align-items-center gap-2 pb-2 pb-md-0 ms-auto text-nowrap">
           {auth.authenticated
             ? <>
-              <span className="d-flex align-items-center gap-1">
+              <Link to="/profile" className="d-flex align-items-center gap-1 text-decoration-none text-dark bg-white px-2 py-1 rounded border" title="Xem hồ sơ cá nhân">
                 <i className="bi bi-person-circle me-1" aria-hidden="true" />
                 <strong>{auth.name}</strong>
                 {auth.roles?.filter((r) => ['ADMIN', 'STAFF'].includes(r)).map((r) => (
                   <span key={r} className="badge bg-danger ms-1" style={{ fontSize: '10.5px' }}>{r}</span>
                 ))}
-              </span>
+              </Link>
               <button className="btn btn-sm btn-outline-dark" onClick={() => auth.logout()}>Đăng xuất</button>
             </>
             : auth.configured && <button className="btn btn-sm btn-outline-dark" disabled={!auth.ready} onClick={() => auth.login()}>Đăng nhập</button>}

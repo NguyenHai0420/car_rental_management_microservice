@@ -22,4 +22,3 @@ public class ReturnBookingRequest {
 
     private String notes;
 }
-

@@ -83,6 +83,17 @@ public class VehicleController {
         return response(HttpStatus.CREATED, "Vehicle category created", catalog.createCategory(request));
     }
 
+    @PutMapping("/categories/{id}")
+    public ResponseEntity<ResponseApi> updateCategory(@PathVariable UUID id, @Valid @RequestBody VehicleCatalog.CategoryRequest request) {
+        return response(HttpStatus.OK, "Vehicle category updated", catalog.updateCategory(id, request));
+    }
+
+    @DeleteMapping("/categories/{id}")
+    public ResponseEntity<ResponseApi> deleteCategory(@PathVariable UUID id) {
+        catalog.deleteCategory(id);
+        return response(HttpStatus.OK, "Vehicle category deleted", null);
+    }
+
     @GetMapping("/models")
     public ResponseEntity<ResponseApi> models() {
         return response(HttpStatus.OK, "Vehicle models", catalog.models());
@@ -91,6 +102,17 @@ public class VehicleController {
     @PostMapping("/models")
     public ResponseEntity<ResponseApi> createModel(@Valid @RequestBody VehicleCatalog.ModelRequest request) {
         return response(HttpStatus.CREATED, "Vehicle model created", catalog.createModel(request));
+    }
+
+    @PutMapping("/models/{id}")
+    public ResponseEntity<ResponseApi> updateModel(@PathVariable UUID id, @Valid @RequestBody VehicleCatalog.ModelRequest request) {
+        return response(HttpStatus.OK, "Vehicle model updated", catalog.updateModel(id, request));
+    }
+
+    @DeleteMapping("/models/{id}")
+    public ResponseEntity<ResponseApi> deleteModel(@PathVariable UUID id) {
+        catalog.deleteModel(id);
+        return response(HttpStatus.OK, "Vehicle model deleted", null);
     }
 
     private ResponseEntity<ResponseApi> response(HttpStatus status, String message, Object data) {

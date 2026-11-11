@@ -10,4 +10,3 @@ import lombok.*;
 public class CancelBookingRequest {
     private String reason;
 }
-
