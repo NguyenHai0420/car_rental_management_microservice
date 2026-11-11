@@ -1,4 +1,22 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import {
+  App,
+  Button,
+  Col,
+  DatePicker,
+  Input,
+  Row,
+  Select,
+} from 'antd'
+import {
+  CalendarOutlined,
+  CarOutlined,
+  EnvironmentOutlined,
+  SearchOutlined,
+} from '@ant-design/icons'
+import dayjs from 'dayjs'
+import { useAuth } from '../../app/providers/auth-context'
 import { useVehicleQuery } from '../vehicles/hooks/useVehicleQuery'
 import { listShowroom, vehicleError } from '../vehicles/services/vehicle'
 import { matchesSearch } from '../vehicles/vehicle-fields'
@@ -9,18 +27,38 @@ import { SiteFooter } from './SiteFooter'
 import { hotline, hotlineHref } from './site'
 import { SiteHeader } from './SiteHeader'
 import { VehicleDialog } from './VehicleDialog'
+import { BookingForm } from '../bookings/components/BookingForm'
+import { bookingService } from '../bookings/services/booking'
 
-const PREVIEW = 4
+const { RangePicker } = DatePicker
+const PREVIEW = 8
 const loadShowroom = (signal) => listShowroom({ size: 48 }, signal)
-const showroomError = (error) => error?.response ? vehicleError(error) : 'Không kết nối được máy chủ. Vui lòng thử lại.'
-const group = (cars, key) => [...Map.groupBy(cars, key)].sort((a, b) => b[1].length - a[1].length)
+const showroomError = (error) =>
+  error?.response ? vehicleError(error) : 'Không kết nối được máy chủ. Vui lòng thử lại.'
+const group = (cars, key) =>
+  [...Map.groupBy(cars, key)].sort((a, b) => b[1].length - a[1].length)
+
+const getDefaultRange = () => [
+  dayjs().add(1, 'day').hour(8).minute(0).second(0),
+  dayjs().add(3, 'day').hour(8).minute(0).second(0),
+]
 
 export function HomePage() {
+  const { message } = App.useApp()
+  const navigate = useNavigate()
+  const { authenticated, login } = useAuth()
   const showroom = useVehicleQuery(loadShowroom, showroomError)
+
   const [brand, setBrand] = useState('')
   const [category, setCategory] = useState('')
   const [term, setTerm] = useState('')
+  const [dateRange, setDateRange] = useState(getDefaultRange)
+  const [minSeats, setMinSeats] = useState(undefined)
+  const [locationFilter, setLocationFilter] = useState('')
+
   const [selected, setSelected] = useState(null)
+  const [bookingVehicle, setBookingVehicle] = useState(null)
+  const [submittingBooking, setSubmittingBooking] = useState(false)
 
   useEffect(() => {
     const hash = window.location.hash
@@ -36,72 +74,331 @@ export function HomePage() {
       }
     }
   }, [])
+
   const cars = showroom.data?.content
   const brands = useMemo(() => group(cars ?? [], (car) => car.brand), [cars])
-  const categories = useMemo(() => [...new Map((cars ?? []).map((car) => [car.categoryId, car.categoryName])).entries()], [cars])
-  const locations = useMemo(() => [...new Set((cars ?? []).map((car) => car.location).filter(Boolean))].slice(0, 6), [cars])
+  const categories = useMemo(
+    () => [...new Map((cars ?? []).map((car) => [car.categoryId, car.categoryName])).entries()],
+    [cars]
+  )
+  const locations = useMemo(
+    () => [...new Set((cars ?? []).map((car) => car.location).filter(Boolean))].slice(0, 6),
+    [cars]
+  )
   const slides = useMemo(() => (cars ?? []).filter((car) => car.imageUrl).slice(0, 5), [cars])
-  const filtering = Boolean(brand || category || term.trim())
-  const sections = useMemo(() => {
-    return group((cars ?? []).filter((car) => (!brand || car.brand === brand) && (!category || car.categoryId === category)
-      && matchesSearch(term, car.brand, car.modelName, car.categoryName)), (car) => car.brand)
-  }, [cars, brand, category, term])
-  const total = sections.reduce((sum, [, list]) => sum + list.length, 0)
-  const pickBrand = (name) => { setBrand((current) => current === name ? '' : name); setCategory(''); setTerm('') }
-  const showBrand = (name) => { setBrand(name); setCategory(''); setTerm('') }
-  const reset = () => { setBrand(''); setCategory(''); setTerm('') }
 
-  return <div className="site" id="top">
-    <SiteHeader />
-    <main>
-      <HeroSlider cars={slides} onOpen={setSelected} />
-      <div className="container finder-wrap"><form className="finder" role="search" onSubmit={(event) => { event.preventDefault(); document.getElementById('xe')?.scrollIntoView({ behavior: 'smooth' }) }}>
-        <div className="row g-2 align-items-center">
-          <div className="col-12 col-md"><label className="input-group"><span className="input-group-text"><i className="bi bi-search" aria-hidden="true" /></span><span className="sr-only">Tìm theo tên xe</span>
-            <input className="form-control" type="search" placeholder="Tìm tên xe, hãng hoặc mẫu xe (VD: Vios, Toyota Camry)…" value={term} onChange={(event) => { setTerm(event.target.value); setBrand('') }} /></label></div>
-          <div className="col-12 col-md-4"><label><span className="sr-only">Loại xe</span>
-            <select className="form-select" value={category} onChange={(event) => { setCategory(event.target.value); setBrand('') }}>
-              <option value="">Tất cả loại xe</option>
-              {categories.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label></div>
-          <div className="col-12 col-md-auto"><button className="btn btn-danger w-100 px-4" type="submit"><i className="bi bi-search me-2" aria-hidden="true" />Tìm xe</button></div>
+  const filteredCars = useMemo(() => {
+    return (cars ?? []).filter((car) => {
+      if (brand && car.brand !== brand) return false
+      if (category && car.categoryId !== category) return false
+      if (term.trim() && !matchesSearch(term, car.brand, car.modelName, car.categoryName)) return false
+      if (minSeats && (!car.seatCount || car.seatCount < minSeats)) return false
+      if (locationFilter.trim()) {
+        const loc = (car.location || '').toLowerCase()
+        if (!loc.includes(locationFilter.trim().toLowerCase())) return false
+      }
+      return true
+    })
+  }, [cars, brand, category, term, minSeats, locationFilter])
+
+  const filtering = Boolean(
+    brand || category || term.trim() || minSeats || locationFilter.trim()
+  )
+  const sections = useMemo(() => group(filteredCars, (car) => car.brand), [filteredCars])
+  const total = filteredCars.length
+
+  const pickBrand = (name) => {
+    setBrand((current) => (current === name ? '' : name))
+    setCategory('')
+    setTerm('')
+  }
+  const showBrand = (name) => {
+    setBrand(name)
+    setCategory('')
+    setTerm('')
+  }
+  const reset = () => {
+    setBrand('')
+    setCategory('')
+    setTerm('')
+    setMinSeats(undefined)
+    setLocationFilter('')
+  }
+
+  const handleBookVehicle = (car) => {
+    if (!authenticated) {
+      message.info('Vui lòng đăng nhập để đặt thuê xe.')
+      login()
+      return
+    }
+    setBookingVehicle(car)
+  }
+
+  const handleCreateBooking = async (payload) => {
+    setSubmittingBooking(true)
+    try {
+      const created = await bookingService.createBooking(payload)
+      message.success(
+        `Đặt xe thành công! Mã đơn: ${created.bookingCode}. Vui lòng thanh toán tiền cọc trong 15 phút.`
+      )
+      setBookingVehicle(null)
+      navigate('/bookings')
+    } catch (err) {
+      message.error(err.userMessage || 'Tạo đơn đặt xe thất bại.')
+    } finally {
+      setSubmittingBooking(false)
+    }
+  }
+
+  return (
+    <div className="site" id="top">
+      <SiteHeader />
+      <main>
+        <HeroSlider cars={slides} onOpen={setSelected} />
+
+        {/* BỘ LỌC TÌM XE TRỐNG TÍCH HỢP TRỰC TIẾP TRÊN TRANG CHỦ */}
+        <div className="container finder-wrap" id="tim-xe">
+          <div className="finder">
+            <Row gutter={[16, 16]} align="bottom">
+              <Col xs={24} md={10} lg={9}>
+                <div style={{ marginBottom: 6, fontWeight: 600, fontSize: 13, color: 'var(--title)' }}>
+                  <CalendarOutlined style={{ color: '#ff6a1a', marginRight: 6 }} /> Khoảng thời gian thuê xe
+                </div>
+                <RangePicker
+                  value={dateRange}
+                  onChange={(vals) => setDateRange(vals)}
+                  showTime={{ format: 'HH:mm' }}
+                  format="DD/MM/YYYY HH:mm"
+                  style={{ width: '100%', height: 44, borderRadius: 8 }}
+                  disabledDate={(current) => current && current < dayjs().startOf('day')}
+                />
+              </Col>
+              <Col xs={12} sm={8} lg={4}>
+                <div style={{ marginBottom: 6, fontWeight: 600, fontSize: 13, color: 'var(--title)' }}>
+                  <CarOutlined style={{ color: '#ff6a1a', marginRight: 6 }} /> Số chỗ tối thiểu
+                </div>
+                <Select
+                  allowClear
+                  placeholder="Tất cả số chỗ"
+                  style={{ width: '100%', height: 44 }}
+                  value={minSeats}
+                  onChange={setMinSeats}
+                  options={[
+                    { value: 4, label: 'Từ 4 chỗ' },
+                    { value: 5, label: 'Từ 5 chỗ' },
+                    { value: 7, label: 'Từ 7 chỗ' },
+                    { value: 16, label: 'Từ 16 chỗ' },
+                  ]}
+                />
+              </Col>
+              <Col xs={12} sm={8} lg={5}>
+                <div style={{ marginBottom: 6, fontWeight: 600, fontSize: 13, color: 'var(--title)' }}>
+                  <EnvironmentOutlined style={{ color: '#ff6a1a', marginRight: 6 }} /> Khu vực / Chi nhánh
+                </div>
+                <Input
+                  allowClear
+                  placeholder="VD: Quận 1, Hoàng Mai, Cầu Giấy..."
+                  style={{ height: 44, borderRadius: 8 }}
+                  value={locationFilter}
+                  onChange={(e) => setLocationFilter(e.target.value)}
+                  onPressEnter={() => document.getElementById('xe')?.scrollIntoView({ behavior: 'smooth' })}
+                />
+              </Col>
+              <Col xs={16} sm={8} lg={4}>
+                <div style={{ marginBottom: 6, fontWeight: 600, fontSize: 13, color: 'var(--title)' }}>
+                  <SearchOutlined style={{ color: '#ff6a1a', marginRight: 6 }} /> Tìm theo tên
+                </div>
+                <Input
+                  allowClear
+                  placeholder="Vios, Camry, VF 8..."
+                  style={{ height: 44, borderRadius: 8 }}
+                  value={term}
+                  onChange={(e) => {
+                    setTerm(e.target.value)
+                    setBrand('')
+                  }}
+                  onPressEnter={() => document.getElementById('xe')?.scrollIntoView({ behavior: 'smooth' })}
+                />
+              </Col>
+              <Col xs={8} sm={24} lg={2}>
+                <Button
+                  type="primary"
+                  style={{
+                    height: 44,
+                    width: '100%',
+                    fontWeight: 700,
+                    background: 'linear-gradient(135deg, #ff8a1f, #ff6a1a)',
+                    borderColor: '#ff6a1a',
+                    borderRadius: 8,
+                  }}
+                  onClick={() => document.getElementById('xe')?.scrollIntoView({ behavior: 'smooth' })}
+                >
+                  <SearchOutlined /> Tìm xe
+                </Button>
+              </Col>
+            </Row>
+          </div>
         </div>
-      </form></div>
 
-      {brands.length > 0 && <section className="container brand-tiles" id="hang-xe" aria-label="Hãng xe">
-        <ul className="brand-row">{brands.map(([name, list]) => <li key={name}>
-          <button className="secondary w-100 h-100" aria-pressed={brand === name} onClick={() => { pickBrand(name); document.getElementById('xe')?.scrollIntoView({ behavior: 'smooth' }) }}>
-            <BrandLogo brand={name} className="tile-logo" /><strong>{name}</strong><small>{list.length} xe</small></button></li>)}</ul>
-      </section>}
+        {brands.length > 0 && (
+          <section className="container brand-tiles" id="hang-xe" aria-label="Hãng xe">
+            <ul className="brand-row">
+              {brands.map(([name, list]) => (
+                <li key={name}>
+                  <button
+                    className="secondary w-100 h-100"
+                    aria-pressed={brand === name}
+                    onClick={() => {
+                      pickBrand(name)
+                      document.getElementById('xe')?.scrollIntoView({ behavior: 'smooth' })
+                    }}
+                  >
+                    <BrandLogo brand={name} className="tile-logo" />
+                    <strong>{name}</strong>
+                    <small>{list.length} xe</small>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
-      <div className="container fleet" id="xe">
-        {showroom.loading && <ul className="row row-cols-1 row-cols-sm-2 row-cols-lg-4 g-3" aria-busy="true" aria-label="Đang tải">{Array.from({ length: 4 }, (_, i) => <li key={i} className="col"><div className="skeleton" /></li>)}</ul>}
-        {showroom.error && <div className="state" role="alert"><p>{showroom.error}</p><button className="btn btn-primary" onClick={showroom.reload}>Thử lại</button></div>}
-        {categories.length > 1 && <div className="chips" role="group" aria-label="Lọc theo loại xe">
-          <button className="chip" aria-pressed={!category} onClick={() => setCategory('')}>Tất cả</button>
-          {categories.map(([id, name]) => <button key={id} className="chip" aria-pressed={category === id} onClick={() => { setCategory(id); setBrand('') }}>{name}</button>)}
-        </div>}
-        {cars && filtering && <p className="result-bar" role="status">{total} xe phù hợp <button className="btn btn-link btn-sm p-0 link" onClick={reset}>Xóa bộ lọc</button></p>}
-        {cars && (sections.length
-          ? sections.map(([name, list]) => {
-            const shown = filtering ? list : list.slice(0, PREVIEW)
-            return <section key={name} className="brand-section" aria-label={name}>
-              <header><h2><BrandLogo brand={name} />{name}</h2><span className="count">{list.length} xe</span>
-                {!filtering && list.length > PREVIEW && <button className="btn btn-sm btn-outline-danger see-all" onClick={() => pickBrand(name)}>Xem tất cả ({list.length})</button>}</header>
-              <ul className="row row-cols-1 row-cols-sm-2 row-cols-lg-4 g-3 mt-0">{shown.map((car) => <CarCard key={car.id} car={car} onOpen={setSelected} />)}</ul>
-            </section>
-          })
-          : !showroom.loading && <div className="state"><p>{cars.length ? 'Không có xe khớp bộ lọc.' : 'Hiện chưa có xe sẵn sàng. Vui lòng quay lại sau.'}</p>
-            {cars.length > 0 && <button className="btn btn-outline-secondary" onClick={reset}>Xóa bộ lọc</button>}</div>)}
-      </div>
+        <div className="container fleet" id="xe">
+          {showroom.loading && (
+            <ul className="row row-cols-1 row-cols-sm-2 row-cols-lg-4 g-3" aria-busy="true" aria-label="Đang tải">
+              {Array.from({ length: 4 }, (_, i) => (
+                <li key={i} className="col">
+                  <div className="skeleton" />
+                </li>
+              ))}
+            </ul>
+          )}
+          {showroom.error && (
+            <div className="state" role="alert">
+              <p>{showroom.error}</p>
+              <button className="btn btn-primary" onClick={showroom.reload}>
+                Thử lại
+              </button>
+            </div>
+          )}
+          {categories.length > 1 && (
+            <div className="chips" role="group" aria-label="Lọc theo loại xe">
+              <button className="chip" aria-pressed={!category} onClick={() => setCategory('')}>
+                Tất cả
+              </button>
+              {categories.map(([id, name]) => (
+                <button
+                  key={id}
+                  className="chip"
+                  aria-pressed={category === id}
+                  onClick={() => {
+                    setCategory(id)
+                    setBrand('')
+                  }}
+                >
+                  {name}
+                </button>
+              ))}
+            </div>
+          )}
+          {cars && filtering && (
+            <p className="result-bar" role="status">
+              {total} xe phù hợp{' '}
+              <button className="btn btn-link btn-sm p-0 link" onClick={reset}>
+                Xóa bộ lọc
+              </button>
+            </p>
+          )}
+          {cars &&
+            (sections.length ? (
+              sections.map(([name, list]) => {
+                const shown = filtering ? list : list.slice(0, PREVIEW)
+                return (
+                  <section key={name} className="brand-section" aria-label={name}>
+                    <header>
+                      <h2>
+                        <BrandLogo brand={name} />
+                        {name}
+                      </h2>
+                      <span className="count">{list.length} xe</span>
+                      {!filtering && list.length > PREVIEW && (
+                        <button className="btn btn-sm btn-outline-danger see-all" onClick={() => pickBrand(name)}>
+                          Xem tất cả ({list.length})
+                        </button>
+                      )}
+                    </header>
+                    <ul className="row row-cols-1 row-cols-sm-2 row-cols-lg-4 g-3 mt-0">
+                      {shown.map((car) => (
+                        <CarCard
+                          key={car.id}
+                          car={car}
+                          onOpen={setSelected}
+                          onBook={handleBookVehicle}
+                        />
+                      ))}
+                    </ul>
+                  </section>
+                )
+              })
+            ) : (
+              !showroom.loading && (
+                <div className="state">
+                  <p>{cars.length ? 'Không có xe khớp bộ lọc.' : 'Hiện chưa có xe sẵn sàng. Vui lòng quay lại sau.'}</p>
+                  {cars.length > 0 && (
+                    <button className="btn btn-outline-secondary" onClick={reset}>
+                      Xóa bộ lọc
+                    </button>
+                  )}
+                </div>
+              )
+            ))}
+        </div>
 
-      <section className="steps" aria-labelledby="steps-title"><div className="container">
-        <h2 id="steps-title">Thuê xe chỉ với 3 bước</h2>
-        <ol className="row g-3">{[['bi-search-heart', 'Chọn xe', 'Xem hình ảnh thật, giá theo ngày và thông số từng xe.'], ['bi-chat-dots', 'Liên hệ & xác nhận', 'Nhân viên tư vấn xác nhận lịch nhận xe và các giấy tờ cần thiết.'], ['bi-key', 'Nhận xe & lên đường', 'Kiểm tra xe cùng nhân viên, ký nhận và bắt đầu hành trình.']].map(([icon, title, text], i) =>
-          <li className="col-md-4" key={title}><div className="step"><span className="step-no">{i + 1}</span><i className={`bi ${icon}`} aria-hidden="true" /><h3>{title}</h3><p>{text}</p></div></li>)}</ol>
-      </div></section>
-    </main>
-    <SiteFooter brands={brands.map(([name]) => name)} locations={locations} onBrand={showBrand} />
-    <a className="fab" href={hotlineHref} aria-label={hotline ? `Gọi ${hotline}` : 'Liên hệ'}><i className="bi bi-telephone-fill" aria-hidden="true" /></a>
-    {selected && <VehicleDialog car={selected} onClose={() => setSelected(null)} />}
-  </div>
+        <section className="steps" aria-labelledby="steps-title">
+          <div className="container">
+            <h2 id="steps-title">Thuê xe chỉ với 3 bước</h2>
+            <ol className="row g-3">
+              {[
+                ['bi-search-heart', 'Chọn xe', 'Xem hình ảnh thật, giá theo ngày và thông số từng xe.'],
+                ['bi-chat-dots', 'Liên hệ & xác nhận', 'Nhân viên tư vấn xác nhận lịch nhận xe và các giấy tờ cần thiết.'],
+                ['bi-key', 'Nhận xe & lên đường', 'Kiểm tra xe cùng nhân viên, ký nhận và bắt đầu hành trình.'],
+              ].map(([icon, title, text], i) => (
+                <li className="col-md-4" key={title}>
+                  <div className="step">
+                    <span className="step-no">{i + 1}</span>
+                    <i className={`bi ${icon}`} aria-hidden="true" />
+                    <h3>{title}</h3>
+                    <p>{text}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </section>
+      </main>
+      <SiteFooter brands={brands.map(([name]) => name)} locations={locations} onBrand={showBrand} />
+      <a className="fab" href={hotlineHref} aria-label={hotline ? `Gọi ${hotline}` : 'Liên hệ'}>
+        <i className="bi bi-telephone-fill" aria-hidden="true" />
+      </a>
+      {selected && (
+        <VehicleDialog
+          car={selected}
+          onClose={() => setSelected(null)}
+          onBook={handleBookVehicle}
+        />
+      )}
+
+      {/* MODAL ĐẶT THUÊ XE TRỰC TIẾP TỪ TRANG CHỦ */}
+      {bookingVehicle && (
+        <BookingForm
+          open={Boolean(bookingVehicle)}
+          vehicle={bookingVehicle}
+          defaultDateRange={dateRange}
+          submitting={submittingBooking}
+          onCancel={() => setBookingVehicle(null)}
+          onSubmit={handleCreateBooking}
+        />
+      )}
+    </div>
+  )
 }

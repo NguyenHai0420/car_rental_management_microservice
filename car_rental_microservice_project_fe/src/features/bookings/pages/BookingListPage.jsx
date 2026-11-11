@@ -1,13 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   Alert,
   App,
-  Badge,
   Button,
   Card,
-  Col,
-  DatePicker,
   Descriptions,
   Drawer,
   Empty,
@@ -15,7 +12,6 @@ import {
   Input,
   InputNumber,
   Modal,
-  Row,
   Select,
   Space,
   Spin,
@@ -27,24 +23,17 @@ import {
   Typography,
 } from "antd";
 import {
-  CalendarOutlined,
   CarOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
   CreditCardOutlined,
-  EnvironmentOutlined,
   EyeOutlined,
   ReloadOutlined,
-  SearchOutlined,
   SwapRightOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { useAuth } from "../../../app/providers/auth-context";
-import { BookingForm } from "../components/BookingForm";
-import {
-  useAvailableVehicles,
-  useBookingOperations,
-} from "../hooks/bookingDetail";
+import { useBookingOperations } from "../hooks/bookingDetail";
 import {
   BOOKING_STATUS_CONFIG,
   bookingService,
@@ -52,34 +41,16 @@ import {
   formatVnd,
 } from "../services/booking";
 
-const { RangePicker } = DatePicker;
 const { Title, Text } = Typography;
-
-const getDefaultRange = () => [
-  dayjs().add(1, "day").hour(8).minute(0).second(0),
-  dayjs().add(3, "day").hour(8).minute(0).second(0),
-];
 
 export const BookingListPage = () => {
   const { message } = App.useApp();
   const navigate = useNavigate();
-  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const { authenticated, hasRole, login } = useAuth();
 
   const isStaff = authenticated && hasRole("ADMIN", "VEHICLE_OWNER");
-  const activeTab = searchParams.get("tab") || "search";
-  const vehicleIdParam = searchParams.get("vehicleId");
-
-  const [dateRange, setDateRange] = useState(getDefaultRange);
-  const [minSeats, setMinSeats] = useState(undefined);
-  const [locationFilter, setLocationFilter] = useState("");
-
-  const [selectedVehicle, setSelectedVehicle] = useState(
-    () => location.state?.vehicle || null
-  );
-  const [closedVehicleId, setClosedVehicleId] = useState(null);
-  const [submittingBooking, setSubmittingBooking] = useState(false);
+  const activeTab = searchParams.get("tab") || "my-bookings";
 
   const [staffStatusFilter, setStaffStatusFilter] = useState("ALL");
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -92,13 +63,6 @@ export const BookingListPage = () => {
   const [actionForm] = Form.useForm();
 
   const {
-    vehicles,
-    loading: vehiclesLoading,
-    error: vehiclesError,
-    searchVehicles,
-  } = useAvailableVehicles();
-
-  const {
     myBookings,
     myLoading,
     loadMyBookings,
@@ -109,36 +73,6 @@ export const BookingListPage = () => {
     detailLoading,
     loadBookingDetail,
   } = useBookingOperations();
-
-  useEffect(() => {
-    const initial = getDefaultRange();
-    searchVehicles({
-      pickupDatetime: initial[0],
-      returnDatetime: initial[1],
-    });
-  }, [searchVehicles]);
-
-  const bookingModalVehicle = useMemo(() => {
-    const currentId = selectedVehicle?.vehicleId || selectedVehicle?.id;
-    if (closedVehicleId && (currentId === closedVehicleId || vehicleIdParam === closedVehicleId)) {
-      return null;
-    }
-    if (selectedVehicle) return selectedVehicle;
-    if (vehicleIdParam && vehicles?.length > 0) {
-      return vehicles.find((v) => v.id === vehicleIdParam || v.vehicleId === vehicleIdParam) || null;
-    }
-    return null;
-  }, [selectedVehicle, closedVehicleId, vehicleIdParam, vehicles]);
-
-  const openBookingModal = (v) => {
-    setClosedVehicleId(null);
-    setSelectedVehicle(v);
-  };
-
-  const closeBookingModal = () => {
-    setClosedVehicleId(bookingModalVehicle?.vehicleId || bookingModalVehicle?.id || "closed");
-    setSelectedVehicle(null);
-  };
 
   useEffect(() => {
     if (authenticated && activeTab === "my-bookings") {
@@ -162,50 +96,6 @@ export const BookingListPage = () => {
 
   const handleTabChange = (key) => {
     setSearchParams({ tab: key });
-  };
-
-  const handleSearchSubmit = () => {
-    if (!dateRange || dateRange.length !== 2) {
-      message.warning("Vui lòng chọn khoảng thời gian nhận và trả xe.");
-      return;
-    }
-    searchVehicles({
-      pickupDatetime: dateRange[0],
-      returnDatetime: dateRange[1],
-      minSeats,
-      location: locationFilter,
-    });
-  };
-
-  const handleSelectVehicle = (vehicle) => {
-    if (!authenticated) {
-      message.info("Vui lòng đăng nhập để đặt thuê xe.");
-      login();
-      return;
-    }
-    openBookingModal(vehicle);
-  };
-
-  const handleCreateBooking = async (payload) => {
-    setSubmittingBooking(true);
-    try {
-      const created = await bookingService.createBooking(payload);
-      message.success(
-        `Đặt xe thành công! Mã đơn: ${created.bookingCode}. Vui lòng thanh toán tiền cọc trong 15 phút.`
-      );
-      closeBookingModal();
-      handleSearchSubmit();
-      setSearchParams({ tab: "my-bookings" });
-      await loadMyBookings();
-      if (created?.id) {
-        setDrawerOpen(true);
-        await loadBookingDetail(created.id);
-      }
-    } catch (err) {
-      message.error(err.userMessage || "Tạo đơn đặt xe thất bại.");
-    } finally {
-      setSubmittingBooking(false);
-    }
   };
 
   const openDetailDrawer = async (record) => {
@@ -263,7 +153,6 @@ export const BookingListPage = () => {
       if (drawerOpen && selectedBooking?.id === booking.id) {
         await loadBookingDetail(booking.id);
       }
-      handleSearchSubmit();
     } catch (err) {
       message.error(err.userMessage || "Thao tác cập nhật đơn thất bại.");
       setActionModal((prev) => ({ ...prev, submitting: false }));
@@ -456,173 +345,50 @@ export const BookingListPage = () => {
     },
   ];
 
-  const searchTabContent = (
-    <Space orientation="vertical" size="large" style={{ width: "100%" }}>
-      <Card>
-        <Row gutter={[16, 16]} align="bottom">
-          <Col xs={24} lg={10}>
-            <div style={{ marginBottom: 6, fontWeight: 500 }}>
-              <CalendarOutlined /> Khoảng thời gian thuê xe
-            </div>
-            <RangePicker
-              value={dateRange}
-              onChange={(vals) => setDateRange(vals)}
-              showTime={{ format: "HH:mm" }}
-              format="DD/MM/YYYY HH:mm"
-              style={{ width: "100%" }}
-              disabledDate={(current) =>
-                current && current < dayjs().startOf("day")
-              }
-            />
-          </Col>
-          <Col xs={12} lg={5}>
-            <div style={{ marginBottom: 6, fontWeight: 500 }}>Số chỗ tối thiểu</div>
-            <Select
-              allowClear
-              placeholder="Tất cả số chỗ"
-              style={{ width: "100%" }}
-              value={minSeats}
-              onChange={setMinSeats}
-              options={[
-                { value: 4, label: "Từ 4 chỗ" },
-                { value: 5, label: "Từ 5 chỗ" },
-                { value: 7, label: "Từ 7 chỗ" },
-                { value: 16, label: "Từ 16 chỗ" },
-              ]}
-            />
-          </Col>
-          <Col xs={12} lg={5}>
-            <div style={{ marginBottom: 6, fontWeight: 500 }}>
-              <EnvironmentOutlined /> Khu vực / Chi nhánh
-            </div>
-            <Input
-              allowClear
-              placeholder="VD: Quận 1, Sân bay..."
-              value={locationFilter}
-              onChange={(e) => setLocationFilter(e.target.value)}
-              onPressEnter={handleSearchSubmit}
-            />
-          </Col>
-          <Col xs={24} lg={4}>
+  if (!authenticated) {
+    return (
+      <div style={{ padding: "40px 0" }}>
+        <Card
+          style={{
+            maxWidth: 500,
+            margin: "0 auto",
+            textAlign: "center",
+            borderRadius: 12,
+            boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+          }}
+        >
+          <Empty
+            description={
+              <div>
+                <Title level={4} style={{ marginBottom: 8 }}>
+                  Đơn thuê của tôi
+                </Title>
+                <Text type="secondary">
+                  Vui lòng đăng nhập để xem lịch sử đặt xe và quản lý các đơn thuê của bạn.
+                </Text>
+              </div>
+            }
+          >
             <Button
               type="primary"
-              icon={<SearchOutlined />}
-              block
               size="large"
-              loading={vehiclesLoading}
-              onClick={handleSearchSubmit}
+              onClick={login}
+              style={{
+                marginTop: 16,
+                background: "linear-gradient(135deg, #ff8a1f, #ff6a1a)",
+                borderColor: "#ff6a1a",
+              }}
             >
-              Tìm xe trống
+              Đăng nhập ngay
             </Button>
-          </Col>
-        </Row>
-      </Card>
-
-      {vehiclesError && (
-        <Alert
-          type="warning"
-          showIcon
-          title="Chưa tải được dữ liệu từ Booking Service (:8083)"
-          description={vehiclesError}
-        />
-      )}
-
-      <Spin spinning={vehiclesLoading}>
-        {vehicles.length === 0 ? (
-          <Card>
-            <Empty description="Không tìm thấy xe trống phù hợp trong khoảng thời gian đã chọn." />
-          </Card>
-        ) : (
-          <Row gutter={[16, 16]}>
-            {vehicles.map((v) => (
-              <Col xs={24} sm={12} lg={8} key={v.vehicleId}>
-                <Badge.Ribbon
-                  text={`${v.seatCount || 4} chỗ`}
-                  color="blue"
-                >
-                  <Card
-                    hoverable
-                    cover={
-                      v.primaryImageUrl ? (
-                        <img
-                          alt={`${v.brand} ${v.modelName}`}
-                          src={v.primaryImageUrl}
-                          style={{ height: 180, objectFit: "cover" }}
-                        />
-                      ) : (
-                        <div
-                          style={{
-                            height: 160,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            background:
-                              "linear-gradient(135deg, #e6f4ff 0%, #f0f5ff 100%)",
-                            color: "#1677ff",
-                            fontSize: 48,
-                          }}
-                        >
-                          <CarOutlined />
-                        </div>
-                      )
-                    }
-                    actions={[
-                      <Button
-                        key="book"
-                        type="primary"
-                        onClick={() => handleSelectVehicle(v)}
-                      >
-                        Đặt xe ngay
-                      </Button>,
-                    ]}
-                  >
-                    <Space
-                      orientation="vertical"
-                      size={6}
-                      style={{ width: "100%" }}
-                    >
-                      <Title level={5} style={{ margin: 0 }}>
-                        {v.brand} {v.modelName}
-                      </Title>
-                      <Space wrap>
-                        <Tag color="geekblue">{v.licensePlate}</Tag>
-                        {v.categoryName && <Tag>{v.categoryName}</Tag>}
-                        {v.fuelType && <Tag color="cyan">{v.fuelType}</Tag>}
-                      </Space>
-                      <Text type="secondary">
-                        <EnvironmentOutlined />{" "}
-                        {v.location || "Chi nhánh trung tâm"}
-                      </Text>
-                      <div style={{ marginTop: 4 }}>
-                        <Text
-                          strong
-                          style={{ fontSize: 18, color: "#cf1322" }}
-                        >
-                          {formatVnd(v.dailyRate)}
-                        </Text>
-                        <Text type="secondary"> / ngày</Text>
-                      </div>
-                    </Space>
-                  </Card>
-                </Badge.Ribbon>
-              </Col>
-            ))}
-          </Row>
-        )}
-      </Spin>
-    </Space>
-  );
+          </Empty>
+        </Card>
+      </div>
+    );
+  }
 
   const tabItems = [
     {
-      key: "search",
-      label: "Tìm Xe Trống & Đặt Xe",
-      children: searchTabContent,
-    },
-  ];
-
-  if (authenticated) {
-    tabItems.push({
       key: "my-bookings",
       label: "Đơn Đặt Xe Của Tôi",
       children: (
@@ -647,8 +413,8 @@ export const BookingListPage = () => {
           />
         </Card>
       ),
-    });
-  }
+    },
+  ];
 
   if (isStaff) {
     tabItems.push({
@@ -740,15 +506,6 @@ export const BookingListPage = () => {
         onChange={handleTabChange}
         items={tabItems}
         size="large"
-      />
-
-      <BookingForm
-        open={Boolean(bookingModalVehicle)}
-        vehicle={bookingModalVehicle}
-        defaultDateRange={dateRange}
-        submitting={submittingBooking}
-        onCancel={closeBookingModal}
-        onSubmit={handleCreateBooking}
       />
 
       <Modal
