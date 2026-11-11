@@ -7,12 +7,6 @@ export function setAccessTokenProvider(provider) {
 }
 
 const apiClient = axios.create({
-  baseURL: "http://localhost:8080",
-  timeout: 10000,
-  headers: {
-    "Content-Type": "application/json",
-  },
-});
   baseURL: import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8080',
   timeout: 60_000,
   headers: { Accept: 'application/json' },
