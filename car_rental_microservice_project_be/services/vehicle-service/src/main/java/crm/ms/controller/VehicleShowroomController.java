@@ -24,9 +24,9 @@ public class VehicleShowroomController {
     private final VehicleShowroomService showroom;
 
     @GetMapping
-    public ResponseApi available(@RequestParam(required = false) UUID categoryId,
-                                 @RequestParam(defaultValue = "0") @Min(0) @Max(1000) int page,
-                                 @RequestParam(defaultValue = "12") @Min(1) @Max(48) int size) {
+    public ResponseApi available(@RequestParam(value = "categoryId", required = false) UUID categoryId,
+                                 @RequestParam(value = "page", defaultValue = "0") @Min(0) @Max(1000) int page,
+                                 @RequestParam(value = "size", defaultValue = "12") @Min(1) @Max(48) int size) {
         return ResponseApi.builder().code(HttpStatus.OK).message("Available vehicles")
                 .data(new PagedModel<>(showroom.available(categoryId, page, size))).build();
     }

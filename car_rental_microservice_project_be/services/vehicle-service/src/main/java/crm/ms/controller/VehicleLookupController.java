@@ -18,7 +18,7 @@ public class VehicleLookupController {
     private final VehicleService vehicles;
 
     @GetMapping("/lookup")
-    public ResponseApi lookup(@RequestParam String licensePlate) {
+    public ResponseApi lookup(@RequestParam("licensePlate") String licensePlate) {
         return ResponseApi.builder().code(HttpStatus.OK).message("Vehicle found")
                 .data(Map.of("id", vehicles.lookupByLicensePlate(licensePlate))).build();
     }

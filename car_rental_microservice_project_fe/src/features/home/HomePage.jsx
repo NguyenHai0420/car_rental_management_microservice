@@ -64,7 +64,6 @@ export function HomePage() {
               <option value="">Tất cả loại xe</option>
               {categories.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label></div>
           <div className="col-12 col-md-auto"><button className="btn btn-danger w-100 px-4" type="submit"><i className="bi bi-search me-2" aria-hidden="true" />Tìm xe</button></div>
-          <p className="col-12 col-xl-auto finder-stats">{cars ? <><strong>{cars.length}</strong> xe sẵn sàng · <strong>{brands.length}</strong> hãng</> : 'Đang tải…'}</p>
         </div>
       </form></div>
 

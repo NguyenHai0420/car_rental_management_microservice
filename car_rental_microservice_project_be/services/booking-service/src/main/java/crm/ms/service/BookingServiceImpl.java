@@ -70,6 +70,7 @@ public class BookingServiceImpl implements BookingService {
 
         return vehicles.stream()
                 .filter(v -> !busySet.contains(v.getVehicleId()))
+                .filter(v -> "AVAILABLE".equalsIgnoreCase(v.getVehicleStatus()))
                 .filter(v -> categoryId == null || categoryId.equals(v.getCategoryId()))
                 .filter(v -> minSeats == null || (v.getSeatCount() != null && v.getSeatCount() >= minSeats))
                 .filter(v -> location == null || location.isBlank() ||
@@ -147,6 +148,12 @@ public class BookingServiceImpl implements BookingService {
         recordStatusHistory(booking, null, BookingStatus.PENDING, "Khởi tạo đơn đặt xe, chờ thanh toán cọc", keycloakUserId);
         Booking saved = bookingRepository.saveAndFlush(booking);
 
+        try {
+            vehicleClient.updateStatus(saved.getVehicleId(), "RESERVED", null);
+        } catch (Exception e) {
+            log.warn("Failed to notify vehicle-service about RESERVED status for vehicleId={}: {}", saved.getVehicleId(), e.getMessage());
+        }
+
         log.info("Created booking {} (id={}) for vehicleId={}", saved.getBookingCode(), saved.getId(), saved.getVehicleId());
         return bookingMapper.fromEntity(saved);
     }
@@ -221,6 +228,12 @@ public class BookingServiceImpl implements BookingService {
 
         recordStatusHistory(booking, oldStatus, BookingStatus.CANCELLED, reason, keycloakUserId);
         Booking saved = bookingRepository.saveAndFlush(booking);
+
+        try {
+            vehicleClient.updateStatus(saved.getVehicleId(), "AVAILABLE", null);
+        } catch (Exception e) {
+            log.warn("Failed to notify vehicle-service about AVAILABLE status on cancel for vehicleId={}: {}", saved.getVehicleId(), e.getMessage());
+        }
 
         log.info("Cancelled booking {} (reason: {})", saved.getBookingCode(), reason);
         return bookingMapper.fromEntity(saved);
@@ -297,7 +310,7 @@ public class BookingServiceImpl implements BookingService {
     private List<AvailableVehicleResponse> fetchVehiclesFromServiceOrMock() {
         try {
             FeignResponseWrapper<List<AvailableVehicleResponse>> response = vehicleClient.getAvailableVehicles();
-            if (response != null && response.getData() != null && !response.getData().isEmpty()) {
+            if (response != null && response.getData() != null) {
                 return response.getData();
             }
         } catch (Exception e) {

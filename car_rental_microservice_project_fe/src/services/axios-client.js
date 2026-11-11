@@ -26,10 +26,16 @@ apiClient.interceptors.request.use(
       } else if (keycloak.refreshToken) {
         try {
           await keycloak.updateToken(30)
+          token = keycloak.token
         } catch {
-          // ignore
+          if (keycloak.isTokenExpired(0)) {
+            keycloak.clearToken()
+            token = null
+          }
         }
-        token = keycloak.token
+      } else if (keycloak.isTokenExpired(0)) {
+        keycloak.clearToken()
+        token = null
       } else {
         token = keycloak.token
       }

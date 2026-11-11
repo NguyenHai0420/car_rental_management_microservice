@@ -36,40 +36,40 @@ public class VehicleController {
     @GetMapping
     public ResponseEntity<ResponseApi> list(
             @RequestParam(name = "q", required = false) String keyword,
-            @RequestParam(required = false) VehicleStatus status,
-            @RequestParam(required = false) UUID categoryId,
-            @RequestParam(required = false) UUID modelId,
-            @RequestParam(defaultValue = "0") @Min(0) int page,
-            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
+            @RequestParam(value = "status", required = false) VehicleStatus status,
+            @RequestParam(value = "categoryId", required = false) UUID categoryId,
+            @RequestParam(value = "modelId", required = false) UUID modelId,
+            @RequestParam(value = "page", defaultValue = "0") @Min(0) int page,
+            @RequestParam(value = "size", defaultValue = "20") @Min(1) @Max(100) int size) {
         return response(HttpStatus.OK, "Vehicles",
                 new PagedModel<>(vehicles.list(keyword, status, categoryId, modelId, page, size)));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ResponseApi> get(@PathVariable UUID id) {
+    public ResponseEntity<ResponseApi> get(@PathVariable("id") UUID id) {
         return response(HttpStatus.OK, "Vehicle", vehicles.get(id));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ResponseApi> update(@PathVariable UUID id, @Valid @RequestBody VehicleRequest request,
+    public ResponseEntity<ResponseApi> update(@PathVariable("id") UUID id, @Valid @RequestBody VehicleRequest request,
                                                @RequestAttribute(FLEET_ACTOR) String actor) {
         return response(HttpStatus.OK, "Vehicle updated", vehicles.update(id, request, actor));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<ResponseApi> delete(@PathVariable UUID id, @RequestAttribute(FLEET_ACTOR) String actor) {
+    public ResponseEntity<ResponseApi> delete(@PathVariable("id") UUID id, @RequestAttribute(FLEET_ACTOR) String actor) {
         vehicles.delete(id, actor);
         return response(HttpStatus.OK, "Vehicle deleted", null);
     }
 
     @PatchMapping("/{id}/status")
-    public ResponseEntity<ResponseApi> changeStatus(@PathVariable UUID id, @Valid @RequestBody VehicleStatusRequest request,
+    public ResponseEntity<ResponseApi> changeStatus(@PathVariable("id") UUID id, @Valid @RequestBody VehicleStatusRequest request,
                                                      @RequestAttribute(FLEET_ACTOR) String actor) {
         return response(HttpStatus.OK, "Vehicle status updated", vehicles.changeStatus(id, request, actor));
     }
 
     @GetMapping("/{id}/status-history")
-    public ResponseEntity<ResponseApi> statusHistory(@PathVariable UUID id) {
+    public ResponseEntity<ResponseApi> statusHistory(@PathVariable("id") UUID id) {
         return response(HttpStatus.OK, "Vehicle status history", vehicles.statusHistory(id));
     }
 
