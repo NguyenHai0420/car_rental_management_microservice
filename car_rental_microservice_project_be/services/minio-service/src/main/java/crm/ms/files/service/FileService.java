@@ -27,6 +27,11 @@ public final class FileService {
         if (size == 0) throw error(400, "File must not be empty");
         if (size > rules.maxFileSize()) throw error(413, "File exceeds the upload size limit");
         String type = contentType == null ? "" : contentType.strip().toLowerCase(Locale.ROOT);
+        if ("image/jpg".equals(type) || "image/pjpeg".equals(type)) {
+            type = "image/jpeg";
+        } else if ("image/x-png".equals(type)) {
+            type = "image/png";
+        }
         try (var input = new BufferedInputStream(source)) {
             input.mark(12);
             byte[] signature = input.readNBytes(12);
@@ -71,15 +76,22 @@ public final class FileService {
     }
 
     private boolean matches(String type, byte[] bytes) {
-        return switch (type) {
-            case "image/jpeg" -> startsWith(bytes, new byte[]{(byte) 0xff, (byte) 0xd8, (byte) 0xff});
-            case "image/png" -> startsWith(bytes, new byte[]{(byte) 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a});
-            case "image/webp" -> bytes.length >= 12
-                    && new String(bytes, 0, 4, StandardCharsets.US_ASCII).equals("RIFF")
-                    && new String(bytes, 8, 4, StandardCharsets.US_ASCII).equals("WEBP");
-            case "application/pdf" -> startsWith(bytes, "%PDF-".getBytes(StandardCharsets.US_ASCII));
-            default -> false;
-        };
+        if (bytes == null || bytes.length < 2) return false;
+        if (startsWith(bytes, new byte[]{(byte) 0xff, (byte) 0xd8})) {
+            return type.equals("image/jpeg") || type.startsWith("image/");
+        }
+        if (startsWith(bytes, new byte[]{(byte) 0x89, (byte) 0x50, (byte) 0x4e, (byte) 0x47, (byte) 0x0d, (byte) 0x0a, (byte) 0x1a, (byte) 0x0a})) {
+            return type.equals("image/png") || type.startsWith("image/");
+        }
+        if (bytes.length >= 12
+                && new String(bytes, 0, 4, StandardCharsets.US_ASCII).equals("RIFF")
+                && new String(bytes, 8, 4, StandardCharsets.US_ASCII).equals("WEBP")) {
+            return type.equals("image/webp") || type.startsWith("image/");
+        }
+        if (startsWith(bytes, "%PDF-".getBytes(StandardCharsets.US_ASCII))) {
+            return type.equals("application/pdf");
+        }
+        return false;
     }
 
     private boolean startsWith(byte[] bytes, byte[] signature) {

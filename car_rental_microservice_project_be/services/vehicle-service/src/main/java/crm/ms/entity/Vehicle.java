@@ -51,10 +51,12 @@ public class Vehicle {
     private String licensePlate;
 
     @Column(name = "mileage_km", nullable = false, precision = 10, scale = 1)
+    @Builder.Default
     private BigDecimal mileageKm = BigDecimal.ZERO;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
+    @Builder.Default
     private VehicleStatus status = VehicleStatus.AVAILABLE;
 
     @Column(length = 100)
@@ -73,6 +75,7 @@ public class Vehicle {
     private BigDecimal dailyRateSnapshot;
 
     @Column(name = "is_deleted", nullable = false)
+    @Builder.Default
     private Boolean isDeleted = false;
 
     @Column(name = "created_at", nullable = false, updatable = false)

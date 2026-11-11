@@ -60,12 +60,15 @@ public class ServiceRecord {
     private String workshopAddress;
 
     @Column(name = "parts_cost", nullable = false, precision = 12, scale = 2)
+    @Builder.Default
     private BigDecimal partsCost = BigDecimal.ZERO;
 
     @Column(name = "labor_cost", nullable = false, precision = 12, scale = 2)
+    @Builder.Default
     private BigDecimal laborCost = BigDecimal.ZERO;
 
     @Column(name = "total_cost", nullable = false, precision = 12, scale = 2)
+    @Builder.Default
     private BigDecimal totalCost = BigDecimal.ZERO;
 
     /** Kết quả kiểm tra / phát hiện */

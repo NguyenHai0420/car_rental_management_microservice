@@ -49,6 +49,7 @@ public class VehicleModel {
     private FuelType fuelType;
 
     @Column(name = "seat_count", nullable = false)
+    @Builder.Default
     private Integer seatCount = 5;
 
     @Enumerated(EnumType.STRING)

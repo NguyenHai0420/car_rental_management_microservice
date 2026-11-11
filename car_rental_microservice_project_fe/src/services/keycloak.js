@@ -1,15 +1,27 @@
 import Keycloak from 'keycloak-js'
 
-const { VITE_KEYCLOAK_URL: url, VITE_KEYCLOAK_REALM: realm, VITE_KEYCLOAK_CLIENT_ID: clientId } = import.meta.env
-export const keycloak = url && realm && clientId ? new Keycloak({ url, realm, clientId }) : null
+const env = import.meta.env || {}
+const url = env.VITE_KEYCLOAK_URL || 'http://localhost:8180'
+const realm = env.VITE_KEYCLOAK_REALM || 'car-rental-realm'
+const clientId = env.VITE_KEYCLOAK_CLIENT_ID || 'car-rental-fe'
+
+export const keycloak = new Keycloak({ url, realm, clientId })
 let initialization
 
 export function initializeAuth() {
   if (!keycloak) return Promise.resolve(false)
   // Keep one initialization across React StrictMode remounts.
-  initialization ??= keycloak.init({ onLoad: 'check-sso', pkceMethod: 'S256', checkLoginIframe: false })
+  initialization ??= keycloak.init({
+    onLoad: 'check-sso',
+    pkceMethod: 'S256',
+    silentCheckSsoRedirectUri: `${window.location.origin}/silent-check-sso.html`,
+    silentCheckSsoFallback: false,
+    checkLoginIframe: false,
+  })
   return initialization
 }
+
+export const initKeycloak = initializeAuth
 
 export function authSession() {
   const claims = keycloak?.tokenParsed
@@ -17,12 +29,16 @@ export function authSession() {
     ...(claims?.realm_access?.roles ?? []),
     ...Object.values(claims?.resource_access ?? {}).flatMap((access) => access.roles ?? []),
   ].map((role) => role.toUpperCase())
-  const managers = (import.meta.env.VITE_MEDIA_MANAGEMENT_ROLES || 'ADMIN,STAFF')
-    .split(',').map((role) => role.trim().toUpperCase())
+  const managers = (env.VITE_MEDIA_MANAGEMENT_ROLES || 'ADMIN,STAFF,VEHICLE_OWNER')
+    .split(',')
+    .map((role) => role.trim().toUpperCase())
   return {
     authenticated: Boolean(keycloak?.authenticated),
-    canManageFleet: Boolean(keycloak?.authenticated) && roles.some((role) => role === 'ADMIN' || role === 'STAFF'),
+    canManageFleet: Boolean(keycloak?.authenticated) && roles.some((role) => role === 'ADMIN' || role === 'STAFF' || role === 'VEHICLE_OWNER'),
     canManage: Boolean(keycloak?.authenticated) && roles.some((role) => managers.includes(role)),
     name: claims?.preferred_username || claims?.name || '',
+    roles,
   }
 }
+
+export default keycloak

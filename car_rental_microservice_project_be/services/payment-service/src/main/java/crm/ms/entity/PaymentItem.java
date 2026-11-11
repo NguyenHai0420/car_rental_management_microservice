@@ -41,12 +41,15 @@ public class PaymentItem {
     private String description;
 
     @Column(nullable = false)
+    @Builder.Default
     private Integer quantity = 1;
 
     @Column(name = "unit_price", nullable = false, precision = 12, scale = 2)
+    @Builder.Default
     private BigDecimal unitPrice = BigDecimal.ZERO;
 
     @Column(nullable = false, precision = 12, scale = 2)
+    @Builder.Default
     private BigDecimal amount = BigDecimal.ZERO;
 
     @Column(name = "created_at", nullable = false, updatable = false)

@@ -20,7 +20,7 @@ export function CarCard({ car, onOpen }) {
         <span className="car-price">{formatPrice(car.dailyRate)}{car.dailyRate != null && <small> /ngày</small>}</span>
       </button>
       <dl className="spec-panel">{rows.filter(([, , value]) => value).map(([icon, label, value]) =>
-        <div key={label}><dt><i className={`bi ${icon}`} aria-hidden="true" />{label}</dt><dd><span className="badge text-bg-light border">{value}</span></dd></div>)}</dl>
+        <div key={label}><dt><i className={`bi ${icon}`} aria-hidden="true" />{label}</dt><dd><span className="badge text-bg-light border" title={value}>{value}</span></dd></div>)}</dl>
     </article>
   </li>
 }

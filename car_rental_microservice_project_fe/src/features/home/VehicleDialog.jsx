@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../app/providers/auth-context'
 import { useVehicleQuery } from '../vehicles/hooks/useVehicleQuery'
 import { listVehicleImages } from '../vehicles/services/vehicle'
@@ -7,6 +8,7 @@ import { CarPhoto } from './CarPhoto'
 
 export function VehicleDialog({ car, onClose }) {
   const auth = useAuth()
+  const navigate = useNavigate()
   const ref = useRef(null)
   const [index, setIndex] = useState(0)
   const load = useCallback((signal) => listVehicleImages(car.id, signal), [car.id])
@@ -37,9 +39,29 @@ export function VehicleDialog({ car, onClose }) {
         <div><p className="eyebrow">{car.categoryName}</p><h2 id="car-dialog-title">{name}</h2></div>
         <p className="price">{formatPrice(car.dailyRate)}{car.dailyRate != null && <small> /ngày</small>}</p>
         <dl className="info-list">{facts.filter(([, value]) => value).map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
-        {auth.authenticated
-          ? <button className="btn btn-danger btn-lg" disabled title="Chức năng đặt xe đang được hoàn thiện">Đặt xe (sắp ra mắt)</button>
-          : <button className="btn btn-danger btn-lg" disabled={!auth.ready || !auth.configured} onClick={auth.login}>Đăng nhập để đặt xe</button>}
+        {auth.authenticated ? (
+          <button
+            className="btn btn-danger btn-lg w-100"
+            onClick={() => {
+              onClose()
+              navigate(`/bookings?vehicleId=${car.id}&action=book`, {
+                state: { vehicle: car },
+              })
+            }}
+          >
+            <i className="bi bi-calendar-check me-2" aria-hidden="true" />
+            Đặt xe này ngay
+          </button>
+        ) : (
+          <button
+            className="btn btn-danger btn-lg w-100"
+            disabled={!auth.ready || !auth.configured}
+            onClick={() => auth.login()}
+          >
+            <i className="bi bi-box-arrow-in-right me-2" aria-hidden="true" />
+            Đăng nhập để đặt xe
+          </button>
+        )}
       </div>
     </div>
   </dialog>

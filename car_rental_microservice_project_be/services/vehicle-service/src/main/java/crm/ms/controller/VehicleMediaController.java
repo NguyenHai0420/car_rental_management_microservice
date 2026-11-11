@@ -32,9 +32,9 @@ public class VehicleMediaController {
 
     @PostMapping(value = "/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ResponseApi> uploadImage(
-            @PathVariable UUID vehicleId, @RequestPart("file") MultipartFile file,
-            @RequestParam ImageType imageType, @RequestParam(defaultValue = "false") boolean isPrimary,
-            @RequestParam(defaultValue = "0") @Min(0) int sortOrder,
+            @PathVariable("vehicleId") UUID vehicleId, @RequestPart("file") MultipartFile file,
+            @RequestParam("imageType") ImageType imageType, @RequestParam(value = "isPrimary", defaultValue = "false") boolean isPrimary,
+            @RequestParam(value = "sortOrder", defaultValue = "0") @Min(0) int sortOrder,
             @RequestHeader(value = "X-User-ID", required = false) String userId,
             @RequestHeader(value = "X-User-Roles", required = false) String roles) {
         String actor = access.requireMediaManager(userId, roles);
@@ -47,13 +47,13 @@ public class VehicleMediaController {
     }
 
     @GetMapping("/images")
-    public ResponseEntity<ResponseApi> images(@PathVariable UUID vehicleId) {
+    public ResponseEntity<ResponseApi> images(@PathVariable("vehicleId") UUID vehicleId) {
         return response(HttpStatus.OK, "Vehicle images", media.listImages(vehicleId));
     }
 
     @DeleteMapping("/images/{imageId}")
     public ResponseEntity<ResponseApi> deleteImage(
-            @PathVariable UUID vehicleId, @PathVariable UUID imageId,
+            @PathVariable("vehicleId") UUID vehicleId, @PathVariable("imageId") UUID imageId,
             @RequestHeader(value = "X-User-ID", required = false) String userId,
             @RequestHeader(value = "X-User-Roles", required = false) String roles) {
         access.requireMediaManager(userId, roles);
@@ -63,10 +63,10 @@ public class VehicleMediaController {
 
     @PostMapping(value = "/documents", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ResponseApi> uploadDocument(
-            @PathVariable UUID vehicleId, @RequestPart("file") MultipartFile file,
-            @RequestParam DocumentType docType, @RequestParam(required = false) @Size(max = 100) String docNumber,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate issueDate,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate expiryDate,
+            @PathVariable("vehicleId") UUID vehicleId, @RequestPart("file") MultipartFile file,
+            @RequestParam("docType") DocumentType docType, @RequestParam(value = "docNumber", required = false) @Size(max = 100) String docNumber,
+            @RequestParam(value = "issueDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate issueDate,
+            @RequestParam(value = "expiryDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate expiryDate,
             @RequestHeader(value = "X-User-ID", required = false) String userId,
             @RequestHeader(value = "X-User-Roles", required = false) String roles) {
         String actor = access.requireMediaManager(userId, roles);
@@ -80,7 +80,7 @@ public class VehicleMediaController {
 
     @GetMapping("/documents")
     public ResponseEntity<ResponseApi> documents(
-            @PathVariable UUID vehicleId,
+            @PathVariable("vehicleId") UUID vehicleId,
             @RequestHeader(value = "X-User-ID", required = false) String userId,
             @RequestHeader(value = "X-User-Roles", required = false) String roles) {
         access.requireMediaManager(userId, roles);
@@ -89,7 +89,7 @@ public class VehicleMediaController {
 
     @GetMapping("/documents/{documentId}/url")
     public ResponseEntity<ResponseApi> documentUrl(
-            @PathVariable UUID vehicleId, @PathVariable UUID documentId,
+            @PathVariable("vehicleId") UUID vehicleId, @PathVariable("documentId") UUID documentId,
             @RequestHeader(value = "X-User-ID", required = false) String userId,
             @RequestHeader(value = "X-User-Roles", required = false) String roles) {
         access.requireMediaManager(userId, roles);
@@ -100,7 +100,7 @@ public class VehicleMediaController {
 
     @DeleteMapping("/documents/{documentId}")
     public ResponseEntity<ResponseApi> deleteDocument(
-            @PathVariable UUID vehicleId, @PathVariable UUID documentId,
+            @PathVariable("vehicleId") UUID vehicleId, @PathVariable("documentId") UUID documentId,
             @RequestHeader(value = "X-User-ID", required = false) String userId,
             @RequestHeader(value = "X-User-Roles", required = false) String roles) {
         access.requireMediaManager(userId, roles);

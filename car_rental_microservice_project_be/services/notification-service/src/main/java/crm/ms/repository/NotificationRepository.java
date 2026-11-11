@@ -1,4 +1,9 @@
 package crm.ms.repository;
 
-public interface NotificationRepository{
+import crm.ms.entity.NotificationLog;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.UUID;
+
+public interface NotificationRepository extends JpaRepository<NotificationLog, UUID> {
 }

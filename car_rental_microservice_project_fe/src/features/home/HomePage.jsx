@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useVehicleQuery } from '../vehicles/hooks/useVehicleQuery'
 import { listShowroom, vehicleError } from '../vehicles/services/vehicle'
 import { BrandLogo } from './BrandLogo'
@@ -20,6 +20,21 @@ export function HomePage() {
   const [category, setCategory] = useState('')
   const [term, setTerm] = useState('')
   const [selected, setSelected] = useState(null)
+
+  useEffect(() => {
+    const hash = window.location.hash
+    if (hash) {
+      const id = hash.replace('#', '')
+      if (id === 'top') {
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+      } else {
+        const el = document.getElementById(id)
+        if (el) {
+          setTimeout(() => el.scrollIntoView({ behavior: 'smooth' }), 150)
+        }
+      }
+    }
+  }, [])
   const cars = showroom.data?.content
   const brands = useMemo(() => group(cars ?? [], (car) => car.brand), [cars])
   const categories = useMemo(() => [...new Map((cars ?? []).map((car) => [car.categoryId, car.categoryName])).entries()], [cars])
@@ -49,7 +64,6 @@ export function HomePage() {
               <option value="">Tất cả loại xe</option>
               {categories.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label></div>
           <div className="col-12 col-md-auto"><button className="btn btn-danger w-100 px-4" type="submit"><i className="bi bi-search me-2" aria-hidden="true" />Tìm xe</button></div>
-          <p className="col-12 col-xl-auto finder-stats">{cars ? <><strong>{cars.length}</strong> xe sẵn sàng · <strong>{brands.length}</strong> hãng</> : 'Đang tải…'}</p>
         </div>
       </form></div>
 

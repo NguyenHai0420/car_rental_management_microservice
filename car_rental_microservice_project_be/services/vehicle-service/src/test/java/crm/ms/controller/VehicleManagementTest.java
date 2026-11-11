@@ -57,7 +57,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "eureka.client.enabled=false",
         "media.management-roles=ADMIN,STAFF,MEDIA_ONLY"
 })
-@AutoConfigureMockMvc
+@AutoConfigureMockMvc(addFilters = false)
 class VehicleManagementTest {
     private static final String BASE = "/api/v1/vehicles";
     private static final String ACTOR = "keycloak-subject";

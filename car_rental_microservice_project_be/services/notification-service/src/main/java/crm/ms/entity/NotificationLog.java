@@ -44,6 +44,7 @@ public class NotificationLog {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
+    @Builder.Default
     private NotificationChannel channel = NotificationChannel.EMAIL;
 
     /** Email / Phone / Device Token */
@@ -62,15 +63,18 @@ public class NotificationLog {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 15)
+    @Builder.Default
     private NotificationStatus status = NotificationStatus.PENDING;
 
     @Column(name = "error_message", length = 500)
     private String errorMessage;
 
     @Column(name = "retry_count", nullable = false)
+    @Builder.Default
     private Integer retryCount = 0;
 
     @Column(name = "max_retries", nullable = false)
+    @Builder.Default
     private Integer maxRetries = 3;
 
     @Column(name = "next_retry_at")

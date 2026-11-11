@@ -6,10 +6,16 @@ import crm.ms.entity.PaymentItem;
 import crm.ms.entity.PaymentTransaction;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.mapstruct.Builder;
+import org.mapstruct.ReportingPolicy;
 
 import java.util.List;
 
-@Mapper(componentModel = "spring")
+@Mapper(
+        componentModel = "spring",
+        unmappedTargetPolicy = ReportingPolicy.IGNORE,
+        builder = @Builder(disableBuilder = true)
+)
 public interface PaymentMapper {
     PaymentResponse toResponse(Payment payment);
 

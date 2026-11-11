@@ -1,12 +1,20 @@
 package crm.ms.mapper;
 
-import crm.ms.dto.BookingRequest;
 import crm.ms.dto.BookingResponse;
 import crm.ms.entity.Booking;
+import crm.ms.entity.BookingStatusHistory;
+import org.mapstruct.Builder;
 import org.mapstruct.Mapper;
+import org.mapstruct.ReportingPolicy;
 
-@Mapper(componentModel = "spring")
+@Mapper(
+        componentModel = "spring",
+        unmappedTargetPolicy = ReportingPolicy.IGNORE,
+        builder = @Builder(disableBuilder = true)
+)
 public interface BookingMapper {
-    Booking toEntity(BookingRequest bookingRequest);
+
     BookingResponse fromEntity(Booking booking);
+
+    BookingResponse.StatusHistoryItem toHistoryItem(BookingStatusHistory history);
 }

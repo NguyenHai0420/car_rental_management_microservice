@@ -25,7 +25,6 @@ public class KecloakHeaderFilter implements GlobalFilter, Ordered {
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         ServerWebExchange cleanExchange = exchange.mutate()
                 .request(request -> request.headers(headers -> {
-                    headers.remove(HttpHeaders.AUTHORIZATION);
                     headers.remove(Constants.USER_ID);
                     headers.remove(Constants.USER_EMAIL);
                     headers.remove(Constants.USER_NAME);

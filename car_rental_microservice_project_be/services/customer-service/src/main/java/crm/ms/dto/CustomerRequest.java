@@ -16,6 +16,8 @@ public class CustomerRequest {
     @NotBlank(message = "Full name cannot be blank")
     private String fullName;
 
+    private String email;
+
     private String phone;
 
     private LocalDate dateOfBirth;

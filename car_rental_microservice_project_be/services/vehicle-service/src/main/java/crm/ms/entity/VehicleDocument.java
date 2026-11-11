@@ -63,6 +63,7 @@ public class VehicleDocument {
     private LocalDate expiryDate;
 
     @Column(name = "is_verified", nullable = false)
+    @Builder.Default
     private Boolean isVerified = false;
 
     @Column(name = "created_at", nullable = false, updatable = false)
