@@ -49,7 +49,7 @@ public class PayOSGatewayService implements PaymentGatewayStrategy {
     @Override
     public CheckoutResponse initiatePayment(Payment payment, PaymentTransaction transaction, CheckoutRequest request) {
         String cleanPaymentCode = payment.getPaymentCode().replace("-", "");
-        String addInfo = "TT " + cleanPaymentCode;
+        String addInfo = "SEVQR " + cleanPaymentCode;
         String encodedAddInfo = URLEncoder.encode(addInfo, StandardCharsets.UTF_8);
         String encodedAccountName = URLEncoder.encode(accountName, StandardCharsets.UTF_8);
 

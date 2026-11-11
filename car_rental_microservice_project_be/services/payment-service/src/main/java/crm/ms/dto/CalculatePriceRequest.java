@@ -3,6 +3,7 @@ package crm.ms.dto;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -20,5 +21,9 @@ public class CalculatePriceRequest {
 
     @NotNull(message = "Thời gian trả xe (returnDatetime) không được để trống")
     private LocalDateTime returnDatetime;
-}
 
+    /** Đơn giá/ngày lấy từ vehicle-service nếu categoryId chưa có bảng giá riêng trong payment_db */
+    private BigDecimal dailyRate;
+    private String categoryName;
+    private Integer seatCount;
+}

@@ -121,6 +121,7 @@ public class Payment {
     private List<PaymentItem> paymentItems = new ArrayList<>();
 
     @OneToMany(mappedBy = "payment", cascade = CascadeType.ALL)
+    @OrderBy("createdAt DESC")
     @Builder.Default
     private List<PaymentTransaction> paymentTransactions = new ArrayList<>();
 

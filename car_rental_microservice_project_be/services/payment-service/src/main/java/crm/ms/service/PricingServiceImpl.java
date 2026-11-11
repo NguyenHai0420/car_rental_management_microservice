@@ -3,6 +3,7 @@ package crm.ms.service;
 import crm.ms.dto.CalculatePriceRequest;
 import crm.ms.dto.CalculatePriceResponse;
 import crm.ms.dto.PriceBreakdownItemDto;
+import crm.ms.dto.PricingTierDto;
 import crm.ms.entity.PricingTier;
 import crm.ms.entity.RateRule;
 import crm.ms.enums.ApplyPer;
@@ -42,7 +43,7 @@ public class PricingServiceImpl implements PricingService {
             throw new BusinessException(1, 400, "Thời gian trả xe phải sau thời gian nhận xe");
         }
 
-        PricingTier tier = getActiveTierByCategory(request.getCategoryId());
+        PricingTier tier = resolveTierForRequest(request);
 
         // 1. Tính số ngày thuê (Tối thiểu 1 ngày, nếu vượt qua mốc giờ thì làm tròn lên)
         long totalHours = Duration.between(request.getPickupDatetime(), request.getReturnDatetime()).toHours();
@@ -105,7 +106,9 @@ public class PricingServiceImpl implements PricingService {
         }
 
         // 4. Áp dụng Rate Rules (Phụ thu lễ tết, chiết khấu đặc biệt...)
-        List<RateRule> rules = rateRuleRepository.findByPricingTierIdAndIsActiveTrueOrderByPriorityOrderAsc(tier.getId());
+        List<RateRule> rules = tier.getId() != null
+                ? rateRuleRepository.findByPricingTierIdAndIsActiveTrueOrderByPriorityOrderAsc(tier.getId())
+                : List.of();
         BigDecimal extraAdjustments = BigDecimal.ZERO;
         BigDecimal discounts = BigDecimal.ZERO;
 
@@ -188,11 +191,59 @@ public class PricingServiceImpl implements PricingService {
                 .build();
     }
 
+    private PricingTier resolveTierForRequest(CalculatePriceRequest request) {
+        return pricingTierRepository.findActiveTierByCategoryId(request.getCategoryId(), LocalDate.now())
+                .orElseGet(() -> {
+                    if (request.getDailyRate() != null && request.getDailyRate().compareTo(BigDecimal.ZERO) > 0) {
+                        BigDecimal base = request.getDailyRate().setScale(2, RoundingMode.HALF_UP);
+                        BigDecimal weekend = base.multiply(new BigDecimal("1.25")).setScale(2, RoundingMode.HALF_UP);
+                        String label = request.getCategoryName() != null && !request.getCategoryName().isBlank()
+                                ? request.getCategoryName()
+                                : "Xe cho thuê";
+                        return PricingTier.builder()
+                                .categoryId(request.getCategoryId())
+                                .tierName(label)
+                                .baseDailyRate(base)
+                                .weekendRate(weekend)
+                                .depositAmount(new BigDecimal("200000.00"))
+                                .currency("VND")
+                                .isActive(true)
+                                .build();
+                    }
+                    throw new BusinessException(1, 404,
+                            "Không tìm thấy bảng giá đang áp dụng cho phân khúc xe: " + request.getCategoryId());
+                });
+    }
+
     @Override
     @Transactional(readOnly = true)
     public PricingTier getActiveTierByCategory(UUID categoryId) {
         return pricingTierRepository.findActiveTierByCategoryId(categoryId, LocalDate.now())
                 .orElseThrow(() -> new BusinessException(1, 404, "Không tìm thấy bảng giá đang áp dụng cho phân khúc xe: " + categoryId));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<PricingTierDto> getAllActiveTiers() {
+        return pricingTierRepository.findByIsActiveTrueOrderByTierNameAsc()
+                .stream()
+                .map(this::toTierDto)
+                .toList();
+    }
+
+    @Override
+    public PricingTierDto toTierDto(PricingTier tier) {
+        return PricingTierDto.builder()
+                .id(tier.getId())
+                .categoryId(tier.getCategoryId())
+                .tierName(tier.getTierName())
+                .baseDailyRate(tier.getBaseDailyRate())
+                .weekendRate(tier.getWeekendRate())
+                .weeklyRate(tier.getWeeklyRate())
+                .monthlyRate(tier.getMonthlyRate())
+                .depositAmount(tier.getDepositAmount())
+                .currency(tier.getCurrency())
+                .build();
     }
 }
 

@@ -13,6 +13,9 @@ export function SiteHeader() {
   const [open, setOpen] = useState(false)
   const isBookingActive = location.pathname.startsWith('/bookings')
   const isHome = location.pathname === '/'
+  const isPricing = location.pathname === '/pricing' || location.pathname === '/rent'
+  const isHistory = location.pathname.startsWith('/payment/history') || location.pathname.startsWith('/payments/history')
+  const isPayment = location.pathname.startsWith('/payment') && !isHistory
 
   const handleNavClick = (event, href) => {
     event.preventDefault()
@@ -68,6 +71,9 @@ export function SiteHeader() {
               </a>
             </li>
           ))}
+          <li className="nav-item"><Link className="nav-link text-nowrap" to="/pricing" aria-current={isPricing ? 'page' : undefined} onClick={() => setOpen(false)}>Tính giá &amp; Thuê xe</Link></li>
+          <li className="nav-item"><Link className="nav-link text-nowrap" to="/payment" aria-current={isPayment ? 'page' : undefined} onClick={() => setOpen(false)}>Thanh toán</Link></li>
+          <li className="nav-item"><Link className="nav-link text-nowrap" to="/payment/history" aria-current={isHistory ? 'page' : undefined} onClick={() => setOpen(false)}>Lịch sử thanh toán</Link></li>
           {auth.authenticated ? (
             <li className="nav-item">
               <Link

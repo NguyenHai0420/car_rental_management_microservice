@@ -56,3 +56,6 @@ payment:
       bank-name-display: ${VIETQR_BANK_NAME:VietinBank}
       account-no: ${VIETQR_ACCOUNT_NO:0376359204}
       account-name: ${VIETQR_ACCOUNT_NAME:HOANG TU UYEN}
+    sepay:
+      api-key: ${SEPAY_API_KEY:sepay_uyenht_2026}
+      api-token: ${SEPAY_API_TOKEN:}

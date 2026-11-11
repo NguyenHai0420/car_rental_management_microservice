@@ -39,7 +39,18 @@ export function VehicleDialog({ car, onClose }) {
         <div><p className="eyebrow">{car.categoryName}</p><h2 id="car-dialog-title">{name}</h2></div>
         <p className="price">{formatPrice(car.dailyRate)}{car.dailyRate != null && <small> /ngày</small>}</p>
         <dl className="info-list">{facts.filter(([, value]) => value).map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
-        {auth.authenticated ? (
+        <div className="d-grid gap-2">
+          <button
+            type="button"
+            className="btn btn-outline-danger btn-lg w-100"
+            onClick={() => {
+              onClose()
+              navigate('/pricing', { state: { showroomCar: { ...car, imageUrl: urls[0] || car.imageUrl } } })
+            }}
+          >
+            Tính giá thuê xe này
+          </button>
+          {auth.authenticated ? (
           <button
             className="btn btn-danger btn-lg w-100"
             onClick={() => {
@@ -61,7 +72,8 @@ export function VehicleDialog({ car, onClose }) {
             <i className="bi bi-box-arrow-in-right me-2" aria-hidden="true" />
             Đăng nhập để đặt xe
           </button>
-        )}
+          )}
+        </div>
       </div>
     </div>
   </dialog>

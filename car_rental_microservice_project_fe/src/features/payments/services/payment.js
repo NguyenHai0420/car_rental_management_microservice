@@ -10,10 +10,37 @@ export const paymentService = {
   },
 
   /**
+   * Lấy danh sách bảng giá đang hiệu lực từ payment-service
+   */
+  listActiveTiers: async (signal) => {
+    const response = await apiClient.get("/api/v1/pricing/tiers", { signal });
+    return response.data?.data || [];
+  },
+
+  /**
    * Tạo hóa đơn thanh toán cho đơn thuê xe
    */
   createPayment: async (payload) => {
     const response = await apiClient.post("/api/v1/payments", payload);
+    return response.data?.data;
+  },
+
+  /**
+   * Lấy danh sách lịch sử hóa đơn và giao dịch thanh toán đã lưu trong DB
+   */
+  getPaymentHistory: async (params = {}, signal) => {
+    const query = {};
+    if (params.customerId) query.customerId = params.customerId;
+    if (params.status && params.status !== "ALL") query.status = params.status;
+    const response = await apiClient.get("/api/v1/payments/history", { params: query, signal });
+    return response.data?.data || [];
+  },
+
+  /**
+   * Hủy hóa đơn đang chờ thanh toán trong database
+   */
+  cancelPayment: async (paymentId) => {
+    const response = await apiClient.post(`/api/v1/payments/${paymentId}/cancel`);
     return response.data?.data;
   },
 

@@ -23,11 +23,15 @@ import { VehicleDetailPage } from '../features/vehicles/pages/VehicleDetailPage'
 import { VehicleFormPage } from '../features/vehicles/pages/VehicleFormPage'
 import { VehicleListPage } from '../features/vehicles/pages/VehicleListPage'
 import { HomePage } from '../features/home/HomePage'
-import { PaymentPortalPage } from '../features/payments/pages/PaymentPortalPage'
+import { PricingPage } from '../features/payments/pages/PricingPage'
+import { PaymentPage } from '../features/payments/pages/PaymentPage'
+import { PaymentCallbackPage } from '../features/payments/pages/PaymentCallbackPage'
+import { PaymentHistoryPage } from '../features/payments/pages/PaymentHistoryPage'
 import { SiteHeader } from '../features/home/SiteHeader'
 import { SiteFooter } from '../features/home/SiteFooter'
 import '../style/home.css'
 import '../style/admin.css'
+import '../style/payment.css'
 
 const { Text } = Typography
 
@@ -117,19 +121,16 @@ export default function App() {
         <Route path=":id/edit" element={<VehicleFormPage />} />
         <Route path="bookings" element={<AdminBookingManagementPage />} />
       </Route>
-      <Route path="/rent" element={<PaymentPortalPage />} />
-      <Route path="/pricing" element={<PaymentPortalPage />} />
-      <Route path="/payment/*" element={<PaymentPortalPage />} />
+      <Route path="/rent" element={<PricingPage />} />
+      <Route path="/pricing" element={<PricingPage />} />
+      <Route path="/payment" element={<PrivateRoute><PaymentPage /></PrivateRoute>} />
+      <Route path="/payments" element={<PrivateRoute><PaymentPage /></PrivateRoute>} />
+      <Route path="/payment/history" element={<PrivateRoute><PaymentHistoryPage /></PrivateRoute>} />
+      <Route path="/payments/history" element={<PrivateRoute><PaymentHistoryPage /></PrivateRoute>} />
+      <Route path="/payment/callback" element={<PaymentCallbackPage />} />
+      <Route path="/payment/cancel" element={<PaymentCallbackPage />} />
       <Route element={<CustomerLayout />}>
         <Route path="/bookings" element={<BookingListPage />} />
-        <Route
-          path="/payments"
-          element={
-            <PrivateRoute>
-              <PaymentPortalPage />
-            </PrivateRoute>
-          }
-        />
         <Route
           path="/maintenance"
           element={

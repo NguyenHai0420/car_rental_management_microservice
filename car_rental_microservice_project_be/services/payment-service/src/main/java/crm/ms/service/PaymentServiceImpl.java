@@ -1,6 +1,7 @@
 package crm.ms.service;
 
 import crm.ms.dto.*;
+import crm.ms.dto.SepayTransactionsResponse.TransactionItem;
 import crm.ms.entity.Payment;
 import crm.ms.entity.PaymentItem;
 import crm.ms.entity.PaymentTransaction;
@@ -14,6 +15,7 @@ import crm.ms.repository.PaymentItemRepository;
 import crm.ms.repository.PaymentRepository;
 import crm.ms.repository.PaymentTransactionRepository;
 import crm.ms.service.gateway.PaymentGatewayStrategy;
+import crm.ms.service.gateway.SepayPollingClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -24,17 +26,23 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class PaymentServiceImpl implements PaymentService {
 
+    private static final Pattern SEPAY_CODE_PATTERN =
+            Pattern.compile("PAY-?(\\d{8})-?(\\d{3,6})", Pattern.CASE_INSENSITIVE);
+
     private final PaymentRepository paymentRepository;
     private final PaymentItemRepository paymentItemRepository;
     private final PaymentTransactionRepository paymentTransactionRepository;
     private final PaymentMapper paymentMapper;
     private final List<PaymentGatewayStrategy> gatewayStrategies;
+    private final SepayPollingClient sepayPollingClient;
 
     @Override
     @Transactional
@@ -102,18 +110,60 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public PaymentResponse getPaymentById(UUID id) {
         Payment payment = paymentRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(1, 404, "Không tìm thấy hóa đơn thanh toán với ID: " + id));
+        syncWithSepayIfPending(payment);
+        return paymentMapper.toResponse(payment);
+    }
+
+    @Override
+    @Transactional
+    public PaymentResponse getPaymentByBookingId(UUID bookingId) {
+        Payment payment = paymentRepository.findByBookingId(bookingId)
+                .orElseThrow(() -> new BusinessException(1, 404, "Không tìm thấy hóa đơn thanh toán cho đơn đặt xe: " + bookingId));
+        syncWithSepayIfPending(payment);
         return paymentMapper.toResponse(payment);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public PaymentResponse getPaymentByBookingId(UUID bookingId) {
-        Payment payment = paymentRepository.findByBookingId(bookingId)
-                .orElseThrow(() -> new BusinessException(1, 404, "Không tìm thấy hóa đơn thanh toán cho đơn đặt xe: " + bookingId));
+    public List<PaymentResponse> getPaymentHistory(UUID customerId, PaymentStatus status) {
+        List<Payment> payments;
+        if (customerId != null && status != null) {
+            payments = paymentRepository.findByCustomerIdAndStatusOrderByCreatedAtDesc(customerId, status);
+        } else if (customerId != null) {
+            payments = paymentRepository.findByCustomerIdOrderByCreatedAtDesc(customerId);
+        } else if (status != null) {
+            payments = paymentRepository.findByStatusOrderByCreatedAtDesc(status);
+        } else {
+            payments = paymentRepository.findAllByOrderByCreatedAtDesc();
+        }
+        return payments.stream()
+                .map(paymentMapper::toResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public PaymentResponse cancelPayment(UUID paymentId) {
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new BusinessException(1, 404, "Không tìm thấy hóa đơn thanh toán với ID: " + paymentId));
+
+        if (payment.getStatus() == PaymentStatus.FULLY_PAID
+                || payment.getStatus() == PaymentStatus.DEPOSIT_PAID
+                || payment.getStatus() == PaymentStatus.REFUNDED) {
+            throw new BusinessException(1, 400, "Không thể hủy hóa đơn đã thanh toán hoặc đã hoàn cọc");
+        }
+
+        if (payment.getStatus() != PaymentStatus.CANCELLED) {
+            payment.setStatus(PaymentStatus.CANCELLED);
+            payment.setAmountDue(BigDecimal.ZERO);
+            paymentRepository.save(payment);
+            log.info("Cancelled pending payment invoice paymentCode={}, id={}", payment.getPaymentCode(), payment.getId());
+        }
+
         return paymentMapper.toResponse(payment);
     }
 
@@ -231,6 +281,66 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     @Transactional
+    public Map<String, Object> processSepayWebhook(SepayWebhookRequest payload) {
+        if (payload == null) {
+            return Map.of("success", true, "processed", false, "reason", "Empty payload");
+        }
+
+        if (!"in".equalsIgnoreCase(payload.getTransferType())
+                || payload.getTransferAmount() == null
+                || payload.getTransferAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            log.info("Ignoring SePay webhook non-incoming transfer: id={}, type={}, amount={}",
+                    payload.getId(), payload.getTransferType(), payload.getTransferAmount());
+            return Map.of("success", true, "processed", false, "reason", "Ignored non-incoming transfer");
+        }
+
+        String paymentCode = extractPaymentCode(payload.getCode(), payload.getContent(), payload.getDescription());
+        if (paymentCode == null) {
+            log.info("Ignoring SePay webhook without payment code: id={}, content={}",
+                    payload.getId(), payload.getContent());
+            return Map.of("success", true, "processed", false, "reason", "No payment code in content");
+        }
+
+        Optional<Payment> optionalPayment = paymentRepository.findByPaymentCode(paymentCode);
+        if (optionalPayment.isEmpty()) {
+            log.info("Ignoring SePay webhook: invoice not found for paymentCode={}", paymentCode);
+            return Map.of("success", true, "processed", false, "reason", "Invoice not found");
+        }
+
+        Payment payment = optionalPayment.get();
+        String gatewayTxnId = buildSepayTxnId(
+                payload.getId() != null ? String.valueOf(payload.getId()) : null,
+                payload.getReferenceCode()
+        );
+        SettleOutcome outcome = trySettleFromBankTransfer(
+                payment,
+                gatewayTxnId,
+                payload.getTransferAmount(),
+                buildGatewaySummary(payload.getGateway(), payload.getAccountNumber(), payload.getReferenceCode(), payload.getContent())
+        );
+
+        if (!outcome.processed()) {
+            return Map.of(
+                    "success", true,
+                    "processed", false,
+                    "reason", outcome.reason(),
+                    "paymentCode", paymentCode
+            );
+        }
+
+        log.info("SePay webhook confirmed paymentCode={}, amount={}, gatewayTxnId={}",
+                paymentCode, payload.getTransferAmount(), gatewayTxnId);
+
+        return Map.of(
+                "success", true,
+                "processed", true,
+                "paymentCode", paymentCode,
+                "status", PaymentStatus.FULLY_PAID.name()
+        );
+    }
+
+    @Override
+    @Transactional
     public PaymentResponse addPenaltyFee(UUID paymentId, AddPenaltyRequest request) {
         log.info("Adding penalty fee for paymentId={}, amount={}, reason={}", paymentId, request.getAmount(), request.getDescription());
         Payment payment = paymentRepository.findById(paymentId)
@@ -323,5 +433,142 @@ public class PaymentServiceImpl implements PaymentService {
         String dateStr = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String randomSuffix = String.format("%04d", new Random().nextInt(10000));
         return "PAY-" + dateStr + "-" + randomSuffix;
+    }
+
+    private void syncWithSepayIfPending(Payment payment) {
+        if (!sepayPollingClient.isConfigured()) {
+            return;
+        }
+        if (payment.getStatus() == PaymentStatus.FULLY_PAID
+                || payment.getStatus() == PaymentStatus.DEPOSIT_PAID
+                || payment.getStatus() == PaymentStatus.CANCELLED
+                || payment.getStatus() == PaymentStatus.REFUNDED) {
+            return;
+        }
+
+        List<TransactionItem> items = sepayPollingClient.fetchIncomingTransactions(payment.getPaymentCode());
+        for (TransactionItem item : items) {
+            boolean incoming = item.getTransferType() == null || "in".equalsIgnoreCase(item.getTransferType());
+            if (!incoming || item.getAmountIn() == null || item.getAmountIn().compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+            String matchedCode = extractPaymentCode(item.getCode(), item.getTransactionContent());
+            if (matchedCode == null || !matchedCode.equalsIgnoreCase(payment.getPaymentCode())) {
+                continue;
+            }
+            String gatewayTxnId = buildSepayTxnId(item.getId(), item.getReferenceNumber());
+            SettleOutcome outcome = trySettleFromBankTransfer(
+                    payment,
+                    gatewayTxnId,
+                    item.getAmountIn(),
+                    buildGatewaySummary(
+                            item.getBankBrandName(),
+                            item.getAccountNumber(),
+                            item.getReferenceNumber(),
+                            item.getTransactionContent()
+                    )
+            );
+            if (outcome.processed()) {
+                log.info("SePay polling confirmed paymentCode={}, amount={}, gatewayTxnId={}",
+                        payment.getPaymentCode(), item.getAmountIn(), gatewayTxnId);
+                return;
+            }
+        }
+    }
+
+    private SettleOutcome trySettleFromBankTransfer(
+            Payment payment,
+            String gatewayTxnId,
+            BigDecimal receivedAmount,
+            String gatewaySummary) {
+        if (gatewayTxnId != null && paymentTransactionRepository.findByGatewayTxnId(gatewayTxnId).isPresent()) {
+            log.info("Ignoring duplicate SePay transaction: gatewayTxnId={}", gatewayTxnId);
+            return new SettleOutcome(false, "Duplicate transaction");
+        }
+
+        if (payment.getStatus() == PaymentStatus.FULLY_PAID || payment.getStatus() == PaymentStatus.CANCELLED) {
+            return new SettleOutcome(false, "Invoice already finalized");
+        }
+
+        BigDecimal totalAmount = safeAmount(payment.getTotalAmount());
+        BigDecimal depositRequired = safeAmount(payment.getDepositRequired());
+        BigDecimal remainingRental = totalAmount.subtract(safeAmount(payment.getAmountPaid())).max(BigDecimal.ZERO);
+        BigDecimal remainingDeposit = depositRequired.subtract(safeAmount(payment.getDepositPaid())).max(BigDecimal.ZERO);
+        BigDecimal expectedTransfer = remainingRental.add(remainingDeposit);
+
+        if (receivedAmount == null || receivedAmount.compareTo(expectedTransfer) < 0) {
+            log.warn("SePay transfer amount {} is less than expected {} for paymentCode={}",
+                    receivedAmount, expectedTransfer, payment.getPaymentCode());
+            return new SettleOutcome(false, "Insufficient transfer amount");
+        }
+
+        payment.setDepositPaid(depositRequired);
+        payment.setAmountPaid(totalAmount);
+        payment.setAmountDue(BigDecimal.ZERO);
+        payment.setStatus(PaymentStatus.FULLY_PAID);
+        payment.setPaidAt(LocalDateTime.now());
+
+        String finalTxnId = gatewayTxnId != null ? gatewayTxnId : "SEPAY-" + System.currentTimeMillis();
+        PaymentTransaction txn = PaymentTransaction.builder()
+                .payment(payment)
+                .txnType(TransactionType.CHARGE)
+                .txnMethod(TransactionMethod.BANK_TRANSFER)
+                .amount(receivedAmount)
+                .currency(payment.getCurrency())
+                .status(TransactionStatus.SUCCESS)
+                .gatewayTxnId(finalTxnId)
+                .gatewayResponse(gatewaySummary)
+                .processedAt(LocalDateTime.now())
+                .build();
+
+        paymentTransactionRepository.save(txn);
+        payment.getPaymentTransactions().add(txn);
+        paymentRepository.save(payment);
+        return new SettleOutcome(true, "Confirmed");
+    }
+
+    private String extractPaymentCode(String... candidates) {
+        if (candidates == null) {
+            return null;
+        }
+        for (String candidate : candidates) {
+            Matcher matcher = SEPAY_CODE_PATTERN.matcher(nullToEmpty(candidate));
+            if (matcher.find()) {
+                return "PAY-" + matcher.group(1) + "-" + matcher.group(2);
+            }
+        }
+        return null;
+    }
+
+    private String buildSepayTxnId(String sepayId, String referenceCode) {
+        if (sepayId != null && !sepayId.isBlank()) {
+            return "SEPAY-" + sepayId.trim();
+        }
+        if (referenceCode != null && !referenceCode.isBlank()) {
+            return "SEPAY-REF-" + referenceCode.trim();
+        }
+        return null;
+    }
+
+    private String buildGatewaySummary(String bankName, String accountNo, String referenceCode, String content) {
+        String summary = String.format(
+                "SePay %s stk=%s ref=%s content=%s",
+                nullToEmpty(bankName),
+                nullToEmpty(accountNo),
+                nullToEmpty(referenceCode),
+                nullToEmpty(content)
+        );
+        return summary.length() > 495 ? summary.substring(0, 495) : summary;
+    }
+
+    private BigDecimal safeAmount(BigDecimal value) {
+        return value != null ? value : BigDecimal.ZERO;
+    }
+
+    private String nullToEmpty(String value) {
+        return value != null ? value : "";
+    }
+
+    private record SettleOutcome(boolean processed, String reason) {
     }
 }
