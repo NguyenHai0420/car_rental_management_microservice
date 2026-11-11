@@ -73,7 +73,8 @@ public class MediaFileValidator {
             }
         }
 
-        // Use the actual detected image/doc format so webp/png/jpeg files disguised by extension upload cleanly
+        // Use the actual detected image/doc format so webp/png/jpeg files disguised by
+        // extension upload cleanly
         String finalType = detectedType;
         String finalExt = EXTENSIONS.getOrDefault(finalType, EXTENSIONS.get(type));
 
@@ -85,11 +86,12 @@ public class MediaFileValidator {
             return null;
         }
         // JPEG starts with SOI: 0xFF, 0xD8
-        if (startsWith(bytes, new byte[]{(byte) 0xff, (byte) 0xd8})) {
+        if (startsWith(bytes, new byte[] { (byte) 0xff, (byte) 0xd8 })) {
             return "image/jpeg";
         }
         // PNG starts with 8-byte header: 89 50 4E 47 0D 0A 1A 0A
-        if (startsWith(bytes, new byte[]{(byte) 0x89, (byte) 0x50, (byte) 0x4e, (byte) 0x47, (byte) 0x0d, (byte) 0x0a, (byte) 0x1a, (byte) 0x0a})) {
+        if (startsWith(bytes, new byte[] { (byte) 0x89, (byte) 0x50, (byte) 0x4e, (byte) 0x47, (byte) 0x0d, (byte) 0x0a,
+                (byte) 0x1a, (byte) 0x0a })) {
             return "image/png";
         }
         // WebP starts with RIFF....WEBP
@@ -106,9 +108,12 @@ public class MediaFileValidator {
     }
 
     private boolean startsWith(byte[] bytes, byte[] signature) {
-        if (bytes.length < signature.length) return false;
+        if (bytes.length < signature.length)
+            return false;
         for (int i = 0; i < signature.length; i++) {
-            if (bytes[i] != signature[i]) return false;
+            if (bytes[i] != signature[i]) {
+                return false;
+            }
         }
         return true;
     }

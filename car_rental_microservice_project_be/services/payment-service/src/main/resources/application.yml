@@ -58,4 +58,4 @@ payment:
       account-name: ${VIETQR_ACCOUNT_NAME:HOANG TU UYEN}
     sepay:
       api-key: ${SEPAY_API_KEY:sepay_uyenht_2026}
-      api-token: ${SEPAY_API_TOKEN:}
+      api-token: ${SEPAY_API_TOKEN:ZXTBRBXBX4WW09EMUOZPUSJJ26VYLLNMVOQ3D1LWJQYSCYE6TRWK7I3GTO2ITPNG}
