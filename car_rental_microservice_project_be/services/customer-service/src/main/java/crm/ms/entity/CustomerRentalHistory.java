@@ -11,7 +11,7 @@ import java.util.UUID;
 
 /**
  * Read model for the customer rental history API.
- * Booking data is stored in booking_db; history rows must be populated separately.
+ * History rows are refreshed from booking-service when rental history is requested.
  */
 @Entity
 @Table(name = "customer_rental_history", indexes = {

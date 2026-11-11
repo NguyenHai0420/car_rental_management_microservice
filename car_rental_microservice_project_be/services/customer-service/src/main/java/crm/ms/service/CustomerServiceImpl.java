@@ -1,10 +1,13 @@
 package crm.ms.service;
 
+import crm.ms.client.BookingClient;
 import crm.ms.dto.*;
 import crm.ms.entity.Customer;
+import crm.ms.entity.CustomerRentalHistory;
 import crm.ms.entity.DriverLicense;
 import crm.ms.enums.CustomerStatus;
 import crm.ms.enums.LoyaltyTier;
+import crm.ms.enums.RentalHistoryStatus;
 import crm.ms.enums.VerificationStatus;
 import crm.ms.exception.BusinessException;
 import crm.ms.mapper.CustomerMapper;
@@ -30,6 +33,7 @@ public class CustomerServiceImpl implements CustomerService {
     private final DriverLicenseRepository driverLicenseRepository;
     private final CustomerRentalHistoryRepository rentalHistoryRepository;
     private final CustomerMapper customerMapper;
+    private final BookingClient bookingClient;
 
     @Override
     @Transactional
@@ -280,7 +284,7 @@ public class CustomerServiceImpl implements CustomerService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public List<RentalHistoryResponse> getCurrentCustomerRentalHistory(String keycloakUserIdStr) {
         UUID keycloakUserId;
         try {
@@ -295,6 +299,9 @@ public class CustomerServiceImpl implements CustomerService {
             return List.of();
         }
 
+        // Tự động đồng bộ các đơn thuê xe mới nhất từ Booking Service qua OpenFeign
+        syncBookingsFromBookingService(customer, keycloakUserIdStr);
+
         return rentalHistoryRepository.findByCustomerIdOrderByRentalStartDesc(customer.getId())
                 .stream()
                 .map(customerMapper::toRentalHistoryResponse)
@@ -302,15 +309,63 @@ public class CustomerServiceImpl implements CustomerService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public List<RentalHistoryResponse> getCustomerRentalHistory(UUID customerId) {
-        if (!customerRepository.existsById(customerId)) {
-            throw new BusinessException(1, 404, "Customer not found: " + customerId);
+        Customer customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new BusinessException(1, 404, "Customer not found: " + customerId));
+
+        if (customer.getKeycloakUserId() != null) {
+            syncBookingsFromBookingService(customer, customer.getKeycloakUserId().toString());
         }
 
         return rentalHistoryRepository.findByCustomerIdOrderByRentalStartDesc(customerId)
                 .stream()
                 .map(customerMapper::toRentalHistoryResponse)
                 .toList();
+    }
+
+    private void syncBookingsFromBookingService(Customer customer, String keycloakUserIdStr) {
+        try {
+            BookingListResponseWrapper response = bookingClient.getBookingsByUserId(keycloakUserIdStr);
+            if (response != null && response.getData() != null && !response.getData().isEmpty()) {
+                for (BookingSyncDto b : response.getData()) {
+                    if (b.getId() == null) continue;
+                    CustomerRentalHistory history = rentalHistoryRepository.findByBookingId(b.getId())
+                            .orElseGet(() -> CustomerRentalHistory.builder()
+                                    .customer(customer)
+                                    .bookingId(b.getId())
+                                    .build());
+
+                    history.setVehicleId(b.getVehicleId() != null ? b.getVehicleId() : UUID.randomUUID());
+                    history.setVehicleInfo(b.getVehicleInfo() != null ? b.getVehicleInfo() : "Đơn thuê xe #" + b.getBookingCode());
+                    if (b.getPickupDatetime() != null) {
+                        history.setRentalStart(b.getPickupDatetime().toLocalDate());
+                    } else if (history.getRentalStart() == null) {
+                        history.setRentalStart(LocalDate.now());
+                    }
+                    if (b.getReturnDatetime() != null) {
+                        history.setRentalEnd(b.getReturnDatetime().toLocalDate());
+                    }
+                    history.setTotalAmount(b.getEstimatedTotal());
+                    history.setCurrency(b.getCurrency() != null ? b.getCurrency() : "VND");
+                    history.setStatus(mapBookingStatusToRentalStatus(b.getStatus()));
+                    history.setSyncedAt(LocalDateTime.now());
+
+                    rentalHistoryRepository.save(history);
+                }
+                log.info("Synced {} bookings from booking-service for customer {}", response.getData().size(), customer.getId());
+            }
+        } catch (Exception e) {
+            log.warn("Could not sync from booking-service via OpenFeign: {}", e.getMessage());
+        }
+    }
+
+    private RentalHistoryStatus mapBookingStatusToRentalStatus(String bookingStatus) {
+        if (bookingStatus == null) return RentalHistoryStatus.ACTIVE;
+        return switch (bookingStatus.toUpperCase()) {
+            case "CANCELLED" -> RentalHistoryStatus.CANCELLED;
+            case "RETURNED", "COMPLETED" -> RentalHistoryStatus.COMPLETED;
+            default -> RentalHistoryStatus.ACTIVE;
+        };
     }
 }
