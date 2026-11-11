@@ -10,6 +10,7 @@ import { HomePage } from '../features/home/HomePage'
 import { PricingPage } from '../features/payments/pages/PricingPage'
 import { PaymentPage } from '../features/payments/pages/PaymentPage'
 import { PaymentCallbackPage } from '../features/payments/pages/PaymentCallbackPage'
+import { PaymentHistoryPage } from '../features/payments/pages/PaymentHistoryPage'
 import '../style/home.css'
 import '../style/admin.css'
 import '../style/payment.css'
@@ -28,6 +29,8 @@ export default function App() {
       <Route path="/pricing" element={<PricingPage />} />
       <Route path="/rent" element={<PricingPage />} />
       <Route path="/payment" element={<PaymentPage />} />
+      <Route path="/payment/history" element={<PaymentHistoryPage />} />
+      <Route path="/payments/history" element={<PaymentHistoryPage />} />
       <Route path="/payment/callback" element={<PaymentCallbackPage />} />
       <Route path="*" element={<HomePage />} />
     </Routes>

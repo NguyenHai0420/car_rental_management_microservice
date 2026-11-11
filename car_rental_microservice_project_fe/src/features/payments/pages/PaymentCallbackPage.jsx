@@ -134,6 +134,9 @@ export const PaymentCallbackPage = () => {
               </div>
 
               <div className="result-actions">
+                <Link to="/payment/history" className="btn btn-primary btn-lg">
+                  📜 Xem lịch sử thanh toán
+                </Link>
                 <Link to="/" className="btn btn-outline-secondary btn-lg">
                   ← Về trang chủ CarRental
                 </Link>

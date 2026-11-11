@@ -25,6 +25,7 @@ export const PricingCalculator = ({ showroomCar, onProceedToPayment }) => {
   const [returnDate, setReturnDate] = useState("2026-11-16T20:00");
   const [backendResult, setBackendResult] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [orderError, setOrderError] = useState(null);
 
   // Tải danh sách xe thật từ vehicle-service và bảng giá đang hiệu lực từ payment-service
   useEffect(() => {
@@ -131,6 +132,7 @@ export const PricingCalculator = ({ showroomCar, onProceedToPayment }) => {
   const handleCreateOrderAndPay = async () => {
     if (!result || !currentVehicle) return;
     setSubmitting(true);
+    setOrderError(null);
 
     const uniquePaymentCode = `PAY-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Math.floor(100 + Math.random() * 900)}`;
     const randomHex = Math.floor(100000000000 + Math.random() * 899999999999).toString();
@@ -199,16 +201,23 @@ export const PricingCalculator = ({ showroomCar, onProceedToPayment }) => {
         depositRequired: result.depositRequired,
         notes: customOrder.notes,
       });
-      if (created?.id) {
-        customOrder = {
-          ...customOrder,
-          id: created.id,
-          paymentCode: created.paymentCode || customOrder.paymentCode,
-          bookingId: created.bookingId || customOrder.bookingId,
-        };
+      if (!created?.id) {
+        throw new Error("Máy chủ không trả về mã hóa đơn hợp lệ.");
       }
-    } catch {
-      // Backend có thể chưa bật, vẫn tiếp tục sang thanh toán VietQR mượt mà
+      customOrder = {
+        ...customOrder,
+        id: created.id,
+        paymentCode: created.paymentCode || customOrder.paymentCode,
+        bookingId: created.bookingId || customOrder.bookingId,
+      };
+    } catch (err) {
+      setOrderError(
+        err.response?.data?.message ||
+          err.message ||
+          "Không tạo được hóa đơn trên máy chủ. Hãy kiểm tra ApiGateway và PaymentService đang chạy."
+      );
+      setSubmitting(false);
+      return;
     }
 
     sessionStorage.setItem("current_rental_payment", JSON.stringify(customOrder));
@@ -415,6 +424,12 @@ export const PricingCalculator = ({ showroomCar, onProceedToPayment }) => {
                 {formatCurrency(Number(result.estimatedTotal) + Number(result.depositRequired))}
               </strong>
             </div>
+
+            {orderError && (
+              <p className="notice error" role="alert" style={{ marginBottom: "4px" }}>
+                {orderError}
+              </p>
+            )}
 
             <button
               type="button"

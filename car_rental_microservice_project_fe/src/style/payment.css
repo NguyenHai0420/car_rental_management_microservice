@@ -213,6 +213,66 @@
   color: var(--brand-ink);
 }
 
+.pay-badge.danger {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.history-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 14px;
+}
+
+.history-stat-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 16px 18px;
+  box-shadow: var(--shadow-sm);
+  display: grid;
+  gap: 4px;
+}
+
+.history-stat-value {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.history-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.history-filter-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.history-txn-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.history-txn-item {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 10px 12px;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  font-size: 13px;
+}
+
 .pay-row {
   display: flex;
   justify-content: space-between;

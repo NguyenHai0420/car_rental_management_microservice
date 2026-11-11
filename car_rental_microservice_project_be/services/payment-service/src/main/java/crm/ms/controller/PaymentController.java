@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -44,6 +45,28 @@ public class PaymentController {
                 .build());
     }
 
+    @GetMapping("/history")
+    public ResponseEntity<ResponseApi> getPaymentHistory(
+            @RequestParam(required = false) UUID customerId,
+            @RequestParam(required = false) PaymentStatus status) {
+        List<PaymentResponse> response = paymentService.getPaymentHistory(customerId, status);
+        return ResponseEntity.ok(ResponseApi.builder()
+                .code(HttpStatus.OK)
+                .message("Lấy lịch sử thanh toán thành công")
+                .data(response)
+                .build());
+    }
+
+    @GetMapping("/customer/{customerId}")
+    public ResponseEntity<ResponseApi> getPaymentsByCustomer(@PathVariable UUID customerId) {
+        List<PaymentResponse> response = paymentService.getPaymentHistory(customerId, null);
+        return ResponseEntity.ok(ResponseApi.builder()
+                .code(HttpStatus.OK)
+                .message("Lấy danh sách hóa đơn theo khách hàng thành công")
+                .data(response)
+                .build());
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<ResponseApi> getPaymentById(@PathVariable UUID id) {
         PaymentResponse response = paymentService.getPaymentById(id);
@@ -60,6 +83,16 @@ public class PaymentController {
         return ResponseEntity.ok(ResponseApi.builder()
                 .code(HttpStatus.OK)
                 .message("Lấy thông tin hóa đơn theo đơn đặt xe thành công")
+                .data(response)
+                .build());
+    }
+
+    @PostMapping("/{id}/cancel")
+    public ResponseEntity<ResponseApi> cancelPayment(@PathVariable UUID id) {
+        PaymentResponse response = paymentService.cancelPayment(id);
+        return ResponseEntity.ok(ResponseApi.builder()
+                .code(HttpStatus.OK)
+                .message("Đã hủy hóa đơn thanh toán")
                 .data(response)
                 .build());
     }

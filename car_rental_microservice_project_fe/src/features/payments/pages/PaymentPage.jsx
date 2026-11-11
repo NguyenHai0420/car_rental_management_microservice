@@ -3,6 +3,7 @@ import { useLocation, useSearchParams, useNavigate, Link } from "react-router";
 import { SiteHeader } from "../../home/SiteHeader";
 import { SiteFooter } from "../../home/SiteFooter";
 import { usePayment } from "../hooks/payment";
+import { paymentService } from "../services/payment";
 import { PaymentForm } from "../components/PaymentForm";
 
 function readSavedOrder() {
@@ -22,6 +23,8 @@ export const PaymentPage = ({ bookingId: propBookingId, customOrder: propOrder }
   const { loading, error, fetchPaymentByBooking } = usePayment();
   const [fetchedBooking, setFetchedBooking] = useState(null);
   const [savedOrder, setSavedOrder] = useState(() => readSavedOrder());
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState(null);
 
   const stateOrder = propOrder || location.state?.customOrder || null;
   const currentBookingId = propBookingId || searchParams.get("bookingId");
@@ -50,9 +53,29 @@ export const PaymentPage = ({ bookingId: propBookingId, customOrder: propOrder }
     (currentBookingId && fetchedBooking?.bookingId === currentBookingId ? fetchedBooking.data : null) ||
     (!currentBookingId ? savedOrder : null);
 
-  const handleClearOrder = () => {
+  const handleClearOrder = async () => {
+    setCancelError(null);
+    const paymentId = activePayment?.id;
+    const isRealInvoice = paymentId && !String(paymentId).startsWith("pay-");
+
+    if (isRealInvoice) {
+      setCancelling(true);
+      try {
+        await paymentService.cancelPayment(paymentId);
+      } catch (err) {
+        setCancelError(
+          err.response?.data?.message ||
+            "Không hủy được hóa đơn trên máy chủ. Hãy kiểm tra ApiGateway và PaymentService đang chạy."
+        );
+        setCancelling(false);
+        return;
+      }
+      setCancelling(false);
+    }
+
     sessionStorage.removeItem("current_rental_payment");
     setSavedOrder(null);
+    setFetchedBooking(null);
     navigate("/payment", { replace: true, state: null });
   };
 
@@ -76,18 +99,23 @@ export const PaymentPage = ({ bookingId: propBookingId, customOrder: propOrder }
               <Link to="/pricing" style={{ fontSize: "13px", fontWeight: 700 }}>
                 ← Đổi xe / tính lại giá
               </Link>
-              {!currentBookingId && (
+              {activePayment.status !== "FULLY_PAID" && activePayment.status !== "DEPOSIT_PAID" && (
                 <button
                   type="button"
                   className="btn btn-outline-secondary btn-sm copy-btn"
+                  disabled={cancelling}
                   onClick={handleClearOrder}
                 >
-                  ✕ Hủy đơn này
+                  {cancelling ? "Đang hủy..." : "✕ Hủy đơn này"}
                 </button>
               )}
             </div>
           )}
         </div>
+
+        {cancelError && (
+          <p className="notice error" role="alert">{cancelError}</p>
+        )}
 
         {loading && !activePayment && (
           <p className="notice" role="status">Đang tải thông tin hóa đơn thanh toán...</p>
@@ -113,6 +141,9 @@ export const PaymentPage = ({ bookingId: propBookingId, customOrder: propOrder }
               <div className="result-actions">
                 <Link to="/pricing" className="btn btn-danger btn-lg">
                   🚗 Chọn xe &amp; Tính giá ngay →
+                </Link>
+                <Link to="/payment/history" className="btn btn-primary btn-lg">
+                  📜 Xem lịch sử thanh toán
                 </Link>
                 <Link to="/" className="btn btn-outline-secondary btn-lg">
                   ← Xem xe tại Trang chủ

@@ -24,6 +24,12 @@ public class SecurityConfig {
                                 "/api/v1/vehicles/*/images").permitAll()
                         .pathMatchers(HttpMethod.GET, "/api/v1/pricing/**").permitAll()
                         .pathMatchers(HttpMethod.POST, "/api/v1/pricing/calculate").permitAll()
+                        .pathMatchers(HttpMethod.POST, "/api/v1/payments/callback/webhook/**").permitAll()
+                        .pathMatchers(HttpMethod.GET, "/api/v1/payments/callback/**").permitAll()
+                        // Cho phép test luồng tạo hóa đơn, hủy đơn & kiểm tra trạng thái chưa cần đăng nhập
+                        .pathMatchers(HttpMethod.POST, "/api/v1/payments", "/api/v1/payments/*/cancel").permitAll()
+                        .pathMatchers(HttpMethod.GET, "/api/v1/payments/history", "/api/v1/payments/customer/*",
+                                "/api/v1/payments/*", "/api/v1/payments/booking/*").permitAll()
                         .anyExchange().authenticated()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()))

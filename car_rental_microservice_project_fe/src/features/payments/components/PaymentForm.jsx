@@ -3,8 +3,6 @@ import { useNavigate } from "react-router";
 import { paymentService } from "../services/payment";
 import { formatCurrency } from "../utils/pricing";
 
-const DEMO_PAYMENT_ID = "e4b3c2a1-0000-0000-0000-000000000001";
-
 export const PaymentForm = ({ payment }) => {
   const navigate = useNavigate();
   const [copiedField, setCopiedField] = useState(null);
@@ -38,64 +36,52 @@ export const PaymentForm = ({ payment }) => {
   const totalPaymentAmount = rentalAmount + depositAmount;
 
   const paymentCode = payment?.paymentCode || "PAY-DEMO";
-  const vehicleName = payment?.vehicleName || "Xe thuê";
+  const vehicleName = payment?.vehicleName || payment?.notes || "Xe thuê";
 
-  const goToSuccess = useCallback(() => {
+  const isLocalDemoOnly = !payment?.id || String(payment.id).startsWith("pay-");
+
+  const goToSuccess = useCallback((updatedPayment) => {
+    const finalStatus = updatedPayment?.status || "FULLY_PAID";
+    const finalDeposit = Number(updatedPayment?.depositPaid ?? depositAmount);
+    const finalRental = Number(updatedPayment?.amountPaid ?? rentalAmount);
+    const finalTotal = finalDeposit + finalRental > 0 ? finalDeposit + finalRental : totalPaymentAmount;
     const vName = encodeURIComponent(vehicleName);
     navigate(
-      `/payment/callback?code=00&method=PAYOS&paymentCode=${encodeURIComponent(paymentCode)}&amountPaid=${totalPaymentAmount}&depositPaid=${depositAmount}&rentalPaid=${rentalAmount}&vehicleName=${vName}&status=FULLY_PAID`
+      `/payment/callback?code=00&method=PAYOS&paymentCode=${encodeURIComponent(paymentCode)}&amountPaid=${finalTotal}&depositPaid=${finalDeposit}&rentalPaid=${finalRental}&vehicleName=${vName}&status=${encodeURIComponent(finalStatus)}`
     );
   }, [navigate, paymentCode, totalPaymentAmount, depositAmount, rentalAmount, vehicleName]);
 
-  // === ĐẾM NGƯỢC GIẢ LẬP 20 GIÂY + LẮNG NGHE BACKEND ĐỂ TỰ NHẢY TRANG THÀNH CÔNG ===
+  // === LẮNG NGHE BACKEND (SEPAY POLLING / WEBHOOK) MỖI 2.5 GIÂY ĐỂ TỰ NHẢY TRANG KHI TIỀN VÀO ===
   useEffect(() => {
-    if (!payment) return undefined;
+    if (!payment || isLocalDemoOnly) return undefined;
 
     if (payment.status === "DEPOSIT_PAID" || payment.status === "FULLY_PAID") {
-      const immediate = setTimeout(() => goToSuccess(), 0);
+      const immediate = setTimeout(() => goToSuccess(payment), 0);
       return () => clearTimeout(immediate);
     }
 
     let redirectTimer = null;
-    const isLocalDemoOnly = !payment.id || payment.id.startsWith("pay-") || payment.id === DEMO_PAYMENT_ID;
 
-    // Đếm ngược 20 giây cho phép người thuê quét mã QR và chuyển khoản xong rồi tự động nhảy trang
-    const demoTimer = setTimeout(() => {
-      if (pollingRef.current) clearInterval(pollingRef.current);
-      if (!isLocalDemoOnly) {
-        paymentService.simulatePaymentSuccess(payment.id).catch(() => {});
-      }
-      setAutoRedirecting(true);
-      redirectTimer = setTimeout(() => {
-        goToSuccess();
-      }, 1000);
-    }, 20000);
-
-    // Song song kiểm tra backend mỗi 2 giây nếu đang dùng hóa đơn thật trong DB
-    if (!isLocalDemoOnly) {
-      pollingRef.current = setInterval(async () => {
-        try {
-          const updated = await paymentService.getPaymentById(payment.id);
-          if (updated && (updated.status === "DEPOSIT_PAID" || updated.status === "FULLY_PAID")) {
-            clearInterval(pollingRef.current);
-            clearTimeout(demoTimer);
-            setAutoRedirecting(true);
-            redirectTimer = setTimeout(() => {
-              goToSuccess();
-            }, 1000);
-          }
-        } catch {
-          // Tiếp tục chờ phản hồi từ ngân hàng/backend
+    pollingRef.current = setInterval(async () => {
+      try {
+        const updated = await paymentService.getPaymentById(payment.id);
+        if (updated && (updated.status === "DEPOSIT_PAID" || updated.status === "FULLY_PAID")) {
+          clearInterval(pollingRef.current);
+          setAutoRedirecting(true);
+          redirectTimer = setTimeout(() => {
+            goToSuccess(updated);
+          }, 800);
         }
-      }, 2000);
-    }
+      } catch {
+        // Tiếp tục chờ SePay xác nhận tiền vào tài khoản
+      }
+    }, 2500);
 
     return () => {
-      clearTimeout(demoTimer);
       if (redirectTimer) clearTimeout(redirectTimer);
       if (pollingRef.current) clearInterval(pollingRef.current);
     };
-  }, [payment, goToSuccess]);
+  }, [payment, isLocalDemoOnly, goToSuccess]);
 
   if (!payment) {
     return (
@@ -112,13 +98,19 @@ export const PaymentForm = ({ payment }) => {
   };
 
   const cleanPaymentCode = payment.paymentCode ? payment.paymentCode.replace(/-/g, "") : "PAYDEMO";
-  const transferContent = `TT ${cleanPaymentCode}`;
+  const transferContent = `SEVQR ${cleanPaymentCode}`;
 
   // Mã VietQR chuẩn Napas247: Quét 1 lần thanh toán trọn gói vào STK VietinBank 0376359204 - HOANG TU UYEN
   const directVietQrUrl = `https://img.vietqr.io/image/ICB-0376359204-compact2.png?amount=${totalPaymentAmount}&addInfo=${encodeURIComponent(transferContent)}&accountName=HOANG%20TU%20UYEN`;
 
   return (
     <>
+      {isLocalDemoOnly && (
+        <div className="notice error" role="alert" style={{ fontWeight: 600 }}>
+          ⚠️ Hóa đơn này chưa được lưu trên <code>payment-service</code> (mã tạm <code>{payment.id}</code>). Không nên chuyển khoản thật với mã này — hãy bấm &quot;Hủy đơn này&quot; và tạo lại sau khi bật Backend.
+        </div>
+      )}
+
       {autoRedirecting && (
         <div className="notice success" role="status" style={{ fontWeight: 700, textAlign: "center", fontSize: "15px" }}>
           🎉 ĐÃ NHẬN TIỀN VÀO VIETINBANK (HOANG TU UYEN)! Đang chuyển sang trang xác nhận...
@@ -210,7 +202,11 @@ export const PaymentForm = ({ payment }) => {
 
         <div className="qr-radar" role="status">
           <span className="radar-dot" aria-hidden="true" />
-          <span>Đang chờ chuyển khoản... Quét mã xong hệ thống sẽ tự động xác nhận và chuyển trang!</span>
+          <span>
+            {isLocalDemoOnly
+              ? "Hóa đơn chưa lưu vào máy chủ — vui lòng tạo lại đơn khi payment-service đã bật!"
+              : "Đang kiểm tra biến động số dư VietinBank (0376359204) qua SePay... Hệ thống sẽ tự động nhảy trang ngay khi nhận được tiền!"}
+          </span>
         </div>
 
         <div className="bank-table">

@@ -23,9 +23,15 @@ public class KecloakHeaderFilter implements GlobalFilter, Ordered {
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+        String path = exchange.getRequest().getURI().getPath();
+        boolean isWebhook = path != null && path.startsWith("/api/v1/payments/callback/webhook/");
+
         ServerWebExchange cleanExchange = exchange.mutate()
                 .request(request -> request.headers(headers -> {
-                    headers.remove(HttpHeaders.AUTHORIZATION);
+                    // Giữ Authorization header (VD: Apikey từ SePay) cho webhook của payment-service
+                    if (!isWebhook) {
+                        headers.remove(HttpHeaders.AUTHORIZATION);
+                    }
                     headers.remove(Constants.USER_ID);
                     headers.remove(Constants.USER_EMAIL);
                     headers.remove(Constants.USER_NAME);

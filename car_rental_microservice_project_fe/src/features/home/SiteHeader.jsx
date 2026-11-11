@@ -11,8 +11,9 @@ export function SiteHeader() {
   const [open, setOpen] = useState(false)
 
   const isPricing = pathname === '/pricing' || pathname === '/rent'
-  const isPayment = pathname.startsWith('/payment')
-  const isHome = !isPricing && !isPayment
+  const isHistory = pathname.startsWith('/payment/history') || pathname.startsWith('/payments/history')
+  const isPayment = pathname.startsWith('/payment') && !isHistory
+  const isHome = !isPricing && !isPayment && !isHistory
 
   return <header className="site-header">
     <div className="topbar"><div className="container d-flex align-items-center gap-4 py-2">
@@ -30,6 +31,7 @@ export function SiteHeader() {
           <li className="nav-item"><a className="nav-link" href="/#xe" onClick={() => setOpen(false)}>Xe cho thuê</a></li>
           <li className="nav-item"><Link className="nav-link" to="/pricing" aria-current={isPricing ? 'page' : undefined} onClick={() => setOpen(false)}>Tính giá &amp; Thuê xe</Link></li>
           <li className="nav-item"><Link className="nav-link" to="/payment" aria-current={isPayment ? 'page' : undefined} onClick={() => setOpen(false)}>Thanh toán</Link></li>
+          <li className="nav-item"><Link className="nav-link" to="/payment/history" aria-current={isHistory ? 'page' : undefined} onClick={() => setOpen(false)}>Lịch sử thanh toán</Link></li>
           <li className="nav-item"><a className="nav-link" href="/#lien-he" onClick={() => setOpen(false)}>Liên hệ</a></li>
           {auth.canManageFleet && <li className="nav-item"><Link className="nav-link" to="/vehicles" onClick={() => setOpen(false)}>Quản trị</Link></li>}
         </ul>
