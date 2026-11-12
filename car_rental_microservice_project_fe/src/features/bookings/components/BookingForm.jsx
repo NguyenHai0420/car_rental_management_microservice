@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Alert,
@@ -30,12 +30,16 @@ import {
   bookingService,
 } from "../services/booking";
 import { paymentService } from "../../payments/services/payment";
-import { getVehicle } from "../../vehicles/services/vehicle";
 
 const { RangePicker } = DatePicker;
 const { Text } = Typography;
 
-export const BookingForm = ({
+export const BookingForm = (props) => {
+  if (!props.open || !props.vehicle) return null;
+  return <BookingFormSession key={props.vehicle.vehicleId || props.vehicle.id} {...props} />;
+};
+
+const BookingFormSession = ({
   open,
   vehicle,
   defaultDateRange,
@@ -48,7 +52,6 @@ export const BookingForm = ({
   const [form] = Form.useForm();
 
   const [step, setStep] = useState(0);
-  const [extraDetail, setExtraDetail] = useState(null);
   const [createdBooking, setCreatedBooking] = useState(null);
   const [paymentInvoice, setPaymentInvoice] = useState(null);
   const [confirming, setConfirming] = useState(false);
@@ -59,12 +62,6 @@ export const BookingForm = ({
 
   useEffect(() => {
     if (open && vehicle) {
-      setStep(0);
-      setCreatedBooking(null);
-      setPaymentInvoice(null);
-      setConfirming(false);
-      setCopiedField(null);
-
       form.setFieldsValue({
         dateRange: defaultDateRange,
         pickupLocation: vehicle.location || "Chi nhánh trung tâm TP.HCM",
@@ -149,7 +146,7 @@ export const BookingForm = ({
   };
 
   // Hoàn tất xác nhận đơn xe và điều hướng sang trang đơn thuê
-  const handleConfirmSuccess = async (bookingId, paymentCode) => {
+  const handleConfirmSuccess = useCallback(async (bookingId, paymentCode) => {
     setConfirming(true);
     try {
       if (bookingId) {
@@ -163,7 +160,7 @@ export const BookingForm = ({
     } finally {
       setConfirming(false);
     }
-  };
+  }, [message, navigate, onCancel]);
 
   // Lắng nghe SePay xác nhận tiền vào tự động
   useEffect(() => {
@@ -192,7 +189,7 @@ export const BookingForm = ({
       isSubscribed = false;
       if (pollingRef.current) clearInterval(pollingRef.current);
     };
-  }, [step, paymentInvoice, createdBooking]);
+  }, [step, paymentInvoice, createdBooking, handleConfirmSuccess]);
 
   const ensurePaymentRecorded = async () => {
     let invoiceId = paymentInvoice?.id;

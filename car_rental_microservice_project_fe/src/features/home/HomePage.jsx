@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import {
   App,
   Button,
@@ -46,7 +45,6 @@ const getDefaultRange = () => [
 
 export function HomePage() {
   const { message } = App.useApp()
-  const navigate = useNavigate()
   const { authenticated, login } = useAuth()
   const showroom = useVehicleQuery(loadShowroom, showroomError)
 

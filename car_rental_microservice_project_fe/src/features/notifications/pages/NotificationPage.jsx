@@ -58,7 +58,6 @@ export function NotificationPage() {
 
   const handleServiceError = useCallback((reason) => {
     const status = reason?.response?.status
-    const rawMsg = reason?.response?.data?.message || reason?.message || ''
     if (status === 500 || status === 502 || status === 503) {
       setServiceError({
         title: 'Chưa kết nối được Notification Service',

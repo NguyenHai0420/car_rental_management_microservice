@@ -32,6 +32,7 @@ export const PaymentForm = ({ payment }) => {
 
   const paymentCode = payment?.paymentCode || "PAY-DEMO";
   const vehicleName = payment?.vehicleName || payment?.notes || "Xe thuê";
+  const bookingId = payment?.bookingId;
 
   const isLocalDemoOnly = !payment?.id || String(payment.id).startsWith("pay-");
 
@@ -39,11 +40,11 @@ export const PaymentForm = ({ payment }) => {
     const finalStatus = updatedPayment?.status || "FULLY_PAID";
     const finalTotal = Number(updatedPayment?.amountPaid || updatedPayment?.totalAmount || totalPaymentAmount);
     const vName = encodeURIComponent(vehicleName);
-    const bId = payment?.bookingId ? `&bookingId=${encodeURIComponent(payment.bookingId)}` : "";
+    const bId = bookingId ? `&bookingId=${encodeURIComponent(bookingId)}` : "";
     navigate(
       `/payment/callback?code=00&method=PAYOS&paymentCode=${encodeURIComponent(paymentCode)}&amountPaid=${finalTotal}${bId}&vehicleName=${vName}&status=${encodeURIComponent(finalStatus)}`
     );
-  }, [navigate, paymentCode, totalPaymentAmount, vehicleName, payment?.bookingId]);
+  }, [navigate, paymentCode, totalPaymentAmount, vehicleName, bookingId]);
 
   // === LẮNG NGHE BACKEND (SEPAY POLLING / WEBHOOK) MỖI 2.5 GIÂY ĐỂ TỰ NHẢY TRANG KHI TIỀN VÀO ===
   useEffect(() => {
