@@ -127,6 +127,26 @@
         "default-roles-car-rental-realm",
         "CUSTOMER"
       ]
+    },
+    {
+      "id": "44444444-4444-4444-4444-444444444444",
+      "username": "user",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Nguyen",
+      "lastName": "Van An",
+      "email": "user@carrental.vn",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "123456",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "default-roles-car-rental-realm",
+        "CUSTOMER"
+      ]
     }
   ]
 }

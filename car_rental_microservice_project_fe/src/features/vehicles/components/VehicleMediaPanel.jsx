@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { mediaError, useVehicleMedia } from '../hooks/useVehicleMedia'
 import {
   deleteVehicleDocument, deleteVehicleImage, getVehicleDocumentUrl,
-  uploadVehicleDocument, uploadVehicleImages,
+  reorderVehicleImages, setPrimaryVehicleImage, uploadVehicleDocument, uploadVehicleImages,
 } from '../services/vehicle'
 
 const imageTypes = {
@@ -61,10 +61,8 @@ function UploadForm({ document = false, disabled, onUpload }) {
           <label>Ngày cấp<input name="issueDate" type="date" /></label>
           <label>Ngày hết hạn<input name="expiryDate" type="date" /></label>
         </div>
-      </> : <>
-        <label>Thứ tự hiển thị (ảnh sau tự tăng dần)<input name="sortOrder" type="number" min="0" step="1" defaultValue="0" required /></label>
-        <label className="checkbox"><input name="isPrimary" type="checkbox" /> Đặt ảnh đầu tiên làm ảnh đại diện</label>
-      </>}
+      </> : <p className="hint">Ảnh mới được thêm vào cuối thư viện. Nếu xe chưa có ảnh đại diện, ảnh đầu tiên sẽ tự động
+        làm ảnh đại diện. Bạn có thể đổi ảnh đại diện và sắp xếp lại ngay trên từng ảnh.</p>}
       {error && <p className="notice error" role="alert">{error}</p>}
       <button type="submit">{disabled ? 'Đang xử lý…' : document ? 'Tải giấy tờ lên' : 'Tải ảnh lên'}</button>
     </fieldset>
@@ -84,9 +82,7 @@ export function VehicleMediaPanel({ vehicleId, canManage }) {
     setMessage('')
     setUploads(files.map((file) => ({ name: file.name, status: 'Đang chờ…' })))
     try {
-      const results = await uploadVehicleImages(vehicleId, files, fields.imageType, {
-        isPrimary: fields.isPrimary === 'on', sortOrder: Number(fields.sortOrder),
-      }, (result, index) => setUploads((list) => list.map((item, i) => i !== index ? item
+      const results = await uploadVehicleImages(vehicleId, files, fields.imageType, (result, index) => setUploads((list) => list.map((item, i) => i !== index ? item
         : { ...item, failed: Boolean(result.error), status: result.error ? mediaError(result.error) : 'Đã tải lên' })))
       const failed = results.filter((result) => result.error).length
       if (failed < results.length) await refresh()
@@ -118,6 +114,12 @@ export function VehicleMediaPanel({ vehicleId, canManage }) {
     }
   }
 
+  function moveImage(index, offset) {
+    const order = images.map((image) => image.id)
+    ;[order[index], order[index + offset]] = [order[index + offset], order[index]]
+    return perform(() => reorderVehicleImages(vehicleId, order), 'Đã cập nhật thứ tự hiển thị.')
+  }
+
   async function openDocument(documentId) {
     // Open synchronously from the click so browsers do not block the new tab.
     const preview = window.open('about:blank', '_blank')
@@ -144,7 +146,7 @@ export function VehicleMediaPanel({ vehicleId, canManage }) {
         </div>
         <div className={canManage ? 'section-layout' : ''}>
           <div>{images.length ? <div className="image-grid">
-            {images.map((image) => <article className="image-card" key={image.id}>
+            {images.map((image, index) => <article className="image-card" key={image.id}>
               <a href={image.url} target="_blank" rel="noreferrer">
                 <img src={image.url} alt={imageTypes[image.imageType] || image.fileName} loading="lazy" />
               </a>
@@ -153,8 +155,17 @@ export function VehicleMediaPanel({ vehicleId, canManage }) {
                 <h3>{imageTypes[image.imageType] || image.imageType}</h3>
                 <p className="filename" title={image.fileName}>{image.fileName}</p>
                 <p className="hint">{fileSize(image.fileSizeBytes)}</p>
-                {canManage && <button className="danger" disabled={busy} onClick={() =>
-                  perform(() => deleteVehicleImage(vehicleId, image.id), 'Đã xóa ảnh.')}>Xóa ảnh</button>}
+                {canManage && <div className="image-actions">
+                  <span className="hint">Vị trí {index + 1}/{images.length}</span>
+                  <button className="secondary" disabled={busy || index === 0} aria-label={`Đưa ảnh ${index + 1} lên trước`}
+                    onClick={() => moveImage(index, -1)}>←</button>
+                  <button className="secondary" disabled={busy || index === images.length - 1}
+                    aria-label={`Đưa ảnh ${index + 1} ra sau`} onClick={() => moveImage(index, 1)}>→</button>
+                  {!image.isPrimary && <button className="secondary" disabled={busy} onClick={() =>
+                    perform(() => setPrimaryVehicleImage(vehicleId, image.id), 'Đã đổi ảnh đại diện.')}>Đặt làm đại diện</button>}
+                  <button className="danger" disabled={busy} onClick={() =>
+                    perform(() => deleteVehicleImage(vehicleId, image.id), 'Đã xóa ảnh.')}>Xóa ảnh</button>
+                </div>}
               </div>
             </article>)}
           </div> : <p className="empty">Xe chưa có hình ảnh.</p>}</div>

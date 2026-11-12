@@ -13,9 +13,11 @@ import java.util.UUID;
 
 public interface VehicleMediaService {
     VehicleImageResponse uploadImage(UUID vehicleId, MediaFile file, ImageType imageType,
-                                     boolean primary, int sortOrder, String createdBy);
+                                     boolean primary, Integer sortOrder, String createdBy);
     List<VehicleImageResponse> listImages(UUID vehicleId);
     void deleteImage(UUID vehicleId, UUID imageId);
+    List<VehicleImageResponse> setPrimaryImage(UUID vehicleId, UUID imageId);
+    List<VehicleImageResponse> reorderImages(UUID vehicleId, List<UUID> imageIds);
     VehicleDocumentResponse uploadDocument(UUID vehicleId, MediaFile file, DocumentType docType,
                                            String docNumber, LocalDate issueDate, LocalDate expiryDate,
                                            String createdBy);

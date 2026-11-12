@@ -61,6 +61,22 @@ class VehicleMediaControllerTest {
     }
 
     @Test
+    void coverAndOrderChangesNeedMediaManager() throws Exception {
+        UUID image = UUID.randomUUID();
+        mvc.perform(put(path("/images/" + image + "/primary"))).andExpect(status().isUnauthorized());
+        mvc.perform(put(path("/images/order")).contentType("application/json").content("[\"" + image + "\"]")
+                .header("X-User-ID", "user").header("X-User-Roles", "CUSTOMER")).andExpect(status().isForbidden());
+        verifyNoInteractions(media);
+
+        when(media.reorderImages(vehicleId, List.of(image))).thenReturn(List.of());
+        mvc.perform(put(path("/images/order")).contentType("application/json").content("[\"" + image + "\"]")
+                .header("X-User-ID", "user").header("X-User-Roles", "STAFF")).andExpect(status().isOk());
+        when(media.setPrimaryImage(vehicleId, image)).thenReturn(List.of());
+        mvc.perform(put(path("/images/" + image + "/primary")).header("X-User-ID", "user").header("X-User-Roles", "STAFF"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void uploadRequiresAuthentication() throws Exception {
         mvc.perform(multipart(path("/images"))
                 .file(new MockMultipartFile("file", "car.png", "image/png", new byte[]{1}))

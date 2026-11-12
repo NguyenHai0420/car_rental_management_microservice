@@ -43,19 +43,18 @@ export function uploadVehicleImage(vehicleId, file, imageType = 'OTHER', options
   const form = new FormData()
   form.append('file', file)
   form.append('imageType', imageType)
-  form.append('isPrimary', String(options.isPrimary ?? false))
-  form.append('sortOrder', String(options.sortOrder ?? 0))
+  // Omitted values let the server append the image and pick a cover when the vehicle has none.
+  if (options.isPrimary) form.append('isPrimary', 'true')
+  if (options.sortOrder != null) form.append('sortOrder', String(options.sortOrder))
   return apiClient.post(`${base(vehicleId)}/images`, form).then(data)
 }
 
 // Sequential, one request per file: a bad file fails alone and the 10 MB/12 MB server limits stay per file.
-export async function uploadVehicleImages(vehicleId, files, imageType = 'OTHER', options = {}, onResult) {
+export async function uploadVehicleImages(vehicleId, files, imageType = 'OTHER', onResult) {
   const results = []
   for (const [index, file] of [...files].entries()) {
     try {
-      const image = await uploadVehicleImage(vehicleId, file, imageType, {
-        isPrimary: Boolean(options.isPrimary) && index === 0, sortOrder: (options.sortOrder ?? 0) + index,
-      })
+      const image = await uploadVehicleImage(vehicleId, file, imageType)
       results.push({ file, image })
     } catch (error) {
       results.push({ file, error })
@@ -64,6 +63,13 @@ export async function uploadVehicleImages(vehicleId, files, imageType = 'OTHER',
   }
   return results
 }
+
+export const setPrimaryVehicleImage = (vehicleId, imageId) =>
+  apiClient.put(`${base(vehicleId)}/images/${encodeURIComponent(imageId)}/primary`).then(data)
+
+// Sends the full gallery in its new display order; the server rejects partial lists.
+export const reorderVehicleImages = (vehicleId, imageIds) =>
+  apiClient.put(`${base(vehicleId)}/images/order`, imageIds).then(data)
 
 export const deleteVehicleImage = (vehicleId, imageId) =>
   apiClient.delete(`${base(vehicleId)}/images/${encodeURIComponent(imageId)}`).then(data)

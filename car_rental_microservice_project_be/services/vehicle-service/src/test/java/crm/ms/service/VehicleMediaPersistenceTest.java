@@ -26,6 +26,7 @@ import org.springframework.test.context.transaction.TestTransaction;
 import java.io.ByteArrayInputStream;
 import java.math.BigDecimal;
 import java.time.Duration;
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.*;
@@ -71,6 +72,29 @@ class VehicleMediaPersistenceTest {
         assertThat(stored.getContentType()).isEqualTo("image/png");
         assertThat(stored.getCreatedBy()).isEqualTo("second-staff");
         assertThat(stored.getObjectKey()).startsWith("vehicles/" + vehicleId + "/images/");
+    }
+
+    @Test
+    void galleryKeepsOneCoverAppendsNewImagesAndCanBeReordered() {
+        var first = service.uploadImage(vehicleId, png(), ImageType.EXTERIOR_FRONT, false, null, "staff");
+        var second = service.uploadImage(vehicleId, png(), ImageType.INTERIOR, false, null, "staff");
+        var third = service.uploadImage(vehicleId, png(), ImageType.TRUNK, false, null, "staff");
+        // The first image of a vehicle becomes its cover; later ones are appended in upload order.
+        assertThat(service.listImages(vehicleId)).extracting(image -> image.id(), image -> image.sortOrder(), image -> image.isPrimary())
+                .containsExactly(tuple(first.id(), 0, true), tuple(second.id(), 1, false), tuple(third.id(), 2, false));
+
+        assertThat(service.setPrimaryImage(vehicleId, third.id())).filteredOn(image -> image.isPrimary())
+                .extracting(image -> image.id()).containsExactly(third.id());
+        assertThat(service.reorderImages(vehicleId, List.of(third.id(), first.id(), second.id())))
+                .extracting(image -> image.id()).containsExactly(third.id(), first.id(), second.id());
+        assertThatThrownBy(() -> service.reorderImages(vehicleId, List.of(third.id(), first.id())))
+                .hasMessageContaining("every image");
+        assertThatThrownBy(() -> service.setPrimaryImage(vehicleId, UUID.randomUUID())).hasMessageContaining("Image not found");
+
+        // Deleting the cover promotes the next image in display order.
+        service.deleteImage(vehicleId, third.id());
+        assertThat(service.listImages(vehicleId)).extracting(image -> image.id(), image -> image.isPrimary())
+                .containsExactly(tuple(first.id(), true), tuple(second.id(), false));
     }
 
     @Test

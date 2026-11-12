@@ -33,6 +33,14 @@ docker compose up -d --build
 - Gateway: <http://localhost:8080>, Eureka: <http://localhost:8761>, Keycloak admin: <http://localhost:8180> (`admin` / `admin`)
 - MinIO console: <http://localhost:9001> (`minioadmin` / `minioadmin`), MySQL: `localhost:3307` (`root` / `1234`)
 
+Tạo dữ liệu thuê xe cho `user` và `admin` (hồ sơ ACTIVE, GPLX đã duyệt, 3 xe mẫu):
+
+```powershell
+.\car_rental_microservice_project_be\scripts\seed-rental-demo.ps1 -VerifyBooking
+```
+
+Cả hai tài khoản đăng nhập ứng dụng bằng mật khẩu `123456`. [Chi tiết dữ liệu mẫu và cách thuê thử](car_rental_microservice_project_be/docs/rental-demo-data.md).
+
 Lần đầu build mất vài phút. Xem log: `docker compose logs -f <service>`. Dừng: `docker compose down` (thêm `-v` để xóa dữ liệu MySQL/MinIO). Sau khi sửa code chạy lại `docker compose up -d --build`.
 
 Khi chạy Java từ IntelliJ và dùng MinIO trong Docker, đặt
