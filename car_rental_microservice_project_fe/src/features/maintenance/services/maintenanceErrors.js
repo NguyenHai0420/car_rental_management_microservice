@@ -134,11 +134,14 @@ export function formatMaintenanceError(error, fallbackMessage = 'Không thể th
     }
   }
 
-  if (status === 502 || status === 503) {
+  if (status === 500 || status === 502 || status === 503) {
+    const isServiceDown = !rawMessage || rawMessage === 'Internal Server Error' || lower.includes('connection refused') || lower.includes('internal server error')
     return {
-      title: 'Lỗi kết nối giữa các service',
-      description: localizedRaw || fallbackFormatted,
-      detail: 'Kiểm tra các service liên quan (vehicle-service, maintenance-service, eureka) đang chạy và cấu hình đúng token nội bộ.',
+      title: isServiceDown ? 'Chưa kết nối được Maintenance Service' : 'Lỗi kết nối giữa các service',
+      description: isServiceDown
+        ? 'Dịch vụ bảo dưỡng xe (maintenance-service trên cổng 8085) chưa được khởi động hoặc ApiGateway không thể kết nối tới cổng này.'
+        : localizedRaw || fallbackFormatted,
+      detail: 'Vui lòng kiểm tra và khởi động maintenance-service (cổng 8085) và MySQL (cổng 3307).',
       status,
       isConflict: false,
     }

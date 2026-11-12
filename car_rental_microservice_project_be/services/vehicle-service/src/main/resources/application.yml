@@ -41,8 +41,8 @@ file-service:
 
 vehicle:
   security:
-    # Shared with maintenance-service (VEHICLE_INTERNAL_TOKEN); blank disables internal access.
-    internal-token: ${VEHICLE_INTERNAL_TOKEN:}
+    # Shared local-dev default with maintenance-service; an explicitly blank token disables internal access.
+    internal-token: ${VEHICLE_INTERNAL_TOKEN:car-rental-internal-vehicle-token-dev}
 
 media:
   management-roles: ${VEHICLE_MEDIA_MANAGEMENT_ROLES:ADMIN,STAFF,VEHICLE_OWNER}

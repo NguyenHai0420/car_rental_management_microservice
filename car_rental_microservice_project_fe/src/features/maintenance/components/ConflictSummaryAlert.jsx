@@ -1,4 +1,4 @@
-import { Alert, Space, Tag, Typography } from 'antd'
+import { Alert, Tag, Typography } from 'antd'
 import { formatDateTime } from '../../../services/api-helpers.js'
 import { MAINTENANCE_STATUS_META } from '../services/maintenance.js'
 
@@ -25,16 +25,17 @@ export function ErrorAlertBanner({ error, onClose, style }) {
       closable={Boolean(onClose)}
       onClose={onClose}
       style={style}
+      title={<strong>{normalized.title || 'Đã xảy ra lỗi'}</strong>}
       message={<strong>{normalized.title || 'Đã xảy ra lỗi'}</strong>}
       description={
-        <Space direction="vertical" size={4} style={{ width: '100%' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, width: '100%' }}>
           {normalized.description && <span>{normalized.description}</span>}
           {normalized.detail && normalized.detail !== normalized.description && (
             <Text type="secondary" style={{ fontSize: 12 }}>
               Chi tiết kỹ thuật: {normalized.detail}
             </Text>
           )}
-        </Space>
+        </div>
       }
     />
   )
@@ -70,9 +71,10 @@ export function ConflictSummaryAlert({ conflictResult, onClose, style }) {
       closable={Boolean(onClose)}
       onClose={onClose}
       style={style}
+      title={<strong>{summaryMessage}</strong>}
       message={<strong>{summaryMessage}</strong>}
       description={
-        <Space direction="vertical" size={6} style={{ width: '100%' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
           <div>
             Khoảng kiểm tra: <strong>{formatDateTime(conflictResult.requestedStartAt)}</strong> →{' '}
             <strong>{formatDateTime(conflictResult.requestedEndAt)}</strong>
@@ -123,7 +125,7 @@ export function ConflictSummaryAlert({ conflictResult, onClose, style }) {
               Lưu ý: {conflictResult.partialWarning}
             </Text>
           )}
-        </Space>
+        </div>
       }
     />
   )

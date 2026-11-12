@@ -34,8 +34,8 @@ import java.util.regex.Pattern;
 @Slf4j
 public class PaymentServiceImpl implements PaymentService {
 
-    private static final Pattern SEPAY_CODE_PATTERN =
-            Pattern.compile("PAY-?(\\d{8})-?(\\d{3,6})", Pattern.CASE_INSENSITIVE);
+    private static final Pattern SEPAY_CODE_PATTERN = Pattern.compile("PAY-?(\\d{8})-?(\\d{3,6})",
+            Pattern.CASE_INSENSITIVE);
 
     private final PaymentRepository paymentRepository;
     private final PaymentItemRepository paymentItemRepository;
@@ -107,7 +107,8 @@ public class PaymentServiceImpl implements PaymentService {
     @Transactional
     public PaymentResponse getPaymentByBookingId(UUID bookingId) {
         Payment payment = paymentRepository.findByBookingId(bookingId)
-                .orElseThrow(() -> new BusinessException(1, 404, "Không tìm thấy hóa đơn thanh toán cho đơn đặt xe: " + bookingId));
+                .orElseThrow(() -> new BusinessException(1, 404,
+                        "Không tìm thấy hóa đơn thanh toán cho đơn đặt xe: " + bookingId));
         syncWithSepayIfPending(payment);
         return paymentMapper.toResponse(payment);
     }
@@ -134,7 +135,8 @@ public class PaymentServiceImpl implements PaymentService {
     @Transactional
     public PaymentResponse cancelPayment(UUID paymentId) {
         Payment payment = paymentRepository.findById(paymentId)
-                .orElseThrow(() -> new BusinessException(1, 404, "Không tìm thấy hóa đơn thanh toán với ID: " + paymentId));
+                .orElseThrow(
+                        () -> new BusinessException(1, 404, "Không tìm thấy hóa đơn thanh toán với ID: " + paymentId));
 
         if (payment.getStatus() == PaymentStatus.FULLY_PAID
                 || payment.getStatus() == PaymentStatus.DEPOSIT_PAID
@@ -146,7 +148,8 @@ public class PaymentServiceImpl implements PaymentService {
             payment.setStatus(PaymentStatus.CANCELLED);
             payment.setAmountDue(BigDecimal.ZERO);
             paymentRepository.save(payment);
-            log.info("Cancelled pending payment invoice paymentCode={}, id={}", payment.getPaymentCode(), payment.getId());
+            log.info("Cancelled pending payment invoice paymentCode={}, id={}", payment.getPaymentCode(),
+                    payment.getId());
         }
 
         return paymentMapper.toResponse(payment);
@@ -156,7 +159,8 @@ public class PaymentServiceImpl implements PaymentService {
     @Transactional
     public CheckoutResponse processCheckout(UUID paymentId, CheckoutRequest request) {
         Payment payment = paymentRepository.findById(paymentId)
-                .orElseThrow(() -> new BusinessException(1, 404, "Không tìm thấy hóa đơn thanh toán với ID: " + paymentId));
+                .orElseThrow(
+                        () -> new BusinessException(1, 404, "Không tìm thấy hóa đơn thanh toán với ID: " + paymentId));
 
         if (payment.getStatus() == PaymentStatus.FULLY_PAID || payment.getStatus() == PaymentStatus.CANCELLED) {
             throw new BusinessException(1, 400, "Hóa đơn đã hoàn thành hoặc đã bị hủy, không thể thanh toán tiếp");
@@ -213,7 +217,8 @@ public class PaymentServiceImpl implements PaymentService {
         String gatewayTxnId = strategy.extractGatewayTxnId(callbackParams);
         boolean isSuccess = strategy.isSuccessful(callbackParams);
 
-        List<PaymentTransaction> txns = paymentTransactionRepository.findByPaymentIdOrderByCreatedAtDesc(payment.getId());
+        List<PaymentTransaction> txns = paymentTransactionRepository
+                .findByPaymentIdOrderByCreatedAtDesc(payment.getId());
         PaymentTransaction targetTxn = txns.stream()
                 .filter(t -> t.getStatus() == TransactionStatus.PENDING)
                 .findFirst()
@@ -295,22 +300,20 @@ public class PaymentServiceImpl implements PaymentService {
         Payment payment = optionalPayment.get();
         String gatewayTxnId = buildSepayTxnId(
                 payload.getId() != null ? String.valueOf(payload.getId()) : null,
-                payload.getReferenceCode()
-        );
+                payload.getReferenceCode());
         SettleOutcome outcome = trySettleFromBankTransfer(
                 payment,
                 gatewayTxnId,
                 payload.getTransferAmount(),
-                buildGatewaySummary(payload.getGateway(), payload.getAccountNumber(), payload.getReferenceCode(), payload.getContent())
-        );
+                buildGatewaySummary(payload.getGateway(), payload.getAccountNumber(), payload.getReferenceCode(),
+                        payload.getContent()));
 
         if (!outcome.processed()) {
             return Map.of(
                     "success", true,
                     "processed", false,
                     "reason", outcome.reason(),
-                    "paymentCode", paymentCode
-            );
+                    "paymentCode", paymentCode);
         }
 
         log.info("SePay webhook confirmed paymentCode={}, amount={}, gatewayTxnId={}",
@@ -320,14 +323,14 @@ public class PaymentServiceImpl implements PaymentService {
                 "success", true,
                 "processed", true,
                 "paymentCode", paymentCode,
-                "status", PaymentStatus.FULLY_PAID.name()
-        );
+                "status", PaymentStatus.FULLY_PAID.name());
     }
 
     @Override
     @Transactional
     public PaymentResponse addPenaltyFee(UUID paymentId, AddPenaltyRequest request) {
-        log.info("Adding penalty fee for paymentId={}, amount={}, reason={}", paymentId, request.getAmount(), request.getDescription());
+        log.info("Adding penalty fee for paymentId={}, amount={}, reason={}", paymentId, request.getAmount(),
+                request.getDescription());
         Payment payment = paymentRepository.findById(paymentId)
                 .orElseThrow(() -> new BusinessException(1, 404, "Không tìm thấy hóa đơn: " + paymentId));
 
@@ -362,7 +365,8 @@ public class PaymentServiceImpl implements PaymentService {
 
         BigDecimal remainingDeposit = payment.getDepositPaid().subtract(payment.getDepositRefunded());
         if (request.getRefundAmount().compareTo(remainingDeposit) > 0) {
-            throw new BusinessException(1, 400, "Số tiền hoàn cọc vượt quá tiền cọc còn lại khả dụng (" + remainingDeposit + " VND)");
+            throw new BusinessException(1, 400,
+                    "Số tiền hoàn cọc vượt quá tiền cọc còn lại khả dụng (" + remainingDeposit + " VND)");
         }
 
         payment.setDepositRefunded(payment.getDepositRefunded().add(request.getRefundAmount()));
@@ -394,7 +398,8 @@ public class PaymentServiceImpl implements PaymentService {
     @Transactional
     public PaymentResponse processDepositRefundByBookingId(UUID bookingId, RefundDepositRequest request) {
         Payment payment = paymentRepository.findByBookingId(bookingId)
-                .orElseThrow(() -> new BusinessException(1, 404, "Không tìm thấy hóa đơn cho đơn đặt xe: " + bookingId));
+                .orElseThrow(
+                        () -> new BusinessException(1, 404, "Không tìm thấy hóa đơn cho đơn đặt xe: " + bookingId));
         return processDepositRefund(payment.getId(), request);
     }
 
@@ -409,8 +414,10 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     private TransactionMethod resolveMethod(String gatewayType) {
-        if ("vnpay".equalsIgnoreCase(gatewayType)) return TransactionMethod.VNPAY;
-        if ("payos".equalsIgnoreCase(gatewayType)) return TransactionMethod.PAYOS;
+        if ("vnpay".equalsIgnoreCase(gatewayType))
+            return TransactionMethod.VNPAY;
+        if ("payos".equalsIgnoreCase(gatewayType))
+            return TransactionMethod.PAYOS;
         return TransactionMethod.CASH;
     }
 
@@ -450,9 +457,7 @@ public class PaymentServiceImpl implements PaymentService {
                             item.getBankBrandName(),
                             item.getAccountNumber(),
                             item.getReferenceNumber(),
-                            item.getTransactionContent()
-                    )
-            );
+                            item.getTransactionContent()));
             if (outcome.processed()) {
                 log.info("SePay polling confirmed paymentCode={}, amount={}, gatewayTxnId={}",
                         payment.getPaymentCode(), item.getAmountIn(), gatewayTxnId);
@@ -540,8 +545,7 @@ public class PaymentServiceImpl implements PaymentService {
                 nullToEmpty(bankName),
                 nullToEmpty(accountNo),
                 nullToEmpty(referenceCode),
-                nullToEmpty(content)
-        );
+                nullToEmpty(content));
         return summary.length() > 495 ? summary.substring(0, 495) : summary;
     }
 
@@ -554,7 +558,8 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     public void notifyBookingConfirmed(UUID bookingId, String paymentCode) {
-        if (bookingId == null) return;
+        if (bookingId == null)
+            return;
         try {
             java.net.http.HttpClient client = java.net.http.HttpClient.newHttpClient();
             String url = "http://localhost:8083/api/v1/bookings/" + bookingId + "/internal-confirm" +

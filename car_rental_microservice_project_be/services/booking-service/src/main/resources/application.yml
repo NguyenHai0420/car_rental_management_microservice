@@ -48,7 +48,7 @@ app:
   services:
     notification-service:
       url: ${NOTIFICATION_SERVICE_URL:http://localhost:8086}
-      internal-token: ${NOTIFICATION_INTERNAL_TOKEN:}
+      internal-token: ${NOTIFICATION_INTERNAL_TOKEN:car-rental-internal-notification-token-dev}
 
 server:
   port: ${service.port}

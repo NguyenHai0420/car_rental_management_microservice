@@ -73,9 +73,9 @@ notification:
     interval-ms: ${NOTIFICATION_RECOVERY_INTERVAL_MS:30000}
   security:
     enabled: ${NOTIFICATION_SECURITY_ENABLED:true}
-    require-gateway-secret: ${NOTIFICATION_REQUIRE_GATEWAY_SECRET:true}
+    require-gateway-secret: ${NOTIFICATION_REQUIRE_GATEWAY_SECRET:false}
     gateway-secret: ${NOTIFICATION_GATEWAY_SECRET:}
-    internal-token: ${NOTIFICATION_INTERNAL_TOKEN:}
+    internal-token: ${NOTIFICATION_INTERNAL_TOKEN:car-rental-internal-notification-token-dev}
     allowed-roles: ${NOTIFICATION_ALLOWED_ROLES:ADMIN,STAFF,SYSTEM,SERVICE}
 
 management:

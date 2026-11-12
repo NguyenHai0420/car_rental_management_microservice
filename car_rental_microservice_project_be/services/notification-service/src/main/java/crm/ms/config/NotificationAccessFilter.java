@@ -82,7 +82,7 @@ public class NotificationAccessFilter extends OncePerRequestFilter {
             return;
         }
 
-        if (security.isRequireGatewaySecret()) {
+        if (security.isRequireGatewaySecret() && hasText(security.getGatewaySecret())) {
             String gatewaySecret = request.getHeader(HEADER_GATEWAY_SECRET);
             if (!constantTimeEquals(security.getGatewaySecret(), gatewaySecret)) {
                 log.warn("Rejected direct/untrusted notification API request [{} {}]: missing or invalid {}",
