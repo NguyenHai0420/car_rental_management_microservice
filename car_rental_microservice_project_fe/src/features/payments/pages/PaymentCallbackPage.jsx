@@ -4,6 +4,7 @@ import { SiteHeader } from "../../home/SiteHeader";
 import { SiteFooter } from "../../home/SiteFooter";
 import { usePayment } from "../hooks/payment";
 import { formatCurrency } from "../utils/pricing";
+import { bookingService } from "../../bookings/services/booking";
 
 export const PaymentCallbackPage = () => {
   const [searchParams] = useSearchParams();
@@ -63,8 +64,13 @@ export const PaymentCallbackPage = () => {
   useEffect(() => {
     if (result) {
       sessionStorage.removeItem("current_rental_payment");
+      const bookingId = searchParams.get("bookingId");
+      const paymentCode = searchParams.get("paymentCode") || result?.paymentCode;
+      if (bookingId) {
+        bookingService.confirmBooking(bookingId, paymentCode).catch(() => {});
+      }
     }
-  }, [result]);
+  }, [result, searchParams]);
 
   return (
     <div className="site">
@@ -87,11 +93,11 @@ export const PaymentCallbackPage = () => {
               <div>
                 <p className="eyebrow">CAR RENTAL / XÁC NHẬN THANH TOÁN</p>
                 <h2 style={{ color: "var(--ok)", fontSize: "24px", fontWeight: 800, marginTop: "6px" }}>
-                  GIAO DỊCH THÀNH CÔNG!
+                  XÁC NHẬN ĐẶT XE THÀNH CÔNG!
                 </h2>
                 <p className="hint" style={{ fontSize: "14px", marginTop: "8px" }}>
-                  Đã nhận thành công tiền thanh toán vào tài khoản <strong>VietinBank (0376359204 - HOANG TU UYEN)</strong>.
-                  Đơn đặt xe của bạn đã được xác nhận giữ chỗ!
+                  Đã nhận thành công toàn bộ chi phí thuê xe vào tài khoản <strong>VietinBank (0376359204 - HOANG TU UYEN)</strong>.
+                  Đơn đặt xe của bạn đã hoàn tất thanh toán và được xác nhận chính thức!
                 </p>
               </div>
 
@@ -102,25 +108,19 @@ export const PaymentCallbackPage = () => {
                 </div>
                 {result.vehicleName && (
                   <div className="bank-row">
-                    <span className="bank-row-label">Dòng xe đã giữ chỗ:</span>
+                    <span className="bank-row-label">Dòng xe đã xác nhận:</span>
                     <strong style={{ color: "var(--brand)" }}>{result.vehicleName}</strong>
                   </div>
                 )}
-                {result.rentalPaid > 0 && (
-                  <div className="bank-row">
-                    <span className="bank-row-label">Tiền thuê xe (gồm VAT):</span>
-                    <strong>{formatCurrency(result.rentalPaid)}</strong>
-                  </div>
-                )}
                 <div className="bank-row">
-                  <span className="bank-row-label">Tiền cọc giữ xe:</span>
-                  <strong>{formatCurrency(result.depositPaid)}</strong>
+                  <span className="bank-row-label">Chi phí thuê xe (gồm VAT):</span>
+                  <strong>{formatCurrency(result.amountPaid || result.rentalPaid)}</strong>
                 </div>
                 <hr className="pay-divider" />
                 <div className="bank-row">
-                  <strong style={{ color: "var(--ink)" }}>Tổng số tiền đã thanh toán:</strong>
+                  <strong style={{ color: "var(--ink)" }}>Tổng tiền đã thanh toán:</strong>
                   <strong style={{ color: "var(--ok)", fontSize: "18px", fontWeight: 800 }}>
-                    {formatCurrency(result.amountPaid || result.rentalPaid + result.depositPaid)}
+                    {formatCurrency(result.amountPaid || result.rentalPaid)}
                   </strong>
                 </div>
                 <div className="bank-row">
@@ -129,7 +129,7 @@ export const PaymentCallbackPage = () => {
                 </div>
                 <div className="bank-row">
                   <span className="bank-row-label">Trạng thái đơn:</span>
-                  <span className="pay-badge ok">ĐÃ THANH TOÁN & ĐẶT CỌC (CONFIRMED)</span>
+                  <span className="pay-badge ok">ĐÃ THANH TOÁN ĐỦ — ĐÃ XÁC NHẬN (CONFIRMED)</span>
                 </div>
               </div>
 
@@ -140,8 +140,8 @@ export const PaymentCallbackPage = () => {
                 <Link to="/" className="btn btn-outline-secondary btn-lg">
                   ← Về trang chủ CarRental
                 </Link>
-                <Link to="/pricing" className="btn btn-danger btn-lg">
-                  Thuê thêm xe khác →
+                <Link to="/bookings" className="btn btn-danger btn-lg">
+                  Xem đơn thuê của tôi →
                 </Link>
               </div>
             </>

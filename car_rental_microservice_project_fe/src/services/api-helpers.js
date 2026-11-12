@@ -24,7 +24,7 @@ export function extractApiError(error, fallbackMessage = 'Không thể hoàn t�
     return `401 Unauthorized: ${baseMessage} (Kiểm tra đăng nhập Keycloak và X-Gateway-Secret).`
   }
   if (status === 403) {
-    return `403 Forbidden: ${baseMessage} (Backend mặc định yêu cầu vai trò ADMIN hoặc STAFF).`
+    return `403 Forbidden: ${baseMessage} (Backend yêu cầu vai trò ADMIN, STAFF hoặc VEHICLE_OWNER).`
   }
   if (status) {
     return `HTTP ${status}: ${baseMessage}${detail}`

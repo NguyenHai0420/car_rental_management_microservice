@@ -28,7 +28,7 @@ export function VehicleManagementLayout() {
   if (!auth.ready) content = <p className="notice" role="status">Đang kiểm tra phiên đăng nhập…</p>
   else if (!auth.configured) content = <p className="notice error" role="alert">Chưa cấu hình kết nối Keycloak.</p>
   else if (!auth.authenticated) content = <div className="gate"><h2>Đăng nhập để quản lý đội xe</h2><p className="subtitle">Khu vực dành cho nhân viên và quản trị viên.</p><button onClick={auth.login}>Đăng nhập quản trị</button></div>
-  else if (!auth.canManageFleet) content = <div className="gate"><p className="notice error" role="alert">Tài khoản cần quyền ADMIN hoặc STAFF.</p><Link to="/">Về trang chủ</Link></div>
+  else if (!auth.canManageFleet) content = <div className="gate"><p className="notice error" role="alert">Tài khoản cần quyền ADMIN, STAFF hoặc VEHICLE_OWNER.</p><Link to="/">Về trang chủ</Link></div>
 
   return <div className="admin fleet-workspace">
     <aside className="admin-side" data-open={open} aria-label="Menu quản trị">

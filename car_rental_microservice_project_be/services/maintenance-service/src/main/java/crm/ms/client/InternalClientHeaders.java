@@ -6,17 +6,50 @@ import crm.ms.config.CorrelationContextFilter;
 import crm.ms.config.MaintenanceAccessFilter;
 import crm.ms.exception.BusinessException;
 import crm.ms.exception.ExternalServiceUnavailableException;
+import org.slf4j.Logger;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
 import java.util.Locale;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 final class InternalClientHeaders {
 
     private static final int MAX_REMOTE_MESSAGE_LEN = 300;
 
     private InternalClientHeaders() {
+    }
+
+    static String executeRequest(
+            Supplier<String> requestCall,
+            String serviceName,
+            String operationDescription,
+            Logger log,
+            Function<RestClientResponseException, BusinessException> httpErrorMapper) {
+        try {
+            return requestCall.get();
+        } catch (RestClientResponseException ex) {
+            log.warn("{} HTTP {} while {}", serviceName, ex.getStatusCode().value(), operationDescription);
+            throw httpErrorMapper.apply(ex);
+        } catch (ResourceAccessException | IllegalStateException ex) {
+            log.error("{} unavailable while {}: {}", serviceName, operationDescription, ex.getMessage());
+            throw unavailableException(serviceName, operationDescription, ex);
+        }
+    }
+
+    static ExternalServiceUnavailableException unavailableException(
+            String serviceName,
+            String operationDescription,
+            RuntimeException ex) {
+        if (ex instanceof IllegalStateException) {
+            return new ExternalServiceUnavailableException(
+                    serviceName + " has no available instances in service discovery while " + operationDescription, ex);
+        }
+        return new ExternalServiceUnavailableException(
+                serviceName + " is unreachable or timed out while " + operationDescription, ex);
     }
 
     static void applyServiceHeaders(

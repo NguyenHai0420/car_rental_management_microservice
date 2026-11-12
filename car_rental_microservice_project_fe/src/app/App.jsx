@@ -19,7 +19,6 @@ import { ProfilePage } from '../features/customers/pages/ProfilePage'
 import { CustomerListPage } from '../features/customers/pages/CustomerListPage'
 import { CustomerDetailPage } from '../features/customers/pages/CustomerDetailPage'
 import { HomePage } from '../features/home/HomePage'
-import { PricingPage } from '../features/payments/pages/PricingPage'
 import { PaymentPage } from '../features/payments/pages/PaymentPage'
 import { PaymentCallbackPage } from '../features/payments/pages/PaymentCallbackPage'
 import { PaymentHistoryPage } from '../features/payments/pages/PaymentHistoryPage'
@@ -75,7 +74,7 @@ export default function App() {
         <Route
           path="/maintenance"
           element={
-            <PrivateRoute allowedRoles={['ADMIN', 'STAFF']}>
+            <PrivateRoute allowedRoles={['ADMIN', 'STAFF', 'VEHICLE_OWNER']}>
               <MaintenancePage />
             </PrivateRoute>
           }
@@ -89,8 +88,6 @@ export default function App() {
           }
         />
       </Route>
-      <Route path="/rent" element={<PricingPage />} />
-      <Route path="/pricing" element={<PricingPage />} />
       <Route path="/payment" element={<PrivateRoute><PaymentPage /></PrivateRoute>} />
       <Route path="/payments" element={<PrivateRoute><PaymentPage /></PrivateRoute>} />
       <Route path="/payment/history" element={<PrivateRoute><PaymentHistoryPage /></PrivateRoute>} />

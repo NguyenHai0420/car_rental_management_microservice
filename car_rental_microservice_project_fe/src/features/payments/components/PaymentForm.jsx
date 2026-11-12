@@ -9,31 +9,26 @@ export const PaymentForm = ({ payment }) => {
   const [autoRedirecting, setAutoRedirecting] = useState(false);
   const pollingRef = useRef(null);
 
-  const depositItem = payment?.paymentItems?.find((it) => it.itemType === "DEPOSIT");
-  const depositAmount = Number(
-    payment?.depositRequired ??
-    depositItem?.amount ??
-    (payment?.depositPaid > 0 ? payment.depositPaid : 200000)
+  const totalAmount = Number(
+    payment?.totalAmount ??
+    payment?.amountDue ??
+    payment?.rentalAmount ??
+    (payment?.subtotal ? Math.round(Number(payment.subtotal) * 1.1) : 500000)
   );
 
   const subtotal = Number(
     payment?.subtotal ??
-    (payment?.rentalAmount ? Math.round(Number(payment.rentalAmount) / 1.1) : 280000)
+    Math.round(totalAmount / 1.1)
   );
   const taxAmount = Number(
     payment?.taxAmount ??
-    Math.round(subtotal * 0.1)
+    (totalAmount - subtotal)
   );
   const discountAmount = Number(payment?.discountAmount || 0);
   const penaltyAmount = Number(payment?.penaltyAmount || 0);
 
-  const rentalAmount = Number(
-    payment?.rentalAmount ??
-    (subtotal + taxAmount - discountAmount + penaltyAmount)
-  );
-
-  // TỔNG CỘNG HÓA ĐƠN CHUNG = Tiền thuê xe (sau thuế/phạt) + Tiền cọc giữ xe
-  const totalPaymentAmount = rentalAmount + depositAmount;
+  // TỔNG CỘNG HÓA ĐƠN = Thanh toán toàn bộ 100%
+  const totalPaymentAmount = totalAmount;
 
   const paymentCode = payment?.paymentCode || "PAY-DEMO";
   const vehicleName = payment?.vehicleName || payment?.notes || "Xe thuê";
@@ -42,14 +37,13 @@ export const PaymentForm = ({ payment }) => {
 
   const goToSuccess = useCallback((updatedPayment) => {
     const finalStatus = updatedPayment?.status || "FULLY_PAID";
-    const finalDeposit = Number(updatedPayment?.depositPaid ?? depositAmount);
-    const finalRental = Number(updatedPayment?.amountPaid ?? rentalAmount);
-    const finalTotal = finalDeposit + finalRental > 0 ? finalDeposit + finalRental : totalPaymentAmount;
+    const finalTotal = Number(updatedPayment?.amountPaid || updatedPayment?.totalAmount || totalPaymentAmount);
     const vName = encodeURIComponent(vehicleName);
+    const bId = payment?.bookingId ? `&bookingId=${encodeURIComponent(payment.bookingId)}` : "";
     navigate(
-      `/payment/callback?code=00&method=PAYOS&paymentCode=${encodeURIComponent(paymentCode)}&amountPaid=${finalTotal}&depositPaid=${finalDeposit}&rentalPaid=${finalRental}&vehicleName=${vName}&status=${encodeURIComponent(finalStatus)}`
+      `/payment/callback?code=00&method=PAYOS&paymentCode=${encodeURIComponent(paymentCode)}&amountPaid=${finalTotal}${bId}&vehicleName=${vName}&status=${encodeURIComponent(finalStatus)}`
     );
-  }, [navigate, paymentCode, totalPaymentAmount, depositAmount, rentalAmount, vehicleName]);
+  }, [navigate, paymentCode, totalPaymentAmount, vehicleName, payment?.bookingId]);
 
   // === LẮNG NGHE BACKEND (SEPAY POLLING / WEBHOOK) MỖI 2.5 GIÂY ĐỂ TỰ NHẢY TRANG KHI TIỀN VÀO ===
   useEffect(() => {
@@ -105,12 +99,6 @@ export const PaymentForm = ({ payment }) => {
 
   return (
     <>
-      {isLocalDemoOnly && (
-        <div className="notice error" role="alert" style={{ fontWeight: 600 }}>
-          ⚠️ Hóa đơn này chưa được lưu trên <code>payment-service</code> (mã tạm <code>{payment.id}</code>). Không nên chuyển khoản thật với mã này — hãy bấm &quot;Hủy đơn này&quot; và tạo lại sau khi bật Backend.
-        </div>
-      )}
-
       {autoRedirecting && (
         <div className="notice success" role="status" style={{ fontWeight: 700, textAlign: "center", fontSize: "15px" }}>
           🎉 ĐÃ NHẬN TIỀN VÀO VIETINBANK (HOANG TU UYEN)! Đang chuyển sang trang xác nhận...
@@ -159,23 +147,15 @@ export const PaymentForm = ({ payment }) => {
 
           <div className="pay-row" style={{ color: "var(--brand)", fontWeight: 600 }}>
             <span>Tổng tiền thuê xe (đã gồm VAT):</span>
-            <strong>{formatCurrency(rentalAmount)}</strong>
-          </div>
-
-          <div className="pay-deposit-box">
-            <div>
-              <strong style={{ display: "block" }}>Tiền cọc giữ xe bắt buộc</strong>
-              <span style={{ fontSize: "12px" }}>(Sẽ được hoàn trả lại sau khi thanh lý hợp đồng trả xe)</span>
-            </div>
-            <strong style={{ fontSize: "16px" }}>{formatCurrency(depositAmount)}</strong>
+            <strong>{formatCurrency(totalPaymentAmount)}</strong>
           </div>
 
           <hr className="pay-divider" />
 
           <div className="pay-total-row">
             <div>
-              <strong style={{ fontSize: "16px", display: "block" }}>TỔNG CỘNG THANH TOÁN (Thuê + Cọc):</strong>
-              <span className="hint">Thanh toán chung 1 lần qua mã VietQR bên dưới</span>
+              <strong style={{ fontSize: "16px", display: "block" }}>TỔNG CỘNG THANH TOÁN (100%):</strong>
+              <span className="hint">Thanh toán trọn gói qua mã VietQR bên dưới để xác nhận đặt xe</span>
             </div>
             <strong className="pay-total-amount">{formatCurrency(totalPaymentAmount)}</strong>
           </div>
@@ -189,7 +169,7 @@ export const PaymentForm = ({ payment }) => {
         <div>
           <h3 style={{ fontSize: "20px", fontWeight: 800 }}>Chuyển khoản trực tiếp VietinBank</h3>
           <p className="hint" style={{ fontSize: "14px", marginTop: "6px" }}>
-            Mở ứng dụng ngân hàng bất kỳ để quét mã thanh toán — <strong>Hệ thống tự động xác nhận khi nhận tiền</strong>
+            Mở ứng dụng ngân hàng bất kỳ để quét mã thanh toán — <strong>Hệ thống tự động xác nhận đặt xe khi nhận tiền</strong>
           </p>
         </div>
 
@@ -203,9 +183,7 @@ export const PaymentForm = ({ payment }) => {
         <div className="qr-radar" role="status">
           <span className="radar-dot" aria-hidden="true" />
           <span>
-            {isLocalDemoOnly
-              ? "Hóa đơn chưa lưu vào máy chủ — vui lòng tạo lại đơn khi payment-service đã bật!"
-              : "Đang kiểm tra biến động số dư VietinBank (0376359204) qua SePay... Hệ thống sẽ tự động nhảy trang ngay khi nhận được tiền!"}
+            Đang kiểm tra biến động số dư VietinBank (0376359204) qua SePay... Hệ thống sẽ tự động xác nhận đơn xe ngay khi nhận tiền!
           </span>
         </div>
 
@@ -237,7 +215,7 @@ export const PaymentForm = ({ payment }) => {
           <div className="bank-row">
             <div>
               <span className="bank-row-label" style={{ display: "block" }}>Số tiền thanh toán:</span>
-              <span className="hint">(Gồm tiền thuê + VAT + tiền cọc)</span>
+              <span className="hint">(Thanh toán toàn bộ chi phí thuê xe)</span>
             </div>
             <strong style={{ color: "var(--ok)", fontSize: "18px", fontWeight: 800 }}>
               {formatCurrency(totalPaymentAmount)}
@@ -254,6 +232,34 @@ export const PaymentForm = ({ payment }) => {
                 onClick={() => copyToClipboard(transferContent, "nd")}
               >
                 {copiedField === "nd" ? "✓ Đã chép" : "Sao chép"}
+              </button>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 24, flexWrap: "wrap", gap: 10 }}>
+            <button
+              type="button"
+              className="btn btn-outline-secondary"
+              onClick={() => navigate("/bookings")}
+            >
+              ← Quay lại đơn thuê của tôi
+            </button>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                type="button"
+                className="btn btn-warning"
+                onClick={() => goToSuccess(payment)}
+                style={{ fontWeight: 600, color: "#874d00" }}
+              >
+                ⚡ Mô phỏng thanh toán (Test nhanh)
+              </button>
+              <button
+                type="button"
+                className="btn btn-success"
+                onClick={() => goToSuccess(payment)}
+                style={{ fontWeight: 700 }}
+              >
+                ✓ Xác nhận đã thanh toán
               </button>
             </div>
           </div>

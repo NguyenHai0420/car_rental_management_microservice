@@ -61,7 +61,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "maintenance.security.require-gateway-secret=true",
         "maintenance.security.gateway-secret=test-gateway-secret",
         "maintenance.security.internal-token=test-maint-internal-token",
-        "maintenance.security.allowed-roles=ADMIN,STAFF"
+        "maintenance.security.allowed-roles=ADMIN,STAFF,VEHICLE_OWNER"
 })
 class MaintenanceSecurityAndVehicleClientTest {
 
@@ -97,6 +97,11 @@ class MaintenanceSecurityAndVehicleClientTest {
                         .header("alg", "RS256")
                         .subject("staff-user-1")
                         .claim("resource_access", Map.of("crm-web", Map.of("roles", List.of("STAFF"))))
+                        .build();
+                case "owner-jwt" -> Jwt.withTokenValue(token)
+                        .header("alg", "RS256")
+                        .subject("owner-user-1")
+                        .claim("realm_access", Map.of("roles", List.of("VEHICLE_OWNER")))
                         .build();
                 case "customer-jwt" -> Jwt.withTokenValue(token)
                         .header("alg", "RS256")
@@ -210,6 +215,13 @@ class MaintenanceSecurityAndVehicleClientTest {
                         .header("X-Gateway-Secret", "test-gateway-secret")
                         .header("X-User-ID", "staff-user-1")
                         .header("X-User-Roles", "STAFF"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/maintenances")
+                        .header("Authorization", "Bearer owner-jwt")
+                        .header("X-Gateway-Secret", "test-gateway-secret")
+                        .header("X-User-ID", "owner-user-1")
+                        .header("X-User-Roles", "VEHICLE_OWNER"))
                 .andExpect(status().isOk());
 
         // Mismatched X-User-ID vs JWT subject -> 401

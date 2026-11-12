@@ -34,6 +34,7 @@ import {
   CreditCardOutlined,
   EnvironmentOutlined,
   EyeOutlined,
+  HistoryOutlined,
   ReloadOutlined,
   SearchOutlined,
   SwapRightOutlined,
@@ -226,6 +227,8 @@ export const BookingListPage = () => {
         returnMileage: Number(booking.pickupMileage || 0),
         notes: "",
       });
+    } else if (type === "complete") {
+      actionForm.setFieldsValue({ notes: "" });
     } else if (type === "cancel") {
       actionForm.setFieldsValue({ reason: "" });
     }
@@ -242,13 +245,16 @@ export const BookingListPage = () => {
         message.success(`Đã hủy đơn ${booking.bookingCode} và giải phóng lịch xe.`);
       } else if (type === "pickup") {
         await bookingService.pickupVehicle(booking.id, values);
-        message.success(`Đã xác nhận bàn giao xe cho đơn ${booking.bookingCode}.`);
+        message.success(`Đã xác nhận bàn giao / nhận xe cho đơn ${booking.bookingCode}.`);
       } else if (type === "return") {
         await bookingService.returnVehicle(booking.id, {
           ...values,
           actualReturnDatetime: dayjs(),
         });
-        message.success(`Đã xác nhận nhận lại xe cho đơn ${booking.bookingCode}.`);
+        message.success(`Đã xác nhận trả xe cho đơn ${booking.bookingCode}.`);
+      } else if (type === "complete") {
+        await bookingService.completeBooking(booking.id, values.notes);
+        message.success(`Đã hoàn tất chuyến đi ${booking.bookingCode}. Đơn đã được chuyển sang Lịch sử chuyến đi.`);
       }
       setActionModal({ type: null, booking: null, submitting: false });
       if (activeTab === "my-bookings") {
@@ -303,16 +309,11 @@ export const BookingListPage = () => {
       ),
     },
     {
-      title: "Tổng tiền / Cọc (30%)",
+      title: "Tổng tiền thanh toán",
       key: "pricing",
       render: (_, record) => (
         <div>
-          <div>
-            <Text strong>{formatVnd(record.estimatedTotal, record.currency)}</Text>
-          </div>
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            Cọc: {formatVnd(record.depositRequired, record.currency)}
-          </Text>
+          <Text strong>{formatVnd(record.estimatedTotal, record.currency)}</Text>
         </div>
       ),
     },
@@ -341,11 +342,43 @@ export const BookingListPage = () => {
               icon={<CreditCardOutlined />}
               onClick={() =>
                 navigate(
-                  `/payments?bookingId=${record.id}&code=${record.bookingCode}&deposit=${record.depositRequired || 0}`
+                  `/payments?bookingId=${record.id}&code=${record.bookingCode}&amount=${record.estimatedTotal || 0}`
                 )
               }
             >
-              Thanh toán cọc
+              Thanh toán ngay
+            </Button>
+          )}
+          {record.status === "CONFIRMED" && (
+            <Button
+              size="small"
+              type="primary"
+              icon={<CarOutlined />}
+              onClick={() => openActionModal("pickup", record)}
+            >
+              Nhận xe
+            </Button>
+          )}
+          {record.status === "PICKED_UP" && (
+            <Button
+              size="small"
+              type="primary"
+              style={{ backgroundColor: "#13c2c2", borderColor: "#13c2c2" }}
+              icon={<CheckCircleOutlined />}
+              onClick={() => openActionModal("return", record)}
+            >
+              Trả xe
+            </Button>
+          )}
+          {record.status === "RETURNED" && (
+            <Button
+              size="small"
+              type="primary"
+              style={{ backgroundColor: "#52c41a", borderColor: "#52c41a" }}
+              icon={<CheckCircleOutlined />}
+              onClick={() => openActionModal("complete", record)}
+            >
+              Hoàn tất
             </Button>
           )}
           {(record.status === "PENDING" || record.status === "CONFIRMED") && (
@@ -440,6 +473,17 @@ export const BookingListPage = () => {
               onClick={() => openActionModal("return", record)}
             >
               Nhận trả xe
+            </Button>
+          )}
+          {record.status === "RETURNED" && (
+            <Button
+              size="small"
+              type="primary"
+              style={{ backgroundColor: "#52c41a", borderColor: "#52c41a" }}
+              icon={<CheckCircleOutlined />}
+              onClick={() => openActionModal("complete", record)}
+            >
+              Hoàn tất
             </Button>
           )}
           {(record.status === "PENDING" || record.status === "CONFIRMED") && (
@@ -613,6 +657,14 @@ export const BookingListPage = () => {
     </Space>
   );
 
+  const activeMyBookings = useMemo(() => {
+    return (myBookings || []).filter(
+      (b) =>
+        b.status !== "CANCELLED" &&
+        b.status !== "COMPLETED"
+    );
+  }, [myBookings]);
+
   const tabItems = [
     {
       key: "search",
@@ -624,26 +676,55 @@ export const BookingListPage = () => {
   if (authenticated) {
     tabItems.push({
       key: "my-bookings",
-      label: "Đơn Đặt Xe Của Tôi",
+      label: (
+        <span>
+          Đơn Đặt Xe Của Tôi {activeMyBookings.length > 0 ? `(${activeMyBookings.length})` : ""}
+        </span>
+      ),
       children: (
         <Card
-          title="Lịch sử đặt thuê xe của bạn"
+          title="Đơn thuê xe đang thực hiện"
           extra={
-            <Button
-              icon={<ReloadOutlined />}
-              onClick={loadMyBookings}
-              loading={myLoading}
-            >
-              Làm mới
-            </Button>
+            <Space>
+              <Link to="/profile">
+                <Button icon={<HistoryOutlined />}>
+                  Lịch sử chuyến đi
+                </Button>
+              </Link>
+              <Button
+                icon={<ReloadOutlined />}
+                onClick={loadMyBookings}
+                loading={myLoading}
+              >
+                Làm mới
+              </Button>
+            </Space>
           }
         >
           <Table
             rowKey="id"
             columns={myBookingColumns}
-            dataSource={myBookings}
+            dataSource={activeMyBookings}
             loading={myLoading}
             pagination={{ pageSize: 8 }}
+            locale={{
+              emptyText: (
+                <Empty
+                  description={
+                    <div>
+                      <Text strong style={{ display: "block", marginBottom: 4 }}>
+                        Hiện bạn không có đơn thuê xe nào đang hoạt động
+                      </Text>
+                      <Text type="secondary" style={{ fontSize: 13 }}>
+                        Các chuyến đi đã hoàn thành hoặc bị hủy được lưu trữ tại{" "}
+                        <Link to="/profile">Lịch sử chuyến đi</Link>. Bạn có thể tìm và đặt xe mới tại{" "}
+                        <Link to="/">Trang chủ</Link>.
+                      </Text>
+                    </div>
+                  }
+                />
+              ),
+            }}
           />
         </Card>
       ),
@@ -756,8 +837,10 @@ export const BookingListPage = () => {
           actionModal.type === "cancel"
             ? `Hủy đơn đặt xe ${actionModal.booking?.bookingCode || ""}`
             : actionModal.type === "pickup"
-              ? `Bàn giao xe (Pick-up) — ${actionModal.booking?.bookingCode || ""}`
-              : `Nhận trả xe (Return) — ${actionModal.booking?.bookingCode || ""}`
+              ? `Xác nhận nhận xe (Pick-up) — ${actionModal.booking?.bookingCode || ""}`
+              : actionModal.type === "return"
+                ? `Xác nhận trả xe (Return) — ${actionModal.booking?.bookingCode || ""}`
+                : `Hoàn tất chuyến đi — ${actionModal.booking?.bookingCode || ""}`
         }
         open={Boolean(actionModal.type)}
         confirmLoading={actionModal.submitting}
@@ -831,6 +914,24 @@ export const BookingListPage = () => {
               </Form.Item>
             </>
           )}
+
+          {actionModal.type === "complete" && (
+            <>
+              <Alert
+                type="success"
+                showIcon
+                style={{ marginBottom: 16 }}
+                message="Xác nhận hoàn tất chuyến đi"
+                description="Sau khi hoàn tất, chuyến đi sẽ kết thúc và tự động được lưu trữ vào mục Lịch sử chuyến đi của bạn."
+              />
+              <Form.Item name="notes" label="Ghi chú hoàn tất / Phản hồi trải nghiệm">
+                <Input.TextArea
+                  rows={3}
+                  placeholder="Nhập ghi chú phản hồi (nếu có): chuyến đi an toàn, xe chạy tốt..."
+                />
+              </Form.Item>
+            </>
+          )}
         </Form>
       </Modal>
 
@@ -862,13 +963,69 @@ export const BookingListPage = () => {
                   size="small"
                   current={currentStep}
                   items={[
-                    { title: "Chờ đặt cọc" },
+                    { title: "Chờ thanh toán" },
                     { title: "Đã xác nhận" },
                     { title: "Đang thuê" },
                     { title: "Đã trả xe" },
                     { title: "Hoàn tất" },
                   ]}
                 />
+              )}
+
+              {/* Thao tác cập nhật trạng thái đơn */}
+              {selectedBooking.status !== "CANCELLED" && selectedBooking.status !== "COMPLETED" && (
+                <Card
+                  size="small"
+                  style={{
+                    backgroundColor: "#f6ffed",
+                    borderColor: "#b7eb8f",
+                    borderRadius: 8,
+                  }}
+                >
+                  <Space style={{ width: "100%", justifyContent: "space-between" }} wrap>
+                    <div>
+                      <Text strong style={{ color: "#237804" }}>
+                        Cập nhật tiến độ chuyến đi:
+                      </Text>{" "}
+                      <Text type="secondary">
+                        {selectedBooking.status === "CONFIRMED" && "Xe đã sẵn sàng bàn giao. Hãy bấm nhận xe khi đã nhận chìa khóa."}
+                        {selectedBooking.status === "PICKED_UP" && "Bạn đang trong chuyến đi. Bấm trả xe khi hoàn thành lộ trình."}
+                        {selectedBooking.status === "RETURNED" && "Đã nhận lại xe. Bấm hoàn tất để kết thúc và lưu lịch sử."}
+                      </Text>
+                    </div>
+                    <Space wrap>
+                      {selectedBooking.status === "CONFIRMED" && (
+                        <Button
+                          type="primary"
+                          icon={<CarOutlined />}
+                          onClick={() => openActionModal("pickup", selectedBooking)}
+                        >
+                          Xác nhận nhận xe
+                        </Button>
+                      )}
+                      {selectedBooking.status === "PICKED_UP" && (
+                        <Button
+                          type="primary"
+                          style={{ backgroundColor: "#13c2c2", borderColor: "#13c2c2" }}
+                          icon={<CheckCircleOutlined />}
+                          onClick={() => openActionModal("return", selectedBooking)}
+                        >
+                          Xác nhận trả xe
+                        </Button>
+                      )}
+                      {selectedBooking.status === "RETURNED" && (
+                        <Button
+                          type="primary"
+                          style={{ backgroundColor: "#52c41a", borderColor: "#52c41a" }}
+                          icon={<CheckCircleOutlined />}
+                          onClick={() => openActionModal("complete", selectedBooking)}
+                        >
+                          Hoàn tất chuyến đi
+                        </Button>
+                      )}
+                    </Space>
+                  </Space>
+                </Card>
               )}
 
               <Descriptions
@@ -937,9 +1094,9 @@ export const BookingListPage = () => {
                   },
                   {
                     key: "total",
-                    label: "Tổng tạm tính",
+                    label: "Tổng tiền thanh toán",
                     children: (
-                      <Text strong style={{ color: "#1677ff" }}>
+                      <Text strong style={{ color: "#1677ff", fontSize: 15 }}>
                         {formatVnd(
                           selectedBooking.estimatedTotal,
                           selectedBooking.currency
@@ -948,15 +1105,24 @@ export const BookingListPage = () => {
                     ),
                   },
                   {
-                    key: "deposit",
-                    label: "Tiền cọc (30%)",
-                    children: (
-                      <Text strong type="warning">
-                        {formatVnd(
-                          selectedBooking.depositRequired,
-                          selectedBooking.currency
-                        )}
-                      </Text>
+                    key: "paymentAction",
+                    label: "Thanh toán",
+                    children: selectedBooking.status === "PENDING" ? (
+                      <Button
+                        type="primary"
+                        size="small"
+                        icon={<CreditCardOutlined />}
+                        onClick={() => {
+                          setDrawerOpen(false);
+                          navigate(
+                            `/payments?bookingId=${selectedBooking.id}&code=${selectedBooking.bookingCode}&amount=${selectedBooking.estimatedTotal || 0}`
+                          );
+                        }}
+                      >
+                        Thanh toán ngay để xác nhận
+                      </Button>
+                    ) : (
+                      <Tag color="success">Đã thanh toán đủ</Tag>
                     ),
                   },
                   {

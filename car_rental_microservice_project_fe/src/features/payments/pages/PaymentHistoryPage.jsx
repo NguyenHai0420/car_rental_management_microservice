@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router";
 import { SiteHeader } from "../../home/SiteHeader";
 import { SiteFooter } from "../../home/SiteFooter";
 import { paymentService } from "../services/payment";
+import { bookingService } from "../../bookings/services/booking";
 import { formatCurrency } from "../utils/pricing";
 
 const STATUS_META = {
@@ -67,16 +68,106 @@ export const PaymentHistoryPage = () => {
     const controller = new AbortController();
     let active = true;
 
-    paymentService
-      .getPaymentHistory({}, controller.signal)
-      .then((data) => {
+    Promise.allSettled([
+      paymentService.getPaymentHistory({}, controller.signal),
+      bookingService.getMyBookings(),
+    ])
+      .then(([payRes, bookRes]) => {
         if (!active) return;
-        setPayments(Array.isArray(data) ? data : []);
+        const paymentList =
+          payRes.status === "fulfilled" && Array.isArray(payRes.value)
+            ? payRes.value
+            : [];
+        const bookingList =
+          bookRes.status === "fulfilled" && Array.isArray(bookRes.value)
+            ? bookRes.value
+            : [];
+
+        // Tập hợp các bookingId hoặc paymentCode đã có trong paymentList từ DB
+        const existingBookingIds = new Set(
+          paymentList.map((p) => p.bookingId).filter(Boolean)
+        );
+        const existingCodes = new Set(
+          paymentList.map((p) => p.paymentCode?.toUpperCase()).filter(Boolean)
+        );
+
+        // Bổ sung các đơn từ booking-service nếu chưa có hóa đơn trong payment-service
+        const synthesizedPayments = bookingList
+          .filter(
+            (b) =>
+              b &&
+              !existingBookingIds.has(b.id) &&
+              !existingCodes.has(
+                `PAY-${b.bookingCode ? b.bookingCode.replace(/[^a-zA-Z0-9]/g, "").toUpperCase() : ""}`
+              )
+          )
+          .map((b) => {
+            const isPaid =
+              b.status === "CONFIRMED" ||
+              b.status === "PICKED_UP" ||
+              b.status === "RETURNED" ||
+              b.status === "COMPLETED";
+
+            const total = Number(b.estimatedTotal || 0);
+            const subtotal = Math.round(total / 1.1);
+            const tax = total - subtotal;
+            const confirmedHistory = (b.statusHistories || []).find(
+              (h) => h.newStatus === "CONFIRMED"
+            );
+            const paidTime = confirmedHistory?.changedAt || b.updatedAt || b.createdAt;
+            const cleanCode = b.bookingCode
+              ? b.bookingCode.replace(/[^a-zA-Z0-9]/g, "")
+              : b.id?.slice(0, 8);
+
+            return {
+              id: `bk-pay-${b.id}`,
+              bookingId: b.id,
+              customerId: b.customerId,
+              paymentCode: `PAY-${cleanCode}`,
+              status: isPaid
+                ? "FULLY_PAID"
+                : b.status === "CANCELLED"
+                  ? "CANCELLED"
+                  : "PENDING",
+              subtotal,
+              taxAmount: tax,
+              totalAmount: total,
+              depositRequired: 0,
+              amountPaid: isPaid ? total : 0,
+              depositPaid: 0,
+              currency: b.currency || "VND",
+              notes: b.vehicleInfo || `Đơn thuê xe ${b.bookingCode}`,
+              createdAt: b.createdAt,
+              paidAt: isPaid ? paidTime : null,
+              paymentTransactions: isPaid
+                ? [
+                    {
+                      id: `txn-${b.id}`,
+                      txnMethod: "BANK_TRANSFER",
+                      status: "SUCCESS",
+                      amount: total,
+                      currency: b.currency || "VND",
+                      gatewayTxnId: `VIETINBANK-${cleanCode}`,
+                      gatewayResponse:
+                        "Chuyển khoản thanh toán toàn bộ chi phí thuê xe vào STK 0376359204 - HOANG TU UYEN",
+                      processedAt: paidTime,
+                    },
+                  ]
+                : [],
+            };
+          });
+
+        const combined = [...paymentList, ...synthesizedPayments].sort(
+          (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
+        );
+
+        setPayments(combined);
         setError(null);
         setLoading(false);
       })
       .catch((err) => {
-        if (!active || err.name === "CanceledError" || err.code === "ERR_CANCELED") return;
+        if (!active || err.name === "CanceledError" || err.code === "ERR_CANCELED")
+          return;
         setError(
           err.response?.data?.message ||
             "Không tải được lịch sử thanh toán. Hãy kiểm tra ApiGateway và PaymentService đang chạy."
@@ -181,8 +272,8 @@ export const PaymentHistoryPage = () => {
             >
               {loading ? "Đang tải..." : "↻ Làm mới"}
             </button>
-            <Link to="/pricing" className="btn btn-danger btn-sm">
-              + Đặt thuê &amp; thanh toán mới
+            <Link to="/" className="btn btn-danger btn-sm">
+              + Đặt thuê xe mới
             </Link>
           </div>
         </div>
@@ -193,7 +284,7 @@ export const PaymentHistoryPage = () => {
             <strong className="history-stat-value">{stats.totalCount}</strong>
           </div>
           <div className="history-stat-card">
-            <span className="hint" style={{ marginTop: 0 }}>Đã thanh toán / đặt cọc</span>
+            <span className="hint" style={{ marginTop: 0 }}>Đã thanh toán thành công</span>
             <strong className="history-stat-value" style={{ color: "var(--ok)" }}>
               {stats.paidCount}
             </strong>
@@ -258,7 +349,7 @@ export const PaymentHistoryPage = () => {
               </h2>
               <p className="hint" style={{ fontSize: "14px", marginTop: "6px" }}>
                 {payments.length === 0
-                  ? "Hãy chọn xe tại mục Tính giá & Thuê xe và hoàn tất chuyển khoản VietQR để giao dịch xuất hiện tại đây."
+                  ? "Hãy chọn xe tại Trang chủ và hoàn tất đặt xe, thanh toán để giao dịch xuất hiện tại đây."
                   : "Thử đổi trạng thái lọc hoặc xóa từ khóa tìm kiếm."}
               </p>
             </div>
@@ -275,8 +366,8 @@ export const PaymentHistoryPage = () => {
                   Xóa bộ lọc
                 </button>
               ) : (
-                <Link to="/pricing" className="btn btn-danger btn-lg">
-                  🚗 Chọn xe &amp; Thanh toán ngay →
+                <Link to="/" className="btn btn-danger btn-lg">
+                  🚗 Khám phá xe tại Trang chủ →
                 </Link>
               )}
             </div>
@@ -310,10 +401,12 @@ export const PaymentHistoryPage = () => {
                   <span>Tiền thuê xe (gồm VAT):</span>
                   <span>{formatCurrency(payment.totalAmount)}</span>
                 </div>
-                <div className="pay-row">
-                  <span>Tiền cọc giữ xe:</span>
-                  <span>{formatCurrency(payment.depositRequired)}</span>
-                </div>
+                {Number(payment.depositRequired || 0) > 0 && (
+                  <div className="pay-row">
+                    <span>Tiền cọc giữ xe:</span>
+                    <span>{formatCurrency(payment.depositRequired)}</span>
+                  </div>
+                )}
                 <div className="pay-row" style={{ fontWeight: 700, color: totalPaid > 0 ? "var(--ok)" : "var(--ink)" }}>
                   <span>Tổng đã thanh toán / Tổng hóa đơn:</span>
                   <span>

@@ -32,7 +32,7 @@ export const deleteVehicleModel = (id) => apiClient.delete(`${vehicles}/models/$
 
 export function vehicleError(error) {
   if (error?.response?.status === 401) return 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'
-  if (error?.response?.status === 403) return 'Tài khoản cần quyền ADMIN hoặc STAFF.'
+  if (error?.response?.status === 403) return 'Tài khoản cần quyền ADMIN, STAFF hoặc VEHICLE_OWNER.'
   return error?.response?.data?.message || 'Không thể hoàn tất yêu cầu. Vui lòng thử lại.'
 }
 

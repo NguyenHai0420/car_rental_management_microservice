@@ -405,7 +405,7 @@ export const AdminBookingManagementPage = () => {
                   size="small"
                   current={currentStep}
                   items={[
-                    { title: 'Chờ đặt cọc' },
+                    { title: 'Chờ thanh toán' },
                     { title: 'Đã xác nhận' },
                     { title: 'Đang thuê' },
                     { title: 'Đã trả xe' },
@@ -492,11 +492,11 @@ export const AdminBookingManagementPage = () => {
                   },
                   {
                     key: 'deposit',
-                    label: 'Tiền cọc (30%)',
+                    label: 'Tổng tiền thanh toán',
                     children: (
-                      <Text strong type="warning">
+                      <Text strong style={{ color: '#1677ff' }}>
                         {formatVnd(
-                          selectedBooking.depositRequired,
+                          selectedBooking.estimatedTotal,
                           selectedBooking.currency
                         )}
                       </Text>

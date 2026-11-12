@@ -48,9 +48,6 @@ maintenance:
     vehicle-service:
       base-url: ${VEHICLE_SERVICE_URL:http://vehicle-service}
       internal-token: ${VEHICLE_INTERNAL_TOKEN:}
-    booking-service:
-      base-url: ${BOOKING_SERVICE_URL:http://booking-service}
-      internal-token: ${BOOKING_INTERNAL_TOKEN:}
     connect-timeout-ms: ${CLIENT_CONNECT_TIMEOUT_MS:3000}
     read-timeout-ms: ${CLIENT_READ_TIMEOUT_MS:5000}
   sync:
@@ -64,7 +61,7 @@ maintenance:
     require-gateway-secret: ${MAINTENANCE_REQUIRE_GATEWAY_SECRET:true}
     gateway-secret: ${MAINTENANCE_GATEWAY_SECRET:}
     internal-token: ${MAINTENANCE_INTERNAL_TOKEN:}
-    allowed-roles: ${MAINTENANCE_ALLOWED_ROLES:ADMIN,STAFF}
+    allowed-roles: ${MAINTENANCE_ALLOWED_ROLES:ADMIN,STAFF,VEHICLE_OWNER}
 
 management:
   endpoints:

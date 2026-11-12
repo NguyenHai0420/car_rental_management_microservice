@@ -16,8 +16,9 @@ import {
 } from 'antd'
 import { PlusOutlined, ReloadOutlined, SearchOutlined } from '@ant-design/icons'
 import { useAuth } from '../../../app/providers/auth-context.js'
-import { extractApiError, formatCurrency, formatDateTime } from '../../../services/api-helpers.js'
+import { formatCurrency, formatDateTime } from '../../../services/api-helpers.js'
 import { listVehicles } from '../../vehicles/services/vehicle.js'
+import { ErrorAlertBanner } from '../components/ConflictSummaryAlert.jsx'
 import { MaintenanceForm } from '../components/MaintenanceForm.jsx'
 import { MaintenanceDetailDrawer } from '../hooks/maintenanceDetail.jsx'
 import {
@@ -26,6 +27,7 @@ import {
   formatVehicleDisplay,
   maintenanceService,
 } from '../services/maintenance.js'
+import { formatMaintenanceError } from '../services/maintenanceErrors.js'
 
 const { Title, Text } = Typography
 
@@ -66,6 +68,7 @@ export function MaintenancePage() {
   const [vehicles, setVehicles] = useState([])
   const [counts, setCounts] = useState(INITIAL_COUNTS)
   const [loading, setLoading] = useState(false)
+  const [pageError, setPageError] = useState(null)
   const [filterVehicleId, setFilterVehicleId] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
   const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 })
@@ -84,6 +87,7 @@ export function MaintenancePage() {
   const loadSchedules = useCallback(
     async (page = 0, size = 10, vehicleId = filterVehicleId, status = filterStatus) => {
       setLoading(true)
+      setPageError(null)
       try {
         const [result, summaryRes] = await Promise.allSettled([
           maintenanceService.listSchedules({
@@ -103,7 +107,9 @@ export function MaintenancePage() {
             total: data?.page?.totalElements ?? data?.totalElements ?? 0,
           })
         } else {
-          message.error(extractApiError(result.reason, 'Không tải được danh sách lịch bảo dưỡng.'))
+          const parsed = formatMaintenanceError(result.reason, 'Không tải được danh sách lịch bảo dưỡng.')
+          setPageError(parsed)
+          message.error(parsed.description || parsed.title)
         }
         if (summaryRes.status === 'fulfilled') {
           setCounts(summaryRes.value)
@@ -129,6 +135,8 @@ export function MaintenancePage() {
         if (!active) return
         if (vehiclesRes.status === 'fulfilled') {
           setVehicles(vehiclesRes.value?.content || [])
+        } else if (schedulesRes.status === 'fulfilled') {
+          setPageError(formatMaintenanceError(vehiclesRes.reason, 'Không tải được danh sách xe từ Quản lý xe.'))
         }
         if (schedulesRes.status === 'fulfilled') {
           const result = schedulesRes.value
@@ -139,7 +147,9 @@ export function MaintenancePage() {
             total: result?.page?.totalElements ?? result?.totalElements ?? 0,
           })
         } else {
-          message.error(extractApiError(schedulesRes.reason, 'Không tải được danh sách lịch bảo dưỡng.'))
+          const parsed = formatMaintenanceError(schedulesRes.reason, 'Không tải được danh sách lịch bảo dưỡng.')
+          setPageError(parsed)
+          message.error(parsed.description || parsed.title)
         }
         if (countsRes.status === 'fulfilled') {
           setCounts(countsRes.value)
@@ -280,6 +290,8 @@ export function MaintenancePage() {
           </Button>
         </Space>
       </div>
+
+      <ErrorAlertBanner error={pageError} onClose={() => setPageError(null)} />
 
       <div className="stats" style={{ marginBottom: 0 }}>
         <button
@@ -439,7 +451,7 @@ export function MaintenancePage() {
               <Card size="small" title="Thông tin lịch bảo dưỡng">
                 <MaintenanceForm
                   vehicles={vehicles}
-                  createdByDefault={auth.name || 'admin'}
+                  createdByDefault={auth.name || ''}
                   onCreated={(created) => {
                     setActiveTab('list')
                     setSelectedSchedule(created)
@@ -454,7 +466,9 @@ export function MaintenancePage() {
       />
 
       <MaintenanceDetailDrawer
+        key={selectedSchedule?.id || 'none'}
         schedule={selectedSchedule}
+        inspectorDefault={auth.name || ''}
         vehicleLabel={
           selectedSchedule && vehicleMap[selectedSchedule.vehicleId]
             ? formatVehicleDisplay(vehicleMap[selectedSchedule.vehicleId])
