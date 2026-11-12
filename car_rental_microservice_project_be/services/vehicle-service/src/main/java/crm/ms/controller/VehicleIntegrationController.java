@@ -28,7 +28,11 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/v1/vehicles")
 @RequiredArgsConstructor
-public class VehicleIntegrationController {
+public class  VehicleIntegrationController {
+
+    /** Statuses Booking owns; IN_MAINTENANCE and DECOMMISSIONED are only changed by their owners. */
+    private static final Set<VehicleStatus> BOOKING_STATUSES =
+            EnumSet.of(VehicleStatus.AVAILABLE, VehicleStatus.RESERVED, VehicleStatus.RENTED);
 
     private final VehicleRepository vehicles;
     private final VehicleImageRepository images;
@@ -107,17 +111,23 @@ public class VehicleIntegrationController {
     public ResponseApi updateRentalStatus(@PathVariable("vehicleId") UUID vehicleId,
                                           @RequestParam("status") String status,
                                           @RequestParam(value = "mileageKm", required = false) BigDecimal mileageKm) {
-        Vehicle vehicle = vehicles.findByIdAndIsDeletedFalse(vehicleId)
-                .orElseThrow(() -> new BusinessException(1, 404, "Vehicle not found: " + vehicleId));
-
         VehicleStatus newStatus;
         try {
             newStatus = VehicleStatus.valueOf(status.trim().toUpperCase());
         } catch (IllegalArgumentException e) {
             throw new BusinessException(1, 400, "Invalid vehicle status: " + status);
         }
+        if (!BOOKING_STATUSES.contains(newStatus)) {
+            throw new BusinessException(1, 400, "Booking can only set AVAILABLE, RESERVED or RENTED");
+        }
 
+        // Lock like the maintenance commands so a booking update cannot interleave with a maintenance start.
+        Vehicle vehicle = vehicles.findActiveForUpdate(vehicleId)
+                .orElseThrow(() -> new BusinessException(1, 404, "Vehicle not found: " + vehicleId));
         VehicleStatus oldStatus = vehicle.getStatus();
+        if (!BOOKING_STATUSES.contains(oldStatus)) {
+            throw new BusinessException(1, 409, "Vehicle is " + oldStatus + "; booking cannot change its status");
+        }
         vehicle.setStatus(newStatus);
         if (mileageKm != null) {
             vehicle.setMileageKm(mileageKm);

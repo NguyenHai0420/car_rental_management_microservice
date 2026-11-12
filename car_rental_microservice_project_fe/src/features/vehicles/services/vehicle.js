@@ -48,6 +48,23 @@ export function uploadVehicleImage(vehicleId, file, imageType = 'OTHER', options
   return apiClient.post(`${base(vehicleId)}/images`, form).then(data)
 }
 
+// Sequential, one request per file: a bad file fails alone and the 10 MB/12 MB server limits stay per file.
+export async function uploadVehicleImages(vehicleId, files, imageType = 'OTHER', options = {}, onResult) {
+  const results = []
+  for (const [index, file] of [...files].entries()) {
+    try {
+      const image = await uploadVehicleImage(vehicleId, file, imageType, {
+        isPrimary: Boolean(options.isPrimary) && index === 0, sortOrder: (options.sortOrder ?? 0) + index,
+      })
+      results.push({ file, image })
+    } catch (error) {
+      results.push({ file, error })
+    }
+    onResult?.(results[index], index)
+  }
+  return results
+}
+
 export const deleteVehicleImage = (vehicleId, imageId) =>
   apiClient.delete(`${base(vehicleId)}/images/${encodeURIComponent(imageId)}`).then(data)
 

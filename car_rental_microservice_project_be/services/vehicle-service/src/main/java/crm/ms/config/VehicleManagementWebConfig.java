@@ -23,6 +23,11 @@ public class VehicleManagementWebConfig implements WebMvcConfigurer {
             @Override
             public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
                 if (handler instanceof HandlerMethod method && VehicleController.class.isAssignableFrom(method.getBeanType())) {
+                    // Other services (maintenance-service) may read vehicles with the internal token, never write.
+                    if ("GET".equals(request.getMethod())
+                            && access.isInternalService(request.getHeader(VehicleAccessPolicy.INTERNAL_TOKEN_HEADER))) {
+                        return true;
+                    }
                     String actor = access.requireFleetManager(request.getHeader("X-User-ID"), request.getHeader("X-User-Roles"));
                     request.setAttribute(FLEET_ACTOR, actor);
                 }

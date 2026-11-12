@@ -5,18 +5,24 @@ import apiClient, { setAccessTokenProvider } from '../../../services/axios-clien
 import {
   changeVehicleStatus, createVehicle, createVehicleCategory, createVehicleModel, deleteVehicle, deleteVehicleCategory, deleteVehicleModel, getVehicle,
   getVehicleDocumentUrl, listVehicleCategories, listVehicleModels, listVehicles, listVehicleStatusHistory,
-  lookupVehicleByLicensePlate, updateVehicle, updateVehicleCategory, updateVehicleModel, uploadVehicleDocument, uploadVehicleImage, vehicleError,
+  lookupVehicleByLicensePlate, updateVehicle, updateVehicleCategory, updateVehicleModel, uploadVehicleDocument, uploadVehicleImage, uploadVehicleImages, vehicleError,
 } from './vehicle.js'
 import { matchesSearch } from '../vehicle-fields.js'
 
 const fleet = '/api/v1/vehicles'
 let received
+const imageUploads = []
 const server = createServer(async (request, response) => {
   const parts = []
   for await (const chunk of request) parts.push(chunk)
   const body = Buffer.concat(parts).toString()
   const path = new URL(request.url, 'http://test.local').pathname
   received = { method: request.method, headers: request.headers, path: request.url, body }
+  if (body.includes('filename="broken.png"')) {
+    response.writeHead(400, { 'Content-Type': 'application/json' })
+    return response.end(JSON.stringify({ message: 'Unsupported image', data: null }))
+  }
+  if (request.method === 'POST' && path.endsWith('/images')) imageUploads.push(body)
   let data = { id: 'saved-media', url: 'https://files.example.test/signed' }
   if (path === fleet && request.method === 'GET') {
     data = { content: [{ id: 'vehicle-id' }], page: { number: 1, size: 10, totalElements: 11, totalPages: 2 } }
@@ -47,6 +53,23 @@ test('image upload sends multipart boundary, metadata and bearer token through t
   assert.match(received.body, /name="imageType"\r\n\r\nINTERIOR/)
   assert.match(received.body, /name="isPrimary"\r\n\r\ntrue/)
   assert.match(received.body, /name="sortOrder"\r\n\r\n3/)
+})
+
+test('multi-image upload sends one request per file, keeps going after a failure and only marks the first primary', async () => {
+  imageUploads.length = 0
+  const png = (name) => new File([new Uint8Array([137, 80, 78, 71])], name, { type: 'image/png' })
+  const seen = []
+  const results = await uploadVehicleImages('vehicle-id', [png('a.png'), png('broken.png'), png('c.png')], 'EXTERIOR_SIDE',
+    { isPrimary: true, sortOrder: 2 }, (result, index) => seen.push(index))
+  assert.deepEqual(seen, [0, 1, 2])
+  assert.deepEqual(results.map((result) => Boolean(result.error)), [false, true, false])
+  assert.equal(results[1].error.response.status, 400)
+  assert.equal(imageUploads.length, 2)
+  assert.match(imageUploads[0], /name="isPrimary"\r\n\r\ntrue/)
+  assert.match(imageUploads[0], /name="sortOrder"\r\n\r\n2/)
+  assert.match(imageUploads[1], /filename="c.png"/)
+  assert.match(imageUploads[1], /name="isPrimary"\r\n\r\nfalse/)
+  assert.match(imageUploads[1], /name="sortOrder"\r\n\r\n4/)
 })
 
 test('document upload sends optional metadata and requests a fresh URL separately', async () => {

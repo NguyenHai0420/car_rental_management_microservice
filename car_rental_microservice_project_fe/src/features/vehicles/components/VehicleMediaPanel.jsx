@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { mediaError, useVehicleMedia } from '../hooks/useVehicleMedia'
 import {
   deleteVehicleDocument, deleteVehicleImage, getVehicleDocumentUrl,
-  uploadVehicleDocument, uploadVehicleImage,
+  uploadVehicleDocument, uploadVehicleImages,
 } from '../services/vehicle'
 
 const imageTypes = {
@@ -24,27 +24,31 @@ function UploadForm({ document = false, disabled, onUpload }) {
     event.preventDefault()
     const form = event.currentTarget
     const fields = new FormData(form)
-    const file = fields.get('file')
+    const files = fields.getAll('file')
     const accepted = (document ? documentAccept : imageAccept).split(',')
-    if (!file?.size || !accepted.includes(file.type)) {
-      setError('Vui lòng chọn tệp đúng định dạng được hỗ trợ.')
+    const wrongType = files.find((file) => !file?.size || !accepted.includes(file.type))
+    if (!files.length || wrongType) {
+      setError(wrongType?.name ? `Tệp "${wrongType.name}" không đúng định dạng được hỗ trợ.` : 'Vui lòng chọn tệp đúng định dạng được hỗ trợ.')
       return
     }
-    if (file.size > 10 * 1024 * 1024) {
-      setError('Dung lượng tối đa cho mỗi tệp là 10 MB.')
+    const tooLarge = files.find((file) => file.size > 10 * 1024 * 1024)
+    if (tooLarge) {
+      setError(`Tệp "${tooLarge.name}" vượt quá 10 MB. Dung lượng tối đa cho mỗi tệp là 10 MB.`)
       return
     }
     setError('')
-    if (await onUpload(file, Object.fromEntries(fields))) form.reset()
+    fields.delete('file')
+    if (await onUpload(document ? files[0] : files, Object.fromEntries(fields))) form.reset()
   }
 
   return <form className="upload-form" onSubmit={submit}>
     <fieldset disabled={disabled}>
       <legend>{document ? 'Thêm giấy tờ' : 'Thêm ảnh xe'}</legend>
       <label>Tệp {document ? 'giấy tờ' : 'ảnh'}
-        <input name="file" type="file" accept={document ? documentAccept : imageAccept} required />
+        <input name="file" type="file" accept={document ? documentAccept : imageAccept} multiple={!document} required />
       </label>
-      <p className="hint">{document ? 'PDF, JPEG, PNG hoặc WebP' : 'JPEG, PNG hoặc WebP'} · Tối đa 10 MB</p>
+      <p className="hint">{document ? 'PDF, JPEG, PNG hoặc WebP · Tối đa 10 MB'
+        : 'Chọn hoặc kéo thả nhiều ảnh cùng lúc · JPEG, PNG hoặc WebP · Tối đa 10 MB mỗi ảnh'}</p>
       <label>Phân loại
         <select name={document ? 'docType' : 'imageType'}>
           {Object.entries(document ? documentTypes : imageTypes).map(([value, label]) =>
@@ -58,8 +62,8 @@ function UploadForm({ document = false, disabled, onUpload }) {
           <label>Ngày hết hạn<input name="expiryDate" type="date" /></label>
         </div>
       </> : <>
-        <label>Thứ tự hiển thị<input name="sortOrder" type="number" min="0" step="1" defaultValue="0" required /></label>
-        <label className="checkbox"><input name="isPrimary" type="checkbox" /> Đặt làm ảnh đại diện</label>
+        <label>Thứ tự hiển thị (ảnh sau tự tăng dần)<input name="sortOrder" type="number" min="0" step="1" defaultValue="0" required /></label>
+        <label className="checkbox"><input name="isPrimary" type="checkbox" /> Đặt ảnh đầu tiên làm ảnh đại diện</label>
       </>}
       {error && <p className="notice error" role="alert">{error}</p>}
       <button type="submit">{disabled ? 'Đang xử lý…' : document ? 'Tải giấy tờ lên' : 'Tải ảnh lên'}</button>
@@ -72,6 +76,30 @@ export function VehicleMediaPanel({ vehicleId, canManage }) {
   const [busy, setBusy] = useState(false)
   const [actionError, setActionError] = useState('')
   const [message, setMessage] = useState('')
+  const [uploads, setUploads] = useState([])
+
+  async function uploadImages(files, fields) {
+    setBusy(true)
+    setActionError('')
+    setMessage('')
+    setUploads(files.map((file) => ({ name: file.name, status: 'Đang chờ…' })))
+    try {
+      const results = await uploadVehicleImages(vehicleId, files, fields.imageType, {
+        isPrimary: fields.isPrimary === 'on', sortOrder: Number(fields.sortOrder),
+      }, (result, index) => setUploads((list) => list.map((item, i) => i !== index ? item
+        : { ...item, failed: Boolean(result.error), status: result.error ? mediaError(result.error) : 'Đã tải lên' })))
+      const failed = results.filter((result) => result.error).length
+      if (failed < results.length) await refresh()
+      if (failed) setActionError(`${failed}/${results.length} ảnh tải lên thất bại. Xem chi tiết bên dưới.`)
+      else setMessage(`Đã tải lên ${results.length} ảnh.`)
+      return !failed
+    } catch (failure) {
+      setActionError(mediaError(failure))
+      return false
+    } finally {
+      setBusy(false)
+    }
+  }
 
   async function perform(action, success) {
     setBusy(true)
@@ -130,10 +158,14 @@ export function VehicleMediaPanel({ vehicleId, canManage }) {
               </div>
             </article>)}
           </div> : <p className="empty">Xe chưa có hình ảnh.</p>}</div>
-          {canManage && <UploadForm disabled={busy} onUpload={(file, fields) => perform(() =>
-            uploadVehicleImage(vehicleId, file, fields.imageType, {
-              isPrimary: fields.isPrimary === 'on', sortOrder: Number(fields.sortOrder),
-            }), 'Đã tải ảnh lên.')} />}
+          {canManage && <div>
+            <UploadForm disabled={busy} onUpload={uploadImages} />
+            {uploads.length > 0 && <ul className="upload-progress" aria-live="polite">
+              {uploads.map((item, index) => <li key={index} className={item.failed ? 'notice error' : 'hint'}>
+                <span className="filename" title={item.name}>{item.name}</span>: {item.status}
+              </li>)}
+            </ul>}
+          </div>}
         </div>
       </section>
       {canManage ? <section className="media-section" aria-labelledby="documents-heading">

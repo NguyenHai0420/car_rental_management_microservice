@@ -32,6 +32,9 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/vehicles/**").permitAll()
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/vehicles/*/rental-status").permitAll()
+                        // Checked by VehicleAccessPolicy.requireInternalService instead of a user JWT.
+                        .requestMatchers(HttpMethod.POST, "/api/v1/vehicles/*/maintenance/start",
+                                "/api/v1/vehicles/*/maintenance/complete").permitAll()
                         .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2
