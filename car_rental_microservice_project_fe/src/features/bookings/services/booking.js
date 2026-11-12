@@ -3,7 +3,7 @@ import apiClient from "../../../services/axios-client";
 
 export const BOOKING_STATUS_CONFIG = {
   PENDING: {
-    label: "Chờ đặt cọc",
+    label: "Chờ thanh toán",
     color: "gold",
     step: 0,
   },
@@ -143,6 +143,13 @@ export const bookingService = {
       returnMileage: Number(returnMileage),
       actualReturnDatetime: toIsoLocalDateTime(actualReturnDatetime),
       notes: notes?.trim() || undefined,
+    });
+    return response.data?.data;
+  },
+
+  async completeBooking(id, notes) {
+    const response = await apiClient.patch(`/api/v1/bookings/${id}/complete`, null, {
+      params: { notes: notes?.trim() || undefined },
     });
     return response.data?.data;
   },

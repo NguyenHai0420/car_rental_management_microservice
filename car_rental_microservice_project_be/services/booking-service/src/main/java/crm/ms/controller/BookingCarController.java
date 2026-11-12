@@ -62,13 +62,13 @@ public class BookingCarController {
                                 jwt.getClaimAsString("email"));
                 return ResponseEntity.status(HttpStatus.CREATED).body(ResponseApi.builder()
                                 .code(HttpStatus.CREATED)
-                                .message("Tạo đơn đặt xe thành công, vui lòng tiến hành thanh toán tiền cọc")
+                                .message("Tạo đơn đặt xe thành công, vui lòng tiến hành thanh toán để hoàn tất đặt xe")
                                 .data(created)
                                 .build());
         }
 
         /**
-         * Xác nhận thanh toán tiền cọc (Role: CUSTOMER, ADMIN, VEHICLE_OWNER hoặc
+         * Xác nhận thanh toán (Role: CUSTOMER, ADMIN, VEHICLE_OWNER hoặc
          * payment-service gọi).
          */
         @PatchMapping("/{id}/confirm")
@@ -83,7 +83,22 @@ public class BookingCarController {
                 BookingResponse confirmed = bookingService.confirmBooking(id, paymentCode, actor);
                 return ResponseEntity.ok(ResponseApi.builder()
                                 .code(HttpStatus.OK)
-                                .message("Đã xác nhận đặt cọc đơn đặt xe thành công")
+                                .message("Đã xác nhận thanh toán đơn đặt xe thành công")
+                                .data(confirmed)
+                                .build());
+        }
+
+        /**
+         * Endpoint nội bộ cho payment-service gọi trực tiếp khi cổng thanh toán xác nhận giao dịch thành công.
+         */
+        @PatchMapping("/{id}/internal-confirm")
+        public ResponseEntity<ResponseApi> internalConfirmBooking(
+                        @PathVariable("id") UUID id,
+                        @RequestParam(value = "paymentCode", required = false) String paymentCode) {
+                BookingResponse confirmed = bookingService.confirmBooking(id, paymentCode, "payment-service");
+                return ResponseEntity.ok(ResponseApi.builder()
+                                .code(HttpStatus.OK)
+                                .message("Đã xác nhận thanh toán đơn đặt xe thành công")
                                 .data(confirmed)
                                 .build());
         }
@@ -174,10 +189,10 @@ public class BookingCarController {
         }
 
         /**
-         * Nhân viên / Chủ xe bàn giao xe cho khách (CONFIRMED -> PICKED_UP).
+         * Nhân viên / Chủ xe hoặc Khách hàng xác nhận nhận xe (CONFIRMED -> PICKED_UP).
          */
         @PatchMapping("/{id}/pickup")
-        @PreAuthorize("hasAnyRole('VEHICLE_OWNER', 'ADMIN')")
+        @PreAuthorize("hasAnyRole('CUSTOMER', 'VEHICLE_OWNER', 'ADMIN')")
         public ResponseEntity<ResponseApi> pickupVehicle(
                         @PathVariable("id") UUID id,
                         @Valid @RequestBody PickupBookingRequest request,
@@ -194,10 +209,10 @@ public class BookingCarController {
         }
 
         /**
-         * Nhân viên / Chủ xe nhận lại xe khi khách trả (PICKED_UP -> RETURNED).
+         * Nhân viên / Chủ xe hoặc Khách hàng xác nhận trả xe (PICKED_UP -> RETURNED).
          */
         @PatchMapping("/{id}/return")
-        @PreAuthorize("hasAnyRole('VEHICLE_OWNER', 'ADMIN')")
+        @PreAuthorize("hasAnyRole('CUSTOMER', 'VEHICLE_OWNER', 'ADMIN')")
         public ResponseEntity<ResponseApi> returnVehicle(
                         @PathVariable("id") UUID id,
                         @Valid @RequestBody ReturnBookingRequest request,
@@ -209,6 +224,26 @@ public class BookingCarController {
                 return ResponseEntity.ok(ResponseApi.builder()
                                 .code(HttpStatus.OK)
                                 .message("Đã xác nhận khách trả xe thành công")
+                                .data(updated)
+                                .build());
+        }
+
+        /**
+         * Hoàn tất chuyến đi (RETURNED -> COMPLETED).
+         */
+        @PatchMapping("/{id}/complete")
+        @PreAuthorize("hasAnyRole('CUSTOMER', 'VEHICLE_OWNER', 'ADMIN')")
+        public ResponseEntity<ResponseApi> completeBooking(
+                        @PathVariable("id") UUID id,
+                        @RequestParam(value = "notes", required = false) String notes,
+                        @AuthenticationPrincipal Jwt jwt) {
+                String actor = jwt.getClaimAsString("preferred_username") != null
+                                ? jwt.getClaimAsString("preferred_username")
+                                : jwt.getSubject();
+                BookingResponse updated = bookingService.completeBooking(id, notes, actor);
+                return ResponseEntity.ok(ResponseApi.builder()
+                                .code(HttpStatus.OK)
+                                .message("Đã hoàn tất chuyến đi thành công")
                                 .data(updated)
                                 .build());
         }

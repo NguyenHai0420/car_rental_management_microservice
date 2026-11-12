@@ -138,13 +138,10 @@ export function HomePage() {
     setSubmittingBooking(true)
     try {
       const created = await bookingService.createBooking(payload)
-      message.success(
-        `Đặt xe thành công! Mã đơn: ${created.bookingCode}. Vui lòng thanh toán tiền cọc trong 15 phút.`
-      )
-      setBookingVehicle(null)
-      navigate('/bookings')
+      return created
     } catch (err) {
       message.error(err.userMessage || 'Tạo đơn đặt xe thất bại.')
+      throw err
     } finally {
       setSubmittingBooking(false)
     }

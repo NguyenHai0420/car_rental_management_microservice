@@ -57,7 +57,7 @@ class BookingServiceImplTest {
                 notificationClient,
                 mapper
         );
-        ReflectionTestUtils.setField(bookingService, "depositRate", new BigDecimal("0.30"));
+        ReflectionTestUtils.setField(bookingService, "depositRate", new BigDecimal("1.00"));
         ReflectionTestUtils.setField(bookingService, "mockExternalServices", false);
     }
 
@@ -105,7 +105,7 @@ class BookingServiceImplTest {
 
         assertThat(res.getStatus()).isEqualTo(BookingStatus.PENDING);
         assertThat(res.getEstimatedTotal()).isEqualByComparingTo("2000000.00");
-        assertThat(res.getDepositRequired()).isEqualByComparingTo("600000.00");
+        assertThat(res.getDepositRequired()).isEqualByComparingTo("2000000.00");
 
         ArgumentCaptor<Booking> bookingCaptor = ArgumentCaptor.forClass(Booking.class);
         verify(bookingRepository).saveAndFlush(bookingCaptor.capture());

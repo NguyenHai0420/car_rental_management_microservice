@@ -26,7 +26,6 @@ import { ProfilePage } from '../features/customers/pages/ProfilePage'
 import { CustomerListPage } from '../features/customers/pages/CustomerListPage'
 import { CustomerDetailPage } from '../features/customers/pages/CustomerDetailPage'
 import { HomePage } from '../features/home/HomePage'
-import { PricingPage } from '../features/payments/pages/PricingPage'
 import { PaymentPage } from '../features/payments/pages/PaymentPage'
 import { PaymentCallbackPage } from '../features/payments/pages/PaymentCallbackPage'
 import { PaymentHistoryPage } from '../features/payments/pages/PaymentHistoryPage'
@@ -70,7 +69,7 @@ const ModulePlaceholder = ({ title, owner, serviceName }) => {
                 },
                 {
                   key: 'deposit',
-                  label: 'Số tiền cọc cần thanh toán',
+                  label: 'Số tiền cần thanh toán',
                   children: (
                     <Text type="danger" strong>
                       {Number(deposit || 0).toLocaleString('vi-VN')} ₫
@@ -126,8 +125,6 @@ export default function App() {
         <Route path="customers" element={<CustomerListPage />} />
         <Route path="customers/:id" element={<CustomerDetailPage />} />
       </Route>
-      <Route path="/rent" element={<PricingPage />} />
-      <Route path="/pricing" element={<PricingPage />} />
       <Route path="/payment" element={<PrivateRoute><PaymentPage /></PrivateRoute>} />
       <Route path="/payments" element={<PrivateRoute><PaymentPage /></PrivateRoute>} />
       <Route path="/payment/history" element={<PrivateRoute><PaymentHistoryPage /></PrivateRoute>} />

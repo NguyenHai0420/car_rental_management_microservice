@@ -89,21 +89,6 @@ public class PaymentServiceImpl implements PaymentService {
             }
         }
 
-        // Tự động bổ sung mục tiền cọc nếu chưa có trong danh sách items
-        boolean hasDepositItem = payment.getPaymentItems().stream()
-                .anyMatch(it -> it.getItemType() == crm.ms.enums.PaymentItemType.DEPOSIT);
-        if (!hasDepositItem && payment.getDepositRequired() != null && payment.getDepositRequired().compareTo(BigDecimal.ZERO) > 0) {
-            PaymentItem depositItem = PaymentItem.builder()
-                    .payment(payment)
-                    .itemType(crm.ms.enums.PaymentItemType.DEPOSIT)
-                    .description("Tiền cọc giữ xe bắt buộc")
-                    .quantity(1)
-                    .unitPrice(payment.getDepositRequired())
-                    .amount(payment.getDepositRequired())
-                    .build();
-            payment.getPaymentItems().add(depositItem);
-        }
-
         Payment saved = paymentRepository.save(payment);
         log.info("Payment invoice created successfully: paymentCode={}, id={}", saved.getPaymentCode(), saved.getId());
         return paymentMapper.toResponse(saved);
@@ -491,10 +476,8 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         BigDecimal totalAmount = safeAmount(payment.getTotalAmount());
-        BigDecimal depositRequired = safeAmount(payment.getDepositRequired());
         BigDecimal remainingRental = totalAmount.subtract(safeAmount(payment.getAmountPaid())).max(BigDecimal.ZERO);
-        BigDecimal remainingDeposit = depositRequired.subtract(safeAmount(payment.getDepositPaid())).max(BigDecimal.ZERO);
-        BigDecimal expectedTransfer = remainingRental.add(remainingDeposit);
+        BigDecimal expectedTransfer = remainingRental;
 
         if (receivedAmount == null || receivedAmount.compareTo(expectedTransfer) < 0) {
             log.warn("SePay transfer amount {} is less than expected {} for paymentCode={}",
@@ -502,7 +485,7 @@ public class PaymentServiceImpl implements PaymentService {
             return new SettleOutcome(false, "Insufficient transfer amount");
         }
 
-        payment.setDepositPaid(depositRequired);
+        payment.setDepositPaid(safeAmount(payment.getDepositRequired()));
         payment.setAmountPaid(totalAmount);
         payment.setAmountDue(BigDecimal.ZERO);
         payment.setStatus(PaymentStatus.FULLY_PAID);
@@ -524,6 +507,7 @@ public class PaymentServiceImpl implements PaymentService {
         paymentTransactionRepository.save(txn);
         payment.getPaymentTransactions().add(txn);
         paymentRepository.save(payment);
+        notifyBookingConfirmed(payment.getBookingId(), payment.getPaymentCode());
         return new SettleOutcome(true, "Confirmed");
     }
 
@@ -567,6 +551,24 @@ public class PaymentServiceImpl implements PaymentService {
 
     private String nullToEmpty(String value) {
         return value != null ? value : "";
+    }
+
+    public void notifyBookingConfirmed(UUID bookingId, String paymentCode) {
+        if (bookingId == null) return;
+        try {
+            java.net.http.HttpClient client = java.net.http.HttpClient.newHttpClient();
+            String url = "http://localhost:8083/api/v1/bookings/" + bookingId + "/internal-confirm" +
+                    (paymentCode != null ? "?paymentCode=" + paymentCode : "");
+            java.net.http.HttpRequest req = java.net.http.HttpRequest.newBuilder()
+                    .uri(java.net.URI.create(url))
+                    .method("PATCH", java.net.http.HttpRequest.BodyPublishers.noBody())
+                    .timeout(java.time.Duration.ofSeconds(3))
+                    .build();
+            client.sendAsync(req, java.net.http.HttpResponse.BodyHandlers.discarding());
+            log.info("Triggered async internal confirmation for bookingId={}", bookingId);
+        } catch (Exception e) {
+            log.warn("Failed to trigger internal confirmation for bookingId={}: {}", bookingId, e.getMessage());
+        }
     }
 
     private record SettleOutcome(boolean processed, String reason) {
