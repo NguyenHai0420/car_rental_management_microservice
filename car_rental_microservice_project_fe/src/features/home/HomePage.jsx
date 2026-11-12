@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   App,
@@ -29,6 +29,7 @@ import { SiteHeader } from './SiteHeader'
 import { VehicleDialog } from './VehicleDialog'
 import { BookingForm } from '../bookings/components/BookingForm'
 import { bookingService } from '../bookings/services/booking'
+import { mergeAvailableVehicles } from '../bookings/booking-vehicles'
 
 const { RangePicker } = DatePicker
 const PREVIEW = 8
@@ -54,6 +55,19 @@ export function HomePage() {
   const [term, setTerm] = useState('')
   const [dateRange, setDateRange] = useState(getDefaultRange)
   const [minSeats, setMinSeats] = useState(undefined)
+  const [availabilityFilters, setAvailabilityFilters] = useState(null)
+  const loadAvailability = useCallback((signal) => availabilityFilters
+    ? bookingService.searchAvailableVehicles(availabilityFilters, signal)
+    : Promise.resolve(null), [availabilityFilters])
+  const availability = useVehicleQuery(loadAvailability, showroomError)
+  const availableCars = useMemo(() => mergeAvailableVehicles(
+    availability.data || [], showroom.data?.content || []), [availability.data, showroom.data])
+  const loading = showroom.loading || Boolean(availabilityFilters && availability.loading)
+  const error = showroom.error || (availabilityFilters ? availability.error : '')
+  const reload = () => {
+    showroom.reload()
+    if (availabilityFilters) availability.reload()
+  }
 
   const [selected, setSelected] = useState(null)
   const [bookingVehicle, setBookingVehicle] = useState(null)
@@ -74,7 +88,9 @@ export function HomePage() {
     }
   }, [])
 
-  const cars = showroom.data?.content
+  const cars = availabilityFilters
+    ? (loading || error ? null : availableCars)
+    : showroom.data?.content
   const brands = useMemo(() => group(cars ?? [], (car) => car.brand), [cars])
   const categories = useMemo(
     () => [...new Map((cars ?? []).map((car) => [car.categoryId, car.categoryName])).entries()],
@@ -103,7 +119,7 @@ export function HomePage() {
   }, [cars, brand, category, term, minSeats])
 
   const filtering = Boolean(
-    brand || category || term.trim() || minSeats
+    availabilityFilters || brand || category || term.trim() || minSeats
   )
   const sections = useMemo(() => group(filteredCars, (car) => car.brand), [filteredCars])
   const total = filteredCars.length
@@ -123,7 +139,21 @@ export function HomePage() {
     setCategory('')
     setTerm('')
     setMinSeats(undefined)
-    setLocationFilter('')
+    setAvailabilityFilters(null)
+  }
+
+  const handleSearch = () => {
+    if (!dateRange?.[0] || !dateRange?.[1] || !dateRange[1].isAfter(dateRange[0])) {
+      message.warning('Vui lòng chọn thời gian trả xe sau thời gian nhận xe.')
+      return
+    }
+    setAvailabilityFilters({
+      pickupDatetime: dateRange[0],
+      returnDatetime: dateRange[1],
+      minSeats,
+      location: term,
+    })
+    document.getElementById('xe')?.scrollIntoView({ behavior: 'smooth' })
   }
 
   const handleBookVehicle = (car) => {
@@ -204,7 +234,7 @@ export function HomePage() {
                     setTerm(e.target.value)
                     setBrand('')
                   }}
-                  onPressEnter={() => document.getElementById('xe')?.scrollIntoView({ behavior: 'smooth' })}
+                  onPressEnter={handleSearch}
                 />
               </Col>
               <Col xs={24} sm={8} lg={3}>
@@ -217,7 +247,8 @@ export function HomePage() {
                     background: 'linear-gradient(135deg, #ff8a1f, #ff6a1a)',
                     borderColor: '#ff6a1a',
                   }}
-                  onClick={() => document.getElementById('xe')?.scrollIntoView({ behavior: 'smooth' })}
+                  onClick={handleSearch}
+                  loading={Boolean(availabilityFilters && availability.loading)}
                 >
                   <SearchOutlined /> Tìm xe
                 </Button>
@@ -250,7 +281,7 @@ export function HomePage() {
         )}
 
         <div className="container fleet" id="xe">
-          {showroom.loading && (
+          {loading && (
             <ul className="row row-cols-1 row-cols-sm-2 row-cols-lg-4 g-3" aria-busy="true" aria-label="Đang tải">
               {Array.from({ length: 4 }, (_, i) => (
                 <li key={i} className="col">
@@ -259,10 +290,10 @@ export function HomePage() {
               ))}
             </ul>
           )}
-          {showroom.error && (
+          {error && (
             <div className="state" role="alert">
-              <p>{showroom.error}</p>
-              <button className="btn btn-primary" onClick={showroom.reload}>
+              <p>{error}</p>
+              <button className="btn btn-primary" onClick={reload}>
                 Thử lại
               </button>
             </div>
@@ -327,7 +358,7 @@ export function HomePage() {
                 )
               })
             ) : (
-              !showroom.loading && (
+              !loading && (
                 <div className="state">
                   <p>{cars.length ? 'Không có xe khớp bộ lọc.' : 'Hiện chưa có xe sẵn sàng. Vui lòng quay lại sau.'}</p>
                   {cars.length > 0 && (

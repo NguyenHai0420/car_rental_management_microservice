@@ -34,10 +34,10 @@ import static crm.ms.enums.VehicleStatus.*;
 @Transactional(readOnly = true)
 public class VehicleServiceImpl implements VehicleService {
     private static final Map<VehicleStatus, Set<VehicleStatus>> TRANSITIONS = Map.of(
-            AVAILABLE, Set.of(RESERVED, IN_MAINTENANCE, DECOMMISSIONED),
+            AVAILABLE, Set.of(RESERVED, DECOMMISSIONED),
             RESERVED, Set.of(RENTED, AVAILABLE),
             RENTED, Set.of(AVAILABLE),
-            IN_MAINTENANCE, Set.of(AVAILABLE),
+            IN_MAINTENANCE, Set.of(),
             DECOMMISSIONED, Set.of()
     );
     private static final Set<VehicleStatus> DELETABLE = Set.of(AVAILABLE, DECOMMISSIONED);
@@ -111,6 +111,10 @@ public class VehicleServiceImpl implements VehicleService {
         VehicleStatus next = request.status();
         if (previous == next) {
             return mapper.toResponse(vehicle);
+        }
+        if (previous == IN_MAINTENANCE || next == IN_MAINTENANCE) {
+            throw new BusinessException(1, 409,
+                    "IN_MAINTENANCE status can only be changed through Maintenance Service operations");
         }
         if (!TRANSITIONS.get(previous).contains(next)) {
             throw new BusinessException(1, 409, "Cannot change vehicle status from " + previous + " to " + next);

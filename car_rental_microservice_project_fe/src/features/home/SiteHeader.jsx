@@ -74,12 +74,12 @@ export function SiteHeader() {
           <li className="nav-item">
             <Link
               className="nav-link text-nowrap"
-              to="/bookings"
+              to={auth.authenticated ? '/bookings?tab=my-bookings' : '/#tim-xe'}
               aria-current={isBookingActive ? 'page' : undefined}
-              onClick={() => setOpen(false)}
+              onClick={(event) => auth.authenticated ? setOpen(false) : handleNavClick(event, '/#tim-xe')}
             >
               <i className="bi bi-clock-history me-1" aria-hidden="true" />
-              Đơn thuê của tôi
+              {auth.authenticated ? 'Đơn thuê của tôi' : 'Tìm & đặt xe'}
             </Link>
           </li>
           {auth.authenticated && (

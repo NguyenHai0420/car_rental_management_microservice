@@ -44,6 +44,11 @@ export function DriverLicenseForm({ license, onSubmitLicense }) {
       backImageUrl: form.get('backImageUrl')?.trim(),
     }
 
+    if (!fields.frontImageUrl || !fields.backImageUrl) {
+      setError('Vui lòng chọn tải lên đầy đủ ảnh mặt trước và mặt sau của GPLX.')
+      return
+    }
+
     setSaving(true)
     setError('')
     setSuccess('')
@@ -134,45 +139,31 @@ export function DriverLicenseForm({ license, onSubmitLicense }) {
         </label>
 
         <label>
-          Ảnh mặt trước GPLX (Chọn tệp từ máy tính)
+          Ảnh mặt trước GPLX (Chọn tệp từ máy)
           <input
             type="file"
             accept="image/*"
             disabled={saving || uploadingFront}
             onChange={(e) => handleFileChange(e, true)}
-            style={{ marginBottom: 6, padding: '4px' }}
+            style={{ marginBottom: 6, padding: '6px' }}
           />
-          {uploadingFront && <span style={{ fontSize: '12px', color: '#0284c7', display: 'block', marginBottom: 4 }}>⏳ Đang tải ảnh lên MinIO...</span>}
-          <input
-            name="frontImageUrl"
-            value={frontUrl}
-            onChange={(e) => setFrontUrl(e.target.value)}
-            required
-            maxLength={500}
-            placeholder="MinIO URL (tự động điền sau khi chọn tệp)"
-            style={{ fontSize: '12px', color: 'var(--muted)' }}
-          />
+          {uploadingFront && <span style={{ fontSize: '12px', color: '#0284c7', display: 'block', marginBottom: 4 }}>⏳ Đang tải ảnh lên hệ thống...</span>}
+          {frontUrl && !uploadingFront && <span style={{ fontSize: '12px', color: '#16a34a', display: 'block' }}>✓ Đã có ảnh mặt trước</span>}
+          <input type="hidden" name="frontImageUrl" value={frontUrl} />
         </label>
 
         <label>
-          Ảnh mặt sau GPLX (Chọn tệp từ máy tính)
+          Ảnh mặt sau GPLX (Chọn tệp từ máy)
           <input
             type="file"
             accept="image/*"
             disabled={saving || uploadingBack}
             onChange={(e) => handleFileChange(e, false)}
-            style={{ marginBottom: 6, padding: '4px' }}
+            style={{ marginBottom: 6, padding: '6px' }}
           />
-          {uploadingBack && <span style={{ fontSize: '12px', color: '#0284c7', display: 'block', marginBottom: 4 }}>⏳ Đang tải ảnh lên MinIO...</span>}
-          <input
-            name="backImageUrl"
-            value={backUrl}
-            onChange={(e) => setBackUrl(e.target.value)}
-            required
-            maxLength={500}
-            placeholder="MinIO URL (tự động điền sau khi chọn tệp)"
-            style={{ fontSize: '12px', color: 'var(--muted)' }}
-          />
+          {uploadingBack && <span style={{ fontSize: '12px', color: '#0284c7', display: 'block', marginBottom: 4 }}>⏳ Đang tải ảnh lên hệ thống...</span>}
+          {backUrl && !uploadingBack && <span style={{ fontSize: '12px', color: '#16a34a', display: 'block' }}>✓ Đã có ảnh mặt sau</span>}
+          <input type="hidden" name="backImageUrl" value={backUrl} />
         </label>
 
         {(frontUrl || backUrl) && (

@@ -16,6 +16,8 @@ const titles = {
   '/vehicles/models': 'Mẫu xe',
   '/vehicles/customers': 'Quản lý khách hàng',
   '/vehicles/bookings': 'Quản lý đơn thuê',
+  '/maintenance': 'Quản lý bảo dưỡng xe',
+  '/notifications': 'Trung tâm thông báo',
 }
 
 export function VehicleManagementLayout() {
@@ -26,7 +28,7 @@ export function VehicleManagementLayout() {
   if (!auth.ready) content = <p className="notice" role="status">Đang kiểm tra phiên đăng nhập…</p>
   else if (!auth.configured) content = <p className="notice error" role="alert">Chưa cấu hình kết nối Keycloak.</p>
   else if (!auth.authenticated) content = <div className="gate"><h2>Đăng nhập để quản lý đội xe</h2><p className="subtitle">Khu vực dành cho nhân viên và quản trị viên.</p><button onClick={auth.login}>Đăng nhập quản trị</button></div>
-  else if (!auth.canManageFleet) content = <div className="gate"><p className="notice error" role="alert">Tài khoản cần quyền ADMIN hoặc STAFF.</p><Link to="/">Về trang chủ</Link></div>
+  else if (!auth.canManageFleet) content = <div className="gate"><p className="notice error" role="alert">Tài khoản cần quyền ADMIN, STAFF hoặc VEHICLE_OWNER.</p><Link to="/">Về trang chủ</Link></div>
 
   return <div className="admin fleet-workspace">
     <aside className="admin-side" data-open={open} aria-label="Menu quản trị">
@@ -38,6 +40,9 @@ export function VehicleManagementLayout() {
         <NavLink to="/vehicles/customers"><span aria-hidden="true">👥</span>Quản lý khách hàng</NavLink>
         <span className="group">Đơn hàng</span>
         <NavLink to="/vehicles/bookings"><span aria-hidden="true">📋</span>Quản lý đơn thuê</NavLink>
+        <span className="group">Vận hành &amp; Thông báo</span>
+        <NavLink to="/maintenance"><span aria-hidden="true">🔧</span>Bảo dưỡng xe</NavLink>
+        <NavLink to="/notifications"><span aria-hidden="true">✉️</span>Trung tâm thông báo</NavLink>
       </nav>
       <span className="spacer" />
       <nav className="admin-nav"><Link to="/">↩ Về trang chủ</Link></nav>

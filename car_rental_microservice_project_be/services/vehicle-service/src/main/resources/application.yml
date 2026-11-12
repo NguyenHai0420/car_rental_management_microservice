@@ -39,8 +39,13 @@ file-service:
   connect-timeout: ${FILE_SERVICE_CONNECT_TIMEOUT:3s}
   request-timeout: ${FILE_SERVICE_REQUEST_TIMEOUT:60s}
 
+vehicle:
+  security:
+    # Shared with maintenance-service (VEHICLE_INTERNAL_TOKEN); blank disables internal access.
+    internal-token: ${VEHICLE_INTERNAL_TOKEN:car-rental-internal-vehicle-token-dev}
+
 media:
-  management-roles: ${VEHICLE_MEDIA_MANAGEMENT_ROLES:ADMIN,STAFF}
+  management-roles: ${VEHICLE_MEDIA_MANAGEMENT_ROLES:ADMIN,STAFF,VEHICLE_OWNER}
   storage:
     image-bucket: ${VEHICLE_IMAGE_BUCKET:${MINIO_IMAGE_BUCKET:vehicle-images}}
     document-bucket: ${VEHICLE_DOCUMENT_BUCKET:${MINIO_DOCUMENT_BUCKET:vehicle-documents}}

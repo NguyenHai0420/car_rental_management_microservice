@@ -2,10 +2,12 @@ package crm.ms.controller;
 
 import crm.ms.dto.ResponseApi;
 import crm.ms.entity.Vehicle;
+import crm.ms.entity.VehicleHold;
 import crm.ms.entity.VehicleImage;
 import crm.ms.entity.VehicleStatusHistory;
 import crm.ms.enums.VehicleStatus;
 import crm.ms.exception.BusinessException;
+import crm.ms.repository.VehicleHoldRepository;
 import crm.ms.repository.VehicleImageRepository;
 import crm.ms.repository.VehicleRepository;
 import crm.ms.repository.VehicleStatusHistoryRepository;
@@ -18,6 +20,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -28,20 +33,36 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/v1/vehicles")
 @RequiredArgsConstructor
-public class VehicleIntegrationController {
+public class  VehicleIntegrationController {
+
+    /** Statuses Booking owns; IN_MAINTENANCE and DECOMMISSIONED are only changed by their owners. */
+    private static final Set<VehicleStatus> BOOKING_STATUSES =
+            EnumSet.of(VehicleStatus.AVAILABLE, VehicleStatus.RESERVED, VehicleStatus.RENTED);
 
     private final VehicleRepository vehicles;
     private final VehicleImageRepository images;
     private final VehicleStatusHistoryRepository histories;
+    private final VehicleHoldRepository holds;
     private final FileStorage storage;
     private final MediaStorageSettings settings;
 
     @GetMapping("/{vehicleId}/availability")
-    public ResponseApi checkAvailability(@PathVariable("vehicleId") UUID vehicleId) {
+    @Transactional(readOnly = true)
+    public ResponseApi checkAvailability(
+            @PathVariable("vehicleId") UUID vehicleId,
+            @RequestParam(value = "from", required = false) String from,
+            @RequestParam(value = "to", required = false) String to) {
+        Window window = parseOptionalWindow(from, to);
         Vehicle vehicle = vehicles.findByIdAndIsDeletedFalse(vehicleId)
                 .orElseThrow(() -> new BusinessException(1, 404, "Vehicle not found: " + vehicleId));
 
-        boolean available = (vehicle.getStatus() == VehicleStatus.AVAILABLE);
+        boolean statusAvailable = (vehicle.getStatus() == VehicleStatus.AVAILABLE);
+        List<VehicleHold> conflictingHolds = window == null
+                ? Collections.emptyList()
+                : holds.findOverlappingActiveHolds(
+                        vehicleId, window.from(), window.to(), Instant.now(), null, null, null);
+        boolean hasHoldConflict = !conflictingHolds.isEmpty();
+        boolean available = statusAvailable && !hasHoldConflict;
 
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("vehicleId", vehicle.getId());
@@ -53,6 +74,14 @@ public class VehicleIntegrationController {
         data.put("categoryName", vehicle.getCategory().getName());
         data.put("status", vehicle.getStatus().name());
         data.put("available", available);
+        data.put("hasHoldConflict", hasHoldConflict);
+        if (hasHoldConflict) {
+            VehicleHold first = conflictingHolds.get(0);
+            data.put("conflictingHoldType", first.getOwnerType().name());
+            data.put("conflictReason", String.format(
+                    "Vehicle has conflicting %s hold in [%s, %s)",
+                    first.getOwnerType(), first.getStartAt(), first.getEndAt()));
+        }
         data.put("dailyRate", vehicle.getDailyRateSnapshot());
         data.put("mileageKm", vehicle.getMileageKm());
         data.put("location", vehicle.getLocation());
@@ -65,8 +94,19 @@ public class VehicleIntegrationController {
     }
 
     @GetMapping("/available")
-    public ResponseApi getAvailableVehicles() {
-        List<Vehicle> list = vehicles.findActive(null, null, null, null, PageRequest.of(0, 1000)).getContent();
+    @Transactional(readOnly = true)
+    public ResponseApi getAvailableVehicles(
+            @RequestParam(value = "from", required = false) String from,
+            @RequestParam(value = "to", required = false) String to) {
+        Window window = parseOptionalWindow(from, to);
+        Set<UUID> busyHoldVehicles = window == null
+                ? Collections.emptySet()
+                : new HashSet<>(holds.findBusyVehicleIds(window.from(), window.to(), Instant.now()));
+
+        List<Vehicle> list = vehicles.findActive(null, null, null, null, PageRequest.of(0, 1000)).getContent()
+                .stream()
+                .filter(v -> !busyHoldVehicles.contains(v.getId()))
+                .toList();
 
         List<UUID> ids = list.stream().map(Vehicle::getId).toList();
         Map<UUID, String> covers = ids.isEmpty() ? Collections.emptyMap() :
@@ -107,17 +147,23 @@ public class VehicleIntegrationController {
     public ResponseApi updateRentalStatus(@PathVariable("vehicleId") UUID vehicleId,
                                           @RequestParam("status") String status,
                                           @RequestParam(value = "mileageKm", required = false) BigDecimal mileageKm) {
-        Vehicle vehicle = vehicles.findByIdAndIsDeletedFalse(vehicleId)
-                .orElseThrow(() -> new BusinessException(1, 404, "Vehicle not found: " + vehicleId));
-
         VehicleStatus newStatus;
         try {
             newStatus = VehicleStatus.valueOf(status.trim().toUpperCase());
         } catch (IllegalArgumentException e) {
             throw new BusinessException(1, 400, "Invalid vehicle status: " + status);
         }
+        if (!BOOKING_STATUSES.contains(newStatus)) {
+            throw new BusinessException(1, 400, "Booking can only set AVAILABLE, RESERVED or RENTED");
+        }
 
+        // Lock like the maintenance commands so a booking update cannot interleave with a maintenance start.
+        Vehicle vehicle = vehicles.findActiveForUpdate(vehicleId)
+                .orElseThrow(() -> new BusinessException(1, 404, "Vehicle not found: " + vehicleId));
         VehicleStatus oldStatus = vehicle.getStatus();
+        if (!BOOKING_STATUSES.contains(oldStatus)) {
+            throw new BusinessException(1, 409, "Vehicle is " + oldStatus + "; booking cannot change its status");
+        }
         vehicle.setStatus(newStatus);
         if (mileageKm != null) {
             vehicle.setMileageKm(mileageKm);
@@ -139,5 +185,39 @@ public class VehicleIntegrationController {
                 .message("Vehicle status updated to " + newStatus)
                 .data(null)
                 .build();
+    }
+
+    private record Window(Instant from, Instant to) {
+    }
+
+    private Window parseOptionalWindow(String from, String to) {
+        boolean hasFrom = from != null && !from.isBlank();
+        boolean hasTo = to != null && !to.isBlank();
+        if (!hasFrom && !hasTo) {
+            return null;
+        }
+        if (!hasFrom || !hasTo) {
+            throw new BusinessException(1, 400, "Both 'from' and 'to' UTC timestamps are required when filtering by window");
+        }
+        Instant fromInstant = parseUtcInstant(from, "from");
+        Instant toInstant = parseUtcInstant(to, "to");
+        if (!toInstant.isAfter(fromInstant)) {
+            throw new BusinessException(1, 400, "Query parameter 'to' must be strictly after 'from'");
+        }
+        return new Window(fromInstant, toInstant);
+    }
+
+    private Instant parseUtcInstant(String value, String paramName) {
+        String trimmed = value.strip();
+        try {
+            return Instant.parse(trimmed);
+        } catch (DateTimeParseException ignored) {
+            try {
+                return OffsetDateTime.parse(trimmed).toInstant();
+            } catch (DateTimeParseException ex) {
+                throw new BusinessException(1, 400,
+                        "Invalid ISO-8601 UTC timestamp for '" + paramName + "': " + trimmed);
+            }
+        }
     }
 }

@@ -71,15 +71,6 @@ export const BookingForm = ({
         returnLocation: vehicle.location || "Chi nhánh trung tâm TP.HCM",
         notes: "",
       });
-
-      const vid = vehicle.vehicleId || vehicle.id;
-      if (vid && !vehicle.licensePlate && !vehicle.plate) {
-        getVehicle(vid)
-          .then((data) => setExtraDetail(data))
-          .catch(() => {});
-      } else {
-        setExtraDetail(null);
-      }
     }
   }, [open, vehicle, defaultDateRange, form]);
 
@@ -298,12 +289,9 @@ export const BookingForm = ({
     }
   };
 
-  const displayPlate =
-    vehicle?.licensePlate || vehicle?.plate || extraDetail?.licensePlate;
-  const displaySeats =
-    vehicle?.seatCount || vehicle?.seats || extraDetail?.seatCount || 4;
-  const displayFuel =
-    vehicle?.fuelType || vehicle?.fuel || extraDetail?.fuelType || "Xăng";
+  const displayPlate = vehicle?.licensePlate || vehicle?.plate;
+  const displaySeats = vehicle?.seatCount || vehicle?.seats || 4;
+  const displayFuel = vehicle?.fuelType || vehicle?.fuel || "Xăng";
 
   const totalAmountToPay = Number(
     createdBooking?.estimatedTotal || pricing.estimatedTotal || 0

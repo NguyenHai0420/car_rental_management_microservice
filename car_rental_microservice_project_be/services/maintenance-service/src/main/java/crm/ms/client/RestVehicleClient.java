@@ -2,8 +2,11 @@ package crm.ms.client;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import crm.ms.client.dto.ExternalVehicleHoldResponse;
 import crm.ms.client.dto.ExternalVehicleOperationResponse;
 import crm.ms.client.dto.ExternalVehicleResponse;
+import crm.ms.client.dto.VehicleHoldAcquireRequest;
+import crm.ms.client.dto.VehicleHoldActionRequest;
 import crm.ms.client.dto.VehicleMaintenanceActionRequest;
 import crm.ms.config.MaintenanceClientProperties;
 import crm.ms.config.RestClientConfig;
@@ -11,13 +14,11 @@ import crm.ms.exception.BusinessException;
 import crm.ms.exception.ExternalServiceUnavailableException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
-import org.springframework.web.client.RestClientResponseException;
 
+import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 
@@ -26,17 +27,20 @@ import java.util.UUID;
 public class RestVehicleClient implements VehicleClient {
 
     private static final String HEADER_IDEMPOTENCY_KEY = "X-Idempotency-Key";
+    private static final String OWNER_TYPE_MAINTENANCE = "MAINTENANCE";
+    private static final int DEFAULT_HOLD_TTL_SECONDS = 120;
+    private static final String SERVICE_LABEL = "Vehicle Service";
 
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
+    private final String serviceName;
     private final String internalToken;
 
     @Autowired
     public RestVehicleClient(
             MaintenanceClientProperties properties,
             Map<String, RestClient.Builder> restClientBuilders,
-            ObjectMapper objectMapper,
-            @Value("${maintenance.security.internal-token:}") String internalToken) {
+            ObjectMapper objectMapper) {
         String baseUrl = properties.getVehicleService().getBaseUrl();
         RestClient.Builder builder = RestClientConfig.selectBuilder(
                 baseUrl,
@@ -45,32 +49,43 @@ public class RestVehicleClient implements VehicleClient {
         );
         this.restClient = builder.baseUrl(baseUrl).build();
         this.objectMapper = objectMapper;
-        this.internalToken = internalToken;
+        this.serviceName = properties.getServiceName();
+        this.internalToken = properties.getVehicleService().getInternalToken();
+        if (this.internalToken == null || this.internalToken.isBlank()) {
+            log.warn("maintenance.clients.vehicle-service.internal-token is not configured; outbound internal calls will fail closed if Vehicle Service enforces service auth");
+        }
     }
 
     public RestVehicleClient(RestClient restClient, ObjectMapper objectMapper, String internalToken) {
+        this(restClient, objectMapper, "maintenance-service", internalToken);
+    }
+
+    public RestVehicleClient(
+            RestClient restClient,
+            ObjectMapper objectMapper,
+            String serviceName,
+            String internalToken) {
         this.restClient = restClient;
         this.objectMapper = objectMapper;
+        this.serviceName = serviceName;
         this.internalToken = internalToken;
     }
 
     @Override
     public ExternalVehicleResponse getVehicleById(UUID vehicleId) {
-        try {
-            RestClient.RequestHeadersSpec<?> spec = restClient.get()
-                    .uri("/api/v1/vehicles/{id}", vehicleId)
-                    .accept(MediaType.APPLICATION_JSON);
-            applyInternalSecret(spec);
+        RestClient.RequestHeadersSpec<?> spec = restClient.get()
+                .uri("/api/v1/vehicles/{id}", vehicleId)
+                .accept(MediaType.APPLICATION_JSON);
+        applyInternalHeaders(spec);
 
-            String rawBody = spec.retrieve().body(String.class);
-            return unwrapVehicleResponse(rawBody);
-        } catch (RestClientResponseException ex) {
-            throw mapResponseException(vehicleId, ex);
-        } catch (ResourceAccessException ex) {
-            log.error("Vehicle Service timeout/network error on GET vehicleId={}: {}", vehicleId, ex.getMessage());
-            throw new ExternalServiceUnavailableException(
-                    "Vehicle Service is unreachable or timed out while fetching vehicle " + vehicleId, ex);
-        }
+        String rawBody = InternalClientHeaders.executeRequest(
+                () -> spec.retrieve().body(String.class),
+                SERVICE_LABEL,
+                "fetching vehicle " + vehicleId,
+                log,
+                ex -> InternalClientHeaders.mapDownstreamException(SERVICE_LABEL, "vehicle", vehicleId, ex, objectMapper)
+        );
+        return unwrapVehicleResponse(rawBody);
     }
 
     @Override
@@ -105,21 +120,149 @@ public class RestVehicleClient implements VehicleClient {
 
     @Override
     public ExternalVehicleOperationResponse getOperationStatus(UUID vehicleId, UUID operationId) {
-        try {
-            RestClient.RequestHeadersSpec<?> spec = restClient.get()
-                    .uri("/api/v1/vehicles/{id}/operations/{operationId}", vehicleId, operationId)
-                    .accept(MediaType.APPLICATION_JSON);
-            applyInternalSecret(spec);
+        RestClient.RequestHeadersSpec<?> spec = restClient.get()
+                .uri("/api/v1/vehicles/{id}/operations/{operationId}", vehicleId, operationId)
+                .accept(MediaType.APPLICATION_JSON);
+        applyInternalHeaders(spec);
 
-            String rawBody = spec.retrieve().body(String.class);
-            return unwrapOperationResponse(rawBody);
-        } catch (RestClientResponseException ex) {
-            throw mapResponseException(vehicleId, ex);
-        } catch (ResourceAccessException ex) {
-            log.error("Vehicle Service timeout/network error checking operationId={} for vehicleId={}: {}",
-                    operationId, vehicleId, ex.getMessage());
-            throw new ExternalServiceUnavailableException(
-                    "Vehicle Service is unreachable or timed out while verifying operation " + operationId, ex);
+        String rawBody = InternalClientHeaders.executeRequest(
+                () -> spec.retrieve().body(String.class),
+                SERVICE_LABEL,
+                "verifying operation " + operationId + " for vehicle " + vehicleId,
+                log,
+                ex -> InternalClientHeaders.mapOperationLookupException(vehicleId, operationId, ex, objectMapper)
+        );
+        return unwrapOperationResponse(rawBody);
+    }
+
+    @Override
+    public ExternalVehicleHoldResponse acquireMaintenanceHold(
+            UUID vehicleId,
+            UUID tempOwnerId,
+            UUID operationId,
+            Instant startAt,
+            Instant endAt,
+            UUID excludeMaintenanceId,
+            String reason) {
+        VehicleHoldAcquireRequest payload = VehicleHoldAcquireRequest.builder()
+                .ownerType(OWNER_TYPE_MAINTENANCE)
+                .ownerId(tempOwnerId)
+                .startAt(startAt)
+                .endAt(endAt)
+                .confirmed(false)
+                .ttlSeconds(DEFAULT_HOLD_TTL_SECONDS)
+                .excludeOwnerType(excludeMaintenanceId != null ? OWNER_TYPE_MAINTENANCE : null)
+                .excludeOwnerId(excludeMaintenanceId)
+                .reason(reason)
+                .build();
+
+        RestClient.RequestBodySpec spec = restClient.post()
+                .uri("/api/v1/vehicles/{id}/holds", vehicleId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON)
+                .header(HEADER_IDEMPOTENCY_KEY, operationId.toString());
+        applyInternalHeaders(spec);
+
+        String rawBody = InternalClientHeaders.executeRequest(
+                () -> spec.body(payload).retrieve().body(String.class),
+                SERVICE_LABEL,
+                "acquiring maintenance hold for vehicle " + vehicleId,
+                log,
+                ex -> InternalClientHeaders.mapDownstreamException(SERVICE_LABEL, "vehicle", vehicleId, ex, objectMapper)
+        );
+        return unwrapHoldResponse(rawBody);
+    }
+
+    @Override
+    public ExternalVehicleHoldResponse confirmMaintenanceHold(
+            UUID vehicleId,
+            UUID holdId,
+            UUID maintenanceId,
+            UUID operationId,
+            String reason) {
+        VehicleHoldActionRequest payload = VehicleHoldActionRequest.builder()
+                .ownerType(OWNER_TYPE_MAINTENANCE)
+                .ownerId(maintenanceId)
+                .reason(reason)
+                .build();
+
+        RestClient.RequestBodySpec spec = restClient.post()
+                .uri("/api/v1/vehicles/{id}/holds/{holdId}/confirm", vehicleId, holdId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON)
+                .header(HEADER_IDEMPOTENCY_KEY, operationId.toString());
+        applyInternalHeaders(spec);
+
+        String rawBody = InternalClientHeaders.executeRequest(
+                () -> spec.body(payload).retrieve().body(String.class),
+                SERVICE_LABEL,
+                "confirming maintenance hold " + holdId + " for vehicle " + vehicleId,
+                log,
+                ex -> InternalClientHeaders.mapDownstreamException(SERVICE_LABEL, "vehicle", vehicleId, ex, objectMapper)
+        );
+        return unwrapHoldResponse(rawBody);
+    }
+
+    @Override
+    public void releaseMaintenanceHoldById(UUID vehicleId, UUID holdId, UUID operationId, String reason) {
+        VehicleHoldActionRequest payload = VehicleHoldActionRequest.builder()
+                .ownerType(OWNER_TYPE_MAINTENANCE)
+                .reason(reason)
+                .build();
+
+        RestClient.RequestBodySpec spec = restClient.post()
+                .uri("/api/v1/vehicles/{id}/holds/{holdId}/release", vehicleId, holdId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON)
+                .header(HEADER_IDEMPOTENCY_KEY, operationId.toString());
+        applyInternalHeaders(spec);
+
+        InternalClientHeaders.executeRequest(
+                () -> spec.body(payload).retrieve().body(String.class),
+                SERVICE_LABEL,
+                "releasing maintenance hold " + holdId + " for vehicle " + vehicleId,
+                log,
+                ex -> InternalClientHeaders.mapDownstreamException(SERVICE_LABEL, "vehicle", vehicleId, ex, objectMapper)
+        );
+    }
+
+    @Override
+    public void releaseMaintenanceHoldsByOwner(UUID vehicleId, UUID maintenanceId, UUID operationId) {
+        RestClient.RequestBodySpec spec = restClient.post()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/api/v1/vehicles/{id}/holds/release")
+                        .queryParam("ownerType", OWNER_TYPE_MAINTENANCE)
+                        .queryParam("ownerId", maintenanceId)
+                        .build(vehicleId))
+                .accept(MediaType.APPLICATION_JSON)
+                .header(HEADER_IDEMPOTENCY_KEY, operationId.toString());
+        applyInternalHeaders(spec);
+
+        InternalClientHeaders.executeRequest(
+                () -> spec.retrieve().body(String.class),
+                SERVICE_LABEL,
+                "releasing holds for maintenance " + maintenanceId + " on vehicle " + vehicleId,
+                log,
+                ex -> InternalClientHeaders.mapDownstreamException(SERVICE_LABEL, "vehicle", vehicleId, ex, objectMapper)
+        );
+    }
+
+    private ExternalVehicleHoldResponse unwrapHoldResponse(String rawBody) {
+        if (rawBody == null || rawBody.isBlank()) {
+            throw new ExternalServiceUnavailableException("Vehicle Service returned an empty hold response body");
+        }
+        try {
+            JsonNode root = objectMapper.readTree(rawBody);
+            JsonNode target = root.has("data") && !root.get("data").isNull() ? root.get("data") : root;
+            ExternalVehicleHoldResponse response = objectMapper.treeToValue(target, ExternalVehicleHoldResponse.class);
+            if (response == null || response.getHoldId() == null) {
+                throw new ExternalServiceUnavailableException("Vehicle Service hold response missing holdId");
+            }
+            return response;
+        } catch (BusinessException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw new ExternalServiceUnavailableException("Failed to parse Vehicle Service hold response", ex);
         }
     }
 
@@ -134,28 +277,25 @@ public class RestVehicleClient implements VehicleClient {
                 .reason(reason)
                 .build();
 
-        try {
-            RestClient.RequestBodySpec spec = restClient.post()
-                    .uri(uriPath, vehicleId)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .accept(MediaType.APPLICATION_JSON)
-                    .header(HEADER_IDEMPOTENCY_KEY, operationId.toString());
-            applyInternalSecret(spec);
+        RestClient.RequestBodySpec spec = restClient.post()
+                .uri(uriPath, vehicleId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON)
+                .header(HEADER_IDEMPOTENCY_KEY, operationId.toString());
+        applyInternalHeaders(spec);
 
-            String rawBody = spec.body(payload).retrieve().body(String.class);
-            return unwrapVehicleResponse(rawBody);
-        } catch (RestClientResponseException ex) {
-            throw mapResponseException(vehicleId, ex);
-        } catch (ResourceAccessException ex) {
-            log.error("Vehicle Service timeout/network error on POST {} vehicleId={} operationId={}: {}",
-                    uriPath, vehicleId, operationId, ex.getMessage());
-            throw new ExternalServiceUnavailableException(
-                    "Vehicle Service is unreachable or timed out while executing " + uriPath + " for " + vehicleId, ex);
-        }
+        String rawBody = InternalClientHeaders.executeRequest(
+                () -> spec.body(payload).retrieve().body(String.class),
+                SERVICE_LABEL,
+                "executing " + uriPath + " for vehicle " + vehicleId + " operationId=" + operationId,
+                log,
+                ex -> InternalClientHeaders.mapDownstreamException(SERVICE_LABEL, "vehicle", vehicleId, ex, objectMapper)
+        );
+        return unwrapVehicleResponse(rawBody);
     }
 
-    private void applyInternalSecret(RestClient.RequestHeadersSpec<?> spec) {
-        InternalClientHeaders.applyServiceHeaders(spec, internalToken);
+    private void applyInternalHeaders(RestClient.RequestHeadersSpec<?> spec) {
+        InternalClientHeaders.applyServiceHeaders(spec, serviceName, internalToken);
     }
 
     private ExternalVehicleResponse unwrapVehicleResponse(String rawBody) {
@@ -165,8 +305,11 @@ public class RestVehicleClient implements VehicleClient {
         try {
             JsonNode root = objectMapper.readTree(rawBody);
             JsonNode target = root.has("data") && !root.get("data").isNull() ? root.get("data") : root;
+            if ("PROCESSING".equalsIgnoreCase(target.path("outcome").asText(""))) {
+                throw new ExternalServiceUnavailableException("Vehicle Service operation is still processing");
+            }
             ExternalVehicleResponse response = objectMapper.treeToValue(target, ExternalVehicleResponse.class);
-            if (response == null || response.getStatus() == null) {
+            if (response == null || response.getStatus() == null || response.getStatus().isBlank()) {
                 throw new ExternalServiceUnavailableException("Vehicle Service response missing vehicle status field");
             }
             return response;
@@ -186,8 +329,13 @@ public class RestVehicleClient implements VehicleClient {
             JsonNode target = root.has("data") && !root.get("data").isNull() ? root.get("data") : root;
             ExternalVehicleOperationResponse response =
                     objectMapper.treeToValue(target, ExternalVehicleOperationResponse.class);
-            if (response == null || response.getOutcome() == null) {
+            if (response == null || response.getOutcome() == null || response.getOutcome().isBlank()) {
                 throw new ExternalServiceUnavailableException("Vehicle Service operation response missing 'outcome' field");
+            }
+            if ("APPLIED".equalsIgnoreCase(response.getOutcome())
+                    && (response.getResultingVehicleStatus() == null || response.getResultingVehicleStatus().isBlank())) {
+                throw new ExternalServiceUnavailableException(
+                        "Vehicle Service returned APPLIED receipt without resultingVehicleStatus");
             }
             return response;
         } catch (BusinessException ex) {
@@ -195,42 +343,5 @@ public class RestVehicleClient implements VehicleClient {
         } catch (Exception ex) {
             throw new ExternalServiceUnavailableException("Failed to parse Vehicle Service operation status response", ex);
         }
-    }
-
-    private BusinessException mapResponseException(UUID vehicleId, RestClientResponseException ex) {
-        int statusCode = ex.getStatusCode().value();
-        String remoteMsg = extractRemoteMessage(ex);
-        if (statusCode == 404) {
-            return BusinessException.notFound(remoteMsg != null ? remoteMsg : "Vehicle not found: " + vehicleId);
-        }
-        if (statusCode == 409 || statusCode == 422) {
-            return BusinessException.conflict(remoteMsg != null ? remoteMsg : "Vehicle status conflict for " + vehicleId);
-        }
-        if (statusCode == 400) {
-            return BusinessException.badRequest(remoteMsg != null ? remoteMsg : "Invalid vehicle request for " + vehicleId);
-        }
-        if (statusCode == 401 || statusCode == 403) {
-            return new BusinessException(2, 403,
-                    remoteMsg != null ? remoteMsg : "Unauthorized to access Vehicle Service");
-        }
-        return new ExternalServiceUnavailableException(
-                "Vehicle Service returned server error HTTP " + statusCode + (remoteMsg != null ? ": " + remoteMsg : ""),
-                ex);
-    }
-
-    private String extractRemoteMessage(RestClientResponseException ex) {
-        String body = ex.getResponseBodyAsString();
-        if (body == null || body.isBlank()) {
-            return null;
-        }
-        try {
-            JsonNode node = objectMapper.readTree(body);
-            if (node.has("message") && node.get("message").isTextual()) {
-                return node.get("message").asText();
-            }
-        } catch (Exception ignored) {
-            // Fall through
-        }
-        return ex.getStatusText();
     }
 }

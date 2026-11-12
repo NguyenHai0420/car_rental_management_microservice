@@ -34,6 +34,7 @@ x-backend-env: &backend-env
   NOTIFICATION_GATEWAY_SECRET: ${NOTIFICATION_GATEWAY_SECRET:-local-notification-gateway-secret}
   MAINTENANCE_INTERNAL_TOKEN: ${MAINTENANCE_INTERNAL_TOKEN:-local-maintenance-internal-token}
   NOTIFICATION_INTERNAL_TOKEN: ${NOTIFICATION_INTERNAL_TOKEN:-local-notification-internal-token}
+  VEHICLE_INTERNAL_TOKEN: ${VEHICLE_INTERNAL_TOKEN:-local-vehicle-internal-token}
   SPRING_JPA_SHOW_SQL: "false"
   JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=50
 
@@ -169,6 +170,7 @@ services:
     command: ["java", "-jar", "payment-service.jar"]
     environment:
       <<: *backend-env
+      SEPAY_API_TOKEN: ${SEPAY_API_TOKEN:-}
 
   maintenance-service:
     <<: *backend

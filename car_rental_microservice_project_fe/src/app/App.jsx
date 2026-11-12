@@ -3,15 +3,8 @@ import {
   Outlet,
   Route,
   Routes,
-  useSearchParams,
 } from 'react-router-dom'
-import {
-  Alert,
-  Card,
-  Descriptions,
-  Result,
-  Typography,
-} from 'antd'
+import { Alert } from 'antd'
 import { useAuth } from './providers/auth-context'
 import { PrivateRoute } from './routes/PrivateRoute'
 import { BookingListPage } from '../features/bookings/pages/BookingListPage'
@@ -29,61 +22,13 @@ import { HomePage } from '../features/home/HomePage'
 import { PaymentPage } from '../features/payments/pages/PaymentPage'
 import { PaymentCallbackPage } from '../features/payments/pages/PaymentCallbackPage'
 import { PaymentHistoryPage } from '../features/payments/pages/PaymentHistoryPage'
+import { MaintenancePage } from '../features/maintenance/pages/MaintenancePage'
+import { NotificationPage } from '../features/notifications/pages/NotificationPage'
 import { SiteHeader } from '../features/home/SiteHeader'
 import { SiteFooter } from '../features/home/SiteFooter'
 import '../style/home.css'
 import '../style/admin.css'
 import '../style/payment.css'
-
-const { Text } = Typography
-
-const ModulePlaceholder = ({ title, owner, serviceName }) => {
-  const [searchParams] = useSearchParams()
-  const bookingId = searchParams.get('bookingId')
-  const bookingCode = searchParams.get('code')
-  const deposit = searchParams.get('deposit')
-
-  return (
-    <Card>
-      <Result
-        status="info"
-        title={title}
-        subTitle={`Phân hệ giao diện ${serviceName} (${owner} phụ trách) đã được định tuyến sẵn qua API Gateway (:8080) và bảo vệ bởi Keycloak JWT.`}
-        extra={
-          bookingId && (
-            <Descriptions
-              bordered
-              size="small"
-              column={1}
-              style={{ maxWidth: 520, margin: '0 auto', textAlign: 'left' }}
-              items={[
-                {
-                  key: 'code',
-                  label: 'Mã đơn chuyển sang từ Booking',
-                  children: <Text strong>{bookingCode || bookingId}</Text>,
-                },
-                {
-                  key: 'bookingId',
-                  label: 'Booking UUID',
-                  children: <Text code>{bookingId}</Text>,
-                },
-                {
-                  key: 'deposit',
-                  label: 'Số tiền cần thanh toán',
-                  children: (
-                    <Text type="danger" strong>
-                      {Number(deposit || 0).toLocaleString('vi-VN')} ₫
-                    </Text>
-                  ),
-                },
-              ]}
-            />
-          )
-        }
-      />
-    </Card>
-  )
-}
 
 function CustomerLayout() {
   const { authError } = useAuth()
@@ -114,16 +59,34 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />
-      <Route path="/vehicles" element={<VehicleManagementLayout />}>
-        <Route index element={<VehicleListPage />} />
-        <Route path="categories" element={<VehicleCategoryPage />} />
-        <Route path="models" element={<VehicleModelPage />} />
-        <Route path="new" element={<VehicleFormPage />} />
-        <Route path=":id" element={<VehicleDetailPage />} />
-        <Route path=":id/edit" element={<VehicleFormPage />} />
-        <Route path="bookings" element={<AdminBookingManagementPage />} />
-        <Route path="customers" element={<CustomerListPage />} />
-        <Route path="customers/:id" element={<CustomerDetailPage />} />
+      <Route element={<VehicleManagementLayout />}>
+        <Route path="/vehicles">
+          <Route index element={<VehicleListPage />} />
+          <Route path="categories" element={<VehicleCategoryPage />} />
+          <Route path="models" element={<VehicleModelPage />} />
+          <Route path="new" element={<VehicleFormPage />} />
+          <Route path=":id" element={<VehicleDetailPage />} />
+          <Route path=":id/edit" element={<VehicleFormPage />} />
+          <Route path="bookings" element={<AdminBookingManagementPage />} />
+          <Route path="customers" element={<CustomerListPage />} />
+          <Route path="customers/:id" element={<CustomerDetailPage />} />
+        </Route>
+        <Route
+          path="/maintenance"
+          element={
+            <PrivateRoute allowedRoles={['ADMIN', 'STAFF', 'VEHICLE_OWNER']}>
+              <MaintenancePage />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/notifications"
+          element={
+            <PrivateRoute allowedRoles={['ADMIN', 'STAFF']}>
+              <NotificationPage />
+            </PrivateRoute>
+          }
+        />
       </Route>
       <Route path="/payment" element={<PrivateRoute><PaymentPage /></PrivateRoute>} />
       <Route path="/payments" element={<PrivateRoute><PaymentPage /></PrivateRoute>} />
@@ -133,30 +96,6 @@ export default function App() {
       <Route path="/payment/cancel" element={<PaymentCallbackPage />} />
       <Route element={<CustomerLayout />}>
         <Route path="/bookings" element={<BookingListPage />} />
-        <Route
-          path="/maintenance"
-          element={
-            <PrivateRoute allowedRoles={['ADMIN', 'VEHICLE_OWNER']}>
-              <ModulePlaceholder
-                title="Quản lý Bảo Dưỡng & Đăng Kiểm (Maintenance Service)"
-                owner="Phong"
-                serviceName="maintenance-service (:8085)"
-              />
-            </PrivateRoute>
-          }
-        />
-        <Route
-          path="/notifications"
-          element={
-            <PrivateRoute>
-              <ModulePlaceholder
-                title="Trung Tâm Thông Báo (Notification Service)"
-                owner="Phong"
-                serviceName="notification-service (:8086)"
-              />
-            </PrivateRoute>
-          }
-        />
         <Route
           path="/profile"
           element={

@@ -32,7 +32,7 @@ export const deleteVehicleModel = (id) => apiClient.delete(`${vehicles}/models/$
 
 export function vehicleError(error) {
   if (error?.response?.status === 401) return 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'
-  if (error?.response?.status === 403) return 'Tài khoản cần quyền ADMIN hoặc STAFF.'
+  if (error?.response?.status === 403) return 'Tài khoản cần quyền ADMIN, STAFF hoặc VEHICLE_OWNER.'
   return error?.response?.data?.message || 'Không thể hoàn tất yêu cầu. Vui lòng thử lại.'
 }
 
@@ -46,6 +46,23 @@ export function uploadVehicleImage(vehicleId, file, imageType = 'OTHER', options
   form.append('isPrimary', String(options.isPrimary ?? false))
   form.append('sortOrder', String(options.sortOrder ?? 0))
   return apiClient.post(`${base(vehicleId)}/images`, form).then(data)
+}
+
+// Sequential, one request per file: a bad file fails alone and the 10 MB/12 MB server limits stay per file.
+export async function uploadVehicleImages(vehicleId, files, imageType = 'OTHER', options = {}, onResult) {
+  const results = []
+  for (const [index, file] of [...files].entries()) {
+    try {
+      const image = await uploadVehicleImage(vehicleId, file, imageType, {
+        isPrimary: Boolean(options.isPrimary) && index === 0, sortOrder: (options.sortOrder ?? 0) + index,
+      })
+      results.push({ file, image })
+    } catch (error) {
+      results.push({ file, error })
+    }
+    onResult?.(results[index], index)
+  }
+  return results
 }
 
 export const deleteVehicleImage = (vehicleId, imageId) =>

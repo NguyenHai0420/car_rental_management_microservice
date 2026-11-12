@@ -28,7 +28,7 @@ class VehicleMediaControllerTest {
 
     @BeforeEach
     void setup() {
-        mvc = MockMvcBuilders.standaloneSetup(new VehicleMediaController(media, new VehicleAccessPolicy("ADMIN,STAFF")))
+        mvc = MockMvcBuilders.standaloneSetup(new VehicleMediaController(media, new VehicleAccessPolicy("ADMIN,STAFF", "")))
                 .setControllerAdvice(new GlobalExceptionHandler()).build();
     }
 

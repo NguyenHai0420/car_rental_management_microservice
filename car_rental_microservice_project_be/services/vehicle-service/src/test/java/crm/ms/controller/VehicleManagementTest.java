@@ -4,11 +4,13 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import crm.ms.dto.VehicleStatusRequest;
+import crm.ms.enums.MaintenanceAction;
 import crm.ms.enums.VehicleStatus;
 import crm.ms.repository.VehicleDocumentRepository;
 import crm.ms.repository.VehicleImageRepository;
 import crm.ms.repository.VehicleRepository;
 import crm.ms.repository.VehicleStatusHistoryRepository;
+import crm.ms.service.VehicleOperationService;
 import crm.ms.service.VehicleService;
 import crm.ms.service.storage.FileStorage;
 import org.junit.jupiter.api.Test;
@@ -70,6 +72,7 @@ class VehicleManagementTest {
     @Autowired VehicleStatusHistoryRepository histories;
     @Autowired VehicleImageRepository images;
     @Autowired VehicleDocumentRepository documents;
+    @Autowired VehicleOperationService operations;
     @MockBean FileStorage storage;
 
     @Test
@@ -155,6 +158,7 @@ class VehicleManagementTest {
                 .andExpect(jsonPath("$.data.content[0].id").value(shown.path("id").asText()))
                 .andExpect(jsonPath("$.data.content[0].categoryId").value(categoryId))
                 .andExpect(jsonPath("$.data.content[0].categoryName").value(shown.path("categoryName").asText()))
+                .andExpect(jsonPath("$.data.content[0].licensePlate").value(shown.path("licensePlate").asText()))
                 .andExpect(jsonPath("$.data.content[0].brand").value("Toyota"))
                 .andExpect(jsonPath("$.data.content[0].imageUrl").value("http://cdn/cover"))
                 .andExpect(jsonPath("$.data.content[0].sizeClass").doesNotHaveJsonPath())
@@ -216,11 +220,18 @@ class VehicleManagementTest {
     }
 
     @Test
-    void decommissionedIsFinalAndMaintenancePreventsDeletion() throws Exception {
-        String path = BASE + "/" + create(newPayload()).path("id").asText();
-        mvc.perform(staff(transition(path, "IN_MAINTENANCE", null))).andExpect(status().isOk());
+    void decommissionedIsFinalAndMaintenancePreventsDeletionAndManualOverride() throws Exception {
+        UUID id = UUID.fromString(create(newPayload()).path("id").asText());
+        String path = BASE + "/" + id;
+        // Staff cannot manually move a vehicle into IN_MAINTENANCE; only Maintenance Service operations may.
+        mvc.perform(staff(transition(path, "IN_MAINTENANCE", null))).andExpect(status().isConflict());
+
+        UUID maintenanceId = UUID.randomUUID();
+        operations.apply(id, UUID.randomUUID(), MaintenanceAction.START_MAINTENANCE, maintenanceId, "Routine", "maintenance-service");
         mvc.perform(staff(delete(path))).andExpect(status().isConflict());
-        mvc.perform(staff(transition(path, "AVAILABLE", null))).andExpect(status().isOk());
+        mvc.perform(staff(transition(path, "AVAILABLE", null))).andExpect(status().isConflict());
+
+        operations.apply(id, UUID.randomUUID(), MaintenanceAction.COMPLETE_MAINTENANCE, maintenanceId, "Done", "maintenance-service");
         mvc.perform(staff(transition(path, "DECOMMISSIONED", null))).andExpect(status().isOk());
         mvc.perform(staff(transition(path, "AVAILABLE", null))).andExpect(status().isConflict());
         mvc.perform(staff(delete(path))).andExpect(status().isOk());

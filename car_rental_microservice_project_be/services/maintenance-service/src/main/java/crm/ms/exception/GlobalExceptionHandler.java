@@ -20,9 +20,12 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ResponseApi> handleBusinessException(BusinessException e) {
-        log.error("Business error [type={}, code={}]: {}", e.getType(), e.getCode(), e.getMessage());
-
         HttpStatus status = mapToHttpStatus(e.getCode());
+        if (status.is5xxServerError()) {
+            log.error("Service error [type={}, code={}]: {}", e.getType(), e.getCode(), sanitize(e.getMessage()));
+        } else {
+            log.warn("Business error [type={}, code={}]: {}", e.getType(), e.getCode(), sanitize(e.getMessage()));
+        }
 
         ResponseApi response = ResponseApi.builder()
                 .code(status)
@@ -58,14 +61,14 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ResponseApi.builder()
                         .code(HttpStatus.BAD_REQUEST)
-                        .message("Invalid request parameter or payload: " + e.getMessage())
+                        .message("Invalid request parameter or payload")
                         .data(null)
                         .build());
     }
 
     @ExceptionHandler(OptimisticLockingFailureException.class)
     public ResponseEntity<ResponseApi> handleOptimisticLock(OptimisticLockingFailureException e) {
-        log.warn("Optimistic locking conflict: {}", e.getMessage());
+        log.warn("Optimistic locking conflict: {}", sanitize(e.getMessage()));
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(ResponseApi.builder()
                         .code(HttpStatus.CONFLICT)
@@ -74,14 +77,30 @@ public class GlobalExceptionHandler {
                         .build());
     }
 
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ResponseApi> handleUnexpectedException(Exception e) {
+        log.error("Unhandled exception in maintenance-service", e);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ResponseApi.builder()
+                        .code(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .message("Internal server error")
+                        .data(null)
+                        .build());
+    }
+
     private HttpStatus mapToHttpStatus(int code) {
         return switch (code) {
+            case 401 -> HttpStatus.UNAUTHORIZED;
             case 403 -> HttpStatus.FORBIDDEN;
             case 404 -> HttpStatus.NOT_FOUND;
             case 409 -> HttpStatus.CONFLICT;
+            case 429, 503 -> HttpStatus.SERVICE_UNAVAILABLE;
             case 502 -> HttpStatus.BAD_GATEWAY;
-            case 503 -> HttpStatus.SERVICE_UNAVAILABLE;
             default -> HttpStatus.BAD_REQUEST;
         };
+    }
+
+    private String sanitize(String msg) {
+        return msg == null ? "" : msg.replace('\r', ' ').replace('\n', ' ');
     }
 }

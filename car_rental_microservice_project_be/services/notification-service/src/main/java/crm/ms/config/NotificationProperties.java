@@ -65,7 +65,7 @@ public class NotificationProperties {
     @Setter
     public static class Security {
         private boolean enabled = true;
-        private boolean requireGatewaySecret = true;
+        private boolean requireGatewaySecret = false;
         private String gatewaySecret = "";
         private String internalToken = "";
         private List<String> allowedRoles = new ArrayList<>(List.of("ADMIN", "STAFF", "SYSTEM", "SERVICE"));

@@ -3,6 +3,7 @@ package crm.ms.repository;
 import crm.ms.entity.NotificationLog;
 import crm.ms.enums.NotificationStatus;
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
@@ -99,4 +100,26 @@ public interface NotificationRepository extends JpaRepository<NotificationLog, U
             @Param("staleThreshold") LocalDateTime staleThreshold,
             @Param("workerId") String workerId,
             @Param("now") LocalDateTime now);
+
+    @Query("""
+            SELECT n FROM NotificationLog n
+            WHERE (:status IS NULL OR n.status = :status)
+              AND (:recipient IS NULL OR LOWER(n.recipient) LIKE LOWER(CONCAT('%', :recipient, '%')))
+              AND (:sourceEvent IS NULL OR n.sourceEvent = :sourceEvent)
+            """)
+    Page<NotificationLog> searchNotifications(
+            @Param("status") NotificationStatus status,
+            @Param("recipient") String recipient,
+            @Param("sourceEvent") String sourceEvent,
+            Pageable pageable);
+
+    @Query("""
+            SELECT DISTINCT n FROM NotificationLog n
+            LEFT JOIN FETCH n.deliveryStatuses
+            WHERE n.id IN :ids
+            """)
+    List<NotificationLog> findByIdInWithDeliveryStatuses(@Param("ids") Collection<UUID> ids);
+
+    @Query("SELECT n.status, COUNT(n) FROM NotificationLog n GROUP BY n.status")
+    List<Object[]> countGroupedByStatus();
 }

@@ -86,7 +86,7 @@ public class MaintenanceSyncScheduler {
 
         if (operationId == null) {
             log.warn("Schedule {} missing syncRequestId (operationId); marking exhausted", scheduleId);
-            markExhausted(scheduleId, vehicleId, "Missing reconciliation operationId");
+            markExhausted(scheduleId, vehicleId, pendingStatus, "Missing reconciliation operationId");
             return;
         }
 
@@ -111,6 +111,14 @@ public class MaintenanceSyncScheduler {
                 return;
             }
 
+            if ("PROCESSING".equalsIgnoreCase(outcome)) {
+                log.info("Operation {} still PROCESSING on Vehicle Service for schedule {}; scheduling retry",
+                        operationId, scheduleId);
+                scheduleNextRetryOrExhaust(scheduleId, vehicleId, pendingStatus, snapshot.getSyncRetryCount(),
+                        "Vehicle Service operation " + operationId + " is still PROCESSING");
+                return;
+            }
+
             if ("NOT_FOUND".equalsIgnoreCase(outcome)) {
                 // Thao tác chưa từng commit trên Vehicle Service -> phát lại idempotent command với cùng operationId
                 log.info("Operation {} NOT_FOUND on Vehicle Service for schedule {}; replaying idempotent command",
@@ -130,14 +138,14 @@ public class MaintenanceSyncScheduler {
             throw new ExternalServiceUnavailableException(
                     "Unexpected operation outcome '" + outcome + "' for operationId=" + operationId);
         } catch (ExternalServiceUnavailableException ex) {
-            scheduleNextRetryOrExhaust(scheduleId, vehicleId, snapshot.getSyncRetryCount(), ex.getMessage());
+            scheduleNextRetryOrExhaust(scheduleId, vehicleId, pendingStatus, snapshot.getSyncRetryCount(), ex.getMessage());
         } catch (BusinessException ex) {
             log.warn("Reconciliation rejected by Vehicle Service for schedule {} (operationId={}): {}",
                     scheduleId, operationId, ex.getMessage());
             compensateRejectedSync(scheduleId, vehicleId, pendingStatus, ex.getMessage());
         } catch (Exception ex) {
             log.error("Unexpected reconciliation error for schedule {} (operationId={})", scheduleId, operationId, ex);
-            scheduleNextRetryOrExhaust(scheduleId, vehicleId, snapshot.getSyncRetryCount(), ex.getMessage());
+            scheduleNextRetryOrExhaust(scheduleId, vehicleId, pendingStatus, snapshot.getSyncRetryCount(), ex.getMessage());
         }
     }
 
@@ -204,12 +212,16 @@ public class MaintenanceSyncScheduler {
     private void scheduleNextRetryOrExhaust(
             UUID scheduleId,
             UUID vehicleId,
+            MaintenanceStatus expectedPendingStatus,
             int previousRetries,
             String errorMessage) {
         vehicleLockService.ensureLockRowExists(vehicleId);
         transactionTemplate.executeWithoutResult(status -> {
             vehicleLockService.acquireLock(vehicleId);
             maintenanceRepository.findById(scheduleId).ifPresent(schedule -> {
+                if (schedule.getStatus() != expectedPendingStatus) {
+                    return;
+                }
                 int nextRetryCount = Math.max(schedule.getSyncRetryCount(), previousRetries) + 1;
                 schedule.setSyncRetryCount(nextRetryCount);
                 schedule.setLastSyncError(truncate(errorMessage));
@@ -226,11 +238,18 @@ public class MaintenanceSyncScheduler {
         });
     }
 
-    private void markExhausted(UUID scheduleId, UUID vehicleId, String reason) {
+    private void markExhausted(
+            UUID scheduleId,
+            UUID vehicleId,
+            MaintenanceStatus expectedPendingStatus,
+            String reason) {
         vehicleLockService.ensureLockRowExists(vehicleId);
         transactionTemplate.executeWithoutResult(status -> {
             vehicleLockService.acquireLock(vehicleId);
             maintenanceRepository.findById(scheduleId).ifPresent(schedule -> {
+                if (schedule.getStatus() != expectedPendingStatus) {
+                    return;
+                }
                 schedule.setSyncExhausted(true);
                 schedule.setNextSyncAttemptAt(null);
                 schedule.setLastSyncError(truncate(reason));
