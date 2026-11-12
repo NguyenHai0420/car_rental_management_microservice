@@ -4,13 +4,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
-import crm.ms.client.BookingClient;
-import crm.ms.client.RestBookingClient;
 import crm.ms.client.RestVehicleClient;
 import crm.ms.client.dto.ExternalVehicleResponse;
 import crm.ms.config.CorrelationContextFilter;
 import crm.ms.config.MaintenanceClientProperties;
 import crm.ms.dto.CompleteMaintenanceRequest;
+import crm.ms.dto.MaintenanceRequest;
+import crm.ms.dto.MaintenanceResponse;
+import crm.ms.dto.UpdateMaintenanceRequest;
 import crm.ms.entity.InspectionChecklist;
 import crm.ms.entity.MaintenanceSchedule;
 import crm.ms.enums.InspectionResult;
@@ -67,8 +68,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 /**
- * Isolated stub-server tests (MOCK_TESTED) for RestVehicleClient, RestBookingClient,
- * isolated per-service credentials, HTTP error semantics, and Saga reconciliation.
+ * Isolated stub-server tests (MOCK_TESTED) for RestVehicleClient,
+ * isolated service credentials, HTTP error semantics, Vehicle-status scheduling guard, and Saga reconciliation.
  */
 @ExtendWith(MockitoExtension.class)
 class MaintenanceOutboundClientAndSagaTest {
@@ -103,8 +104,6 @@ class MaintenanceOutboundClientAndSagaTest {
     private InspectionChecklistRepository checklistRepository;
     @Mock
     private MaintenanceVehicleLockService vehicleLockService;
-    @Mock
-    private BookingClient bookingClient;
 
     @BeforeEach
     void startStubServer() throws IOException {
@@ -163,14 +162,12 @@ class MaintenanceOutboundClientAndSagaTest {
     }
 
     @Test
-    void clientPropertiesMaskSecretsAndSeparateVehicleFromBookingTokens() {
+    void clientPropertiesMaskSecrets() {
         MaintenanceClientProperties props = new MaintenanceClientProperties();
         props.getVehicleService().setInternalToken("super-secret-vehicle-token");
-        props.getBookingService().setInternalToken("super-secret-booking-token");
 
         assertFalse(props.getVehicleService().toString().contains("super-secret-vehicle-token"));
         assertTrue(props.getVehicleService().toString().contains("[REDACTED]"));
-        assertFalse(props.getBookingService().toString().contains("super-secret-booking-token"));
         assertEquals("maintenance-service", props.getServiceName());
     }
 
@@ -254,34 +251,83 @@ class MaintenanceOutboundClientAndSagaTest {
     }
 
     @Test
-    void bookingClientFailsClosedAndDistinguishesDownstreamStatuses_MOCK_TESTED() {
+    void createAndUpdateScheduleEnforceVehicleStatusWithoutCallingBooking_MOCK_TESTED() {
+        RestVehicleClient vehicleClient = new RestVehicleClient(
+                buildRestClient(2000), objectMapper, "maintenance-service", "veh-secret");
+        Clock fixedClock = Clock.systemUTC();
+        MaintenanceMapper mapper = Mappers.getMapper(MaintenanceMapper.class);
+
+        MaintenanceServiceImpl maintenanceService = new MaintenanceServiceImpl(
+                maintenanceRepository, standardRepository, serviceRecordRepository, checklistRepository,
+                vehicleLockService, vehicleClient, mapper, noopTxManager(), fixedClock, 30L);
+
         UUID vehicleId = UUID.randomUUID();
-        RestBookingClient client = new RestBookingClient(
-                buildRestClient(1000), objectMapper, "maintenance-service", "booking-only-token");
+        Instant start = Instant.parse("2026-11-20T08:00:00Z");
+        Instant end = Instant.parse("2026-11-20T12:00:00Z");
 
-        Instant start = Instant.parse("2026-11-15T08:00:00Z");
-        Instant end = Instant.parse("2026-11-15T17:00:00Z");
+        MaintenanceRequest createReq = new MaintenanceRequest();
+        createReq.setVehicleId(vehicleId);
+        createReq.setScheduledStartAt(start);
+        createReq.setScheduledEndAt(end);
+        createReq.setPriority(Priority.MEDIUM);
 
-        responder.set(req -> new StubReply(401, "{\"message\":\"Missing JWT\"}"));
-        BusinessException ex401 = assertThrows(BusinessException.class,
-                () -> client.checkBookingConflict(vehicleId, start, end));
-        assertEquals(502, ex401.getCode());
-        assertEquals("booking-only-token", capturedRequests.get(0).headers().getFirst("X-Internal-Service-Token"));
-        assertNull(capturedRequests.get(0).headers().getFirst("X-User-ID"));
+        // DECOMMISSIONED / RESERVED / RENTED must be blocked with 409 Conflict
+        for (String blockedStatus : List.of("DECOMMISSIONED", "RESERVED", "RENTED")) {
+            responder.set(req -> new StubReply(200, """
+                    {"code":"OK","data":{"id":"%s","status":"%s"}}
+                    """.formatted(vehicleId, blockedStatus)));
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> maintenanceService.createSchedule(createReq));
+            assertEquals(409, ex.getCode());
+        }
 
-        responder.set(req -> new StubReply(404, "{\"message\":\"No static resource conflicts\"}"));
-        BusinessException ex404Route = assertThrows(BusinessException.class,
-                () -> client.checkBookingConflict(vehicleId, start, end));
-        assertEquals(502, ex404Route.getCode());
+        // AVAILABLE succeeds and only calls GET /api/v1/vehicles/{id}
+        capturedRequests.clear();
+        when(maintenanceRepository.findConflictingSchedules(any(), any(), any(), any(), any())).thenReturn(List.of());
+        when(maintenanceRepository.saveAndFlush(any())).thenAnswer(inv -> {
+            MaintenanceSchedule s = inv.getArgument(0);
+            if (s.getId() == null) {
+                s.setId(UUID.randomUUID());
+            }
+            return s;
+        });
 
-        responder.set(req -> new StubReply(400, "{\"message\":\"Invalid interval\"}"));
-        BusinessException ex400 = assertThrows(BusinessException.class,
-                () -> client.checkBookingConflict(vehicleId, start, end));
-        assertEquals(400, ex400.getCode());
+        responder.set(req -> new StubReply(200, """
+                {"code":"OK","data":{"id":"%s","status":"AVAILABLE"}}
+                """.formatted(vehicleId)));
+        MaintenanceResponse created = maintenanceService.createSchedule(createReq);
+        assertEquals(MaintenanceStatus.SCHEDULED, created.getStatus());
+        assertEquals(1, capturedRequests.size());
+        assertEquals("/api/v1/vehicles/" + vehicleId, capturedRequests.get(0).path());
 
-        responder.set(req -> new StubReply(503, "{\"message\":\"Unavailable\"}"));
-        assertThrows(ExternalServiceUnavailableException.class,
-                () -> client.checkBookingConflict(vehicleId, start, end));
+        // updateSchedule also blocks RESERVED / RENTED / DECOMMISSIONED
+        MaintenanceSchedule existing = MaintenanceSchedule.builder()
+                .id(created.getId())
+                .vehicleId(vehicleId)
+                .status(MaintenanceStatus.SCHEDULED)
+                .scheduledStartAt(start)
+                .scheduledEndAt(end)
+                .priority(Priority.MEDIUM)
+                .build();
+        when(maintenanceRepository.findById(created.getId())).thenReturn(Optional.of(existing));
+
+        UpdateMaintenanceRequest updateReq = new UpdateMaintenanceRequest();
+        updateReq.setScheduledStartAt(start.plusSeconds(3600));
+        updateReq.setScheduledEndAt(end.plusSeconds(3600));
+
+        responder.set(req -> new StubReply(200, """
+                {"code":"OK","data":{"id":"%s","status":"RESERVED"}}
+                """.formatted(vehicleId)));
+        BusinessException updateBlocked = assertThrows(BusinessException.class,
+                () -> maintenanceService.updateSchedule(created.getId(), updateReq));
+        assertEquals(409, updateBlocked.getCode());
+
+        // updateSchedule succeeds when vehicle is AVAILABLE or IN_MAINTENANCE
+        responder.set(req -> new StubReply(200, """
+                {"code":"OK","data":{"id":"%s","status":"IN_MAINTENANCE"}}
+                """.formatted(vehicleId)));
+        MaintenanceResponse updated = maintenanceService.updateSchedule(created.getId(), updateReq);
+        assertEquals(updateReq.getScheduledStartAt(), updated.getScheduledStartAt());
     }
 
     @Test
@@ -343,7 +389,7 @@ class MaintenanceOutboundClientAndSagaTest {
 
         MaintenanceServiceImpl maintenanceService = new MaintenanceServiceImpl(
                 maintenanceRepository, standardRepository, serviceRecordRepository, checklistRepository,
-                vehicleLockService, vehicleClient, bookingClient, mapper, noopTxManager(), fixedClock, 30L);
+                vehicleLockService, vehicleClient, mapper, noopTxManager(), fixedClock, 30L);
         MaintenanceSyncScheduler syncScheduler = new MaintenanceSyncScheduler(
                 maintenanceRepository, vehicleLockService, vehicleClient, noopTxManager(), fixedClock, 5, 30L);
 
@@ -392,7 +438,7 @@ class MaintenanceOutboundClientAndSagaTest {
 
         MaintenanceServiceImpl maintenanceService = new MaintenanceServiceImpl(
                 maintenanceRepository, standardRepository, serviceRecordRepository, checklistRepository,
-                vehicleLockService, vehicleClient, bookingClient, mapper, noopTxManager(), fixedClock, 30L);
+                vehicleLockService, vehicleClient, mapper, noopTxManager(), fixedClock, 30L);
         MaintenanceSyncScheduler syncScheduler = new MaintenanceSyncScheduler(
                 maintenanceRepository, vehicleLockService, vehicleClient, noopTxManager(), fixedClock, 5, 30L);
 
@@ -483,6 +529,103 @@ class MaintenanceOutboundClientAndSagaTest {
         syncScheduler.reconcilePendingSchedules();
         assertEquals(MaintenanceStatus.SCHEDULED, schedule.getStatus());
         assertEquals("Vehicle is RENTED", schedule.getLastSyncError());
+    }
+
+    @Test
+    void loadBalancerNoInstancesIllegalStateExceptionMapsTo503AndPreservesSaga_MOCK_TESTED() {
+        RestClient noInstanceVehicleRestClient = RestClient.builder()
+                .baseUrl("http://vehicle-service")
+                .requestInterceptor((req, body, exec) -> {
+                    throw new IllegalStateException("No instances available for vehicle-service");
+                })
+                .build();
+        RestVehicleClient vehicleClient = new RestVehicleClient(
+                noInstanceVehicleRestClient, objectMapper, "maintenance-service", "veh-secret");
+
+        UUID vehicleId = UUID.randomUUID();
+        ExternalServiceUnavailableException vehEx = assertThrows(
+                ExternalServiceUnavailableException.class,
+                () -> vehicleClient.getVehicleById(vehicleId)
+        );
+        assertEquals(503, vehEx.getCode());
+        assertTrue(vehEx.getMessage().contains("no available instances"));
+
+        // Verify startMaintenance catches it as 503 and preserves START_REQUESTED for reconciliation
+        Clock fixedClock = Clock.systemUTC();
+        MaintenanceMapper mapper = Mappers.getMapper(MaintenanceMapper.class);
+        MaintenanceServiceImpl maintenanceService = new MaintenanceServiceImpl(
+                maintenanceRepository, standardRepository, serviceRecordRepository, checklistRepository,
+                vehicleLockService, vehicleClient, mapper, noopTxManager(), fixedClock, 30L);
+
+        UUID scheduleId = UUID.randomUUID();
+        MaintenanceSchedule schedule = MaintenanceSchedule.builder()
+                .id(scheduleId)
+                .vehicleId(vehicleId)
+                .status(MaintenanceStatus.SCHEDULED)
+                .priority(Priority.MEDIUM)
+                .scheduledStartAt(Instant.parse("2026-11-20T08:00:00Z"))
+                .scheduledEndAt(Instant.parse("2026-11-20T12:00:00Z"))
+                .build();
+        when(maintenanceRepository.findById(scheduleId)).thenReturn(Optional.of(schedule));
+        when(maintenanceRepository.saveAndFlush(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        ExternalServiceUnavailableException startEx = assertThrows(
+                ExternalServiceUnavailableException.class,
+                () -> maintenanceService.startMaintenance(scheduleId)
+        );
+        assertEquals(503, startEx.getCode());
+        assertEquals(MaintenanceStatus.START_REQUESTED, schedule.getStatus());
+        assertEquals(1, schedule.getSyncRetryCount());
+        assertTrue(schedule.getLastSyncError().contains("no available instances"));
+    }
+
+    @Test
+    void processingOutcomePreservesPendingSyncAndSchedulesRetry_MOCK_TESTED() {
+        RestVehicleClient vehicleClient = new RestVehicleClient(
+                buildRestClient(2000), objectMapper, "maintenance-service", "veh-secret");
+        Clock fixedClock = Clock.systemUTC();
+        MaintenanceMapper mapper = Mappers.getMapper(MaintenanceMapper.class);
+
+        MaintenanceServiceImpl maintenanceService = new MaintenanceServiceImpl(
+                maintenanceRepository, standardRepository, serviceRecordRepository, checklistRepository,
+                vehicleLockService, vehicleClient, mapper, noopTxManager(), fixedClock, 30L);
+        MaintenanceSyncScheduler syncScheduler = new MaintenanceSyncScheduler(
+                maintenanceRepository, vehicleLockService, vehicleClient, noopTxManager(), fixedClock, 5, 30L);
+
+        UUID scheduleId = UUID.randomUUID();
+        UUID vehicleId = UUID.randomUUID();
+        MaintenanceSchedule schedule = MaintenanceSchedule.builder()
+                .id(scheduleId)
+                .vehicleId(vehicleId)
+                .status(MaintenanceStatus.SCHEDULED)
+                .priority(Priority.HIGH)
+                .scheduledStartAt(Instant.parse("2026-11-20T08:00:00Z"))
+                .scheduledEndAt(Instant.parse("2026-11-20T12:00:00Z"))
+                .build();
+        when(maintenanceRepository.findById(scheduleId)).thenReturn(Optional.of(schedule));
+        when(maintenanceRepository.saveAndFlush(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        // 202 PROCESSING from POST /maintenance/start keeps START_REQUESTED
+        responder.set(req -> new StubReply(202, """
+                {"code":"ACCEPTED","data":{"operationId":"op","vehicleId":"%s","outcome":"PROCESSING"}}
+                """.formatted(vehicleId)));
+
+        assertThrows(ExternalServiceUnavailableException.class, () -> maintenanceService.startMaintenance(scheduleId));
+        assertEquals(MaintenanceStatus.START_REQUESTED, schedule.getStatus());
+        assertEquals(1, schedule.getSyncRetryCount());
+
+        // Subsequent GET /operations/{opId} returning PROCESSING keeps START_REQUESTED and increments retry
+        UUID opId = schedule.getSyncRequestId();
+        responder.set(req -> new StubReply(200, """
+                {"code":"OK","data":{"operationId":"%s","vehicleId":"%s","outcome":"PROCESSING"}}
+                """.formatted(opId, vehicleId)));
+        when(maintenanceRepository.findPendingSyncSchedules(any(), any())).thenReturn(List.of(schedule));
+
+        syncScheduler.reconcilePendingSchedules();
+        assertEquals(MaintenanceStatus.START_REQUESTED, schedule.getStatus());
+        assertEquals(2, schedule.getSyncRetryCount());
+        assertNotNull(schedule.getNextSyncAttemptAt());
+        assertTrue(schedule.getLastSyncError().contains("PROCESSING"));
     }
 }
 

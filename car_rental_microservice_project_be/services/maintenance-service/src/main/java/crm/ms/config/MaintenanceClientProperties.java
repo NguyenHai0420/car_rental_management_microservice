@@ -13,7 +13,6 @@ public class MaintenanceClientProperties {
 
     private String serviceName = "maintenance-service";
     private ServiceEndpoint vehicleService = new ServiceEndpoint("http://vehicle-service");
-    private ServiceEndpoint bookingService = new ServiceEndpoint("http://booking-service");
     private long connectTimeoutMs = 3000L;
     private long readTimeoutMs = 5000L;
 

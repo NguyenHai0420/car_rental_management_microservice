@@ -1,8 +1,6 @@
 package crm.ms.service;
 
-import crm.ms.client.BookingClient;
 import crm.ms.client.VehicleClient;
-import crm.ms.client.dto.ExternalBookingConflictResponse;
 import crm.ms.client.dto.ExternalVehicleResponse;
 import crm.ms.dto.CancelMaintenanceRequest;
 import crm.ms.dto.CompleteMaintenanceRequest;
@@ -49,15 +47,16 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 @Slf4j
 public class MaintenanceServiceImpl implements MaintenanceService {
 
     private static final String VEHICLE_STATUS_DECOMMISSIONED = "DECOMMISSIONED";
+    private static final Set<String> SCHEDULABLE_VEHICLE_STATUSES = Set.of("AVAILABLE", "IN_MAINTENANCE");
 
     private static final Set<MaintenanceStatus> ACTIVE_CONFLICT_STATUSES = EnumSet.of(
             MaintenanceStatus.SCHEDULED,
@@ -78,7 +77,6 @@ public class MaintenanceServiceImpl implements MaintenanceService {
     private final InspectionChecklistRepository checklistRepository;
     private final MaintenanceVehicleLockService vehicleLockService;
     private final VehicleClient vehicleClient;
-    private final BookingClient bookingClient;
     private final MaintenanceMapper maintenanceMapper;
     private final TransactionTemplate transactionTemplate;
     private final Clock clock;
@@ -91,7 +89,6 @@ public class MaintenanceServiceImpl implements MaintenanceService {
             InspectionChecklistRepository checklistRepository,
             MaintenanceVehicleLockService vehicleLockService,
             VehicleClient vehicleClient,
-            BookingClient bookingClient,
             MaintenanceMapper maintenanceMapper,
             PlatformTransactionManager transactionManager,
             Clock clock,
@@ -102,7 +99,6 @@ public class MaintenanceServiceImpl implements MaintenanceService {
         this.checklistRepository = checklistRepository;
         this.vehicleLockService = vehicleLockService;
         this.vehicleClient = vehicleClient;
-        this.bookingClient = bookingClient;
         this.maintenanceMapper = maintenanceMapper;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.clock = clock;
@@ -114,17 +110,8 @@ public class MaintenanceServiceImpl implements MaintenanceService {
         validateHalfOpenInterval(request.getScheduledStartAt(), request.getScheduledEndAt());
         UUID vehicleId = request.getVehicleId();
 
-        // Bước 1: Kiểm tra service ngoài NGOÀI transaction DB (Fail-Closed tuyệt đối)
-        ExternalVehicleResponse vehicle = vehicleClient.getVehicleById(vehicleId);
-        if (VEHICLE_STATUS_DECOMMISSIONED.equalsIgnoreCase(vehicle.getStatus())) {
-            throw BusinessException.conflict("Cannot schedule maintenance for a DECOMMISSIONED vehicle: " + vehicleId);
-        }
-
-        ExternalBookingConflictResponse bookingConflict = bookingClient.checkBookingConflict(
-                vehicleId, request.getScheduledStartAt(), request.getScheduledEndAt());
-        if (bookingConflict.isHasConflict()) {
-            throw BusinessException.conflict(buildBookingConflictMessage(vehicleId, bookingConflict));
-        }
+        // Bước 1: Kiểm tra trạng thái xe từ Vehicle Service NGOÀI transaction DB (Fail-Closed tuyệt đối)
+        validateVehicleSchedulable(vehicleId);
 
         // Bước 2: Khởi tạo lock row & transaction DB ngắn hạn kiểm tra xung đột nội bộ
         vehicleLockService.ensureLockRowExists(vehicleId);
@@ -239,12 +226,8 @@ public class MaintenanceServiceImpl implements MaintenanceService {
         }
         UUID vehicleId = existing.getVehicleId();
 
-        // Kiểm tra booking trùng lịch NGOÀI transaction DB (Fail-Closed)
-        ExternalBookingConflictResponse bookingConflict = bookingClient.checkBookingConflict(
-                vehicleId, request.getScheduledStartAt(), request.getScheduledEndAt());
-        if (bookingConflict.isHasConflict()) {
-            throw BusinessException.conflict(buildBookingConflictMessage(vehicleId, bookingConflict));
-        }
+        // Kiểm tra trạng thái xe từ Vehicle Service NGOÀI transaction DB (Fail-Closed)
+        validateVehicleSchedulable(vehicleId);
 
         vehicleLockService.ensureLockRowExists(vehicleId);
 
@@ -325,7 +308,7 @@ public class MaintenanceServiceImpl implements MaintenanceService {
             schedule.setSyncRetryCount(0);
             schedule.setSyncExhausted(false);
             schedule.setLastSyncError(null);
-            schedule.setNextSyncAttemptAt(Instant.now(clock));
+            schedule.setNextSyncAttemptAt(Instant.now(clock).plusSeconds(retryDelaySeconds));
             return maintenanceRepository.saveAndFlush(schedule);
         });
 
@@ -342,7 +325,7 @@ public class MaintenanceServiceImpl implements MaintenanceService {
             );
         } catch (ExternalServiceUnavailableException ex) {
             // Timeout/5xx có thể là timeout-after-commit: GIỮ NGUYÊN START_REQUESTED để Reconciliation xử lý theo operationId
-            recordPendingSyncFailure(id, vehicleId, ex.getMessage());
+            recordPendingSyncFailure(id, vehicleId, MaintenanceStatus.START_REQUESTED, ex.getMessage());
             throw new ExternalServiceUnavailableException(
                     "Vehicle Service timed out or unavailable while starting maintenance " + id
                             + ". Schedule preserved in START_REQUESTED for automatic reconciliation.",
@@ -427,7 +410,7 @@ public class MaintenanceServiceImpl implements MaintenanceService {
             schedule.setSyncRetryCount(0);
             schedule.setSyncExhausted(false);
             schedule.setLastSyncError(null);
-            schedule.setNextSyncAttemptAt(Instant.now(clock));
+            schedule.setNextSyncAttemptAt(Instant.now(clock).plusSeconds(retryDelaySeconds));
             return maintenanceRepository.saveAndFlush(schedule);
         });
 
@@ -444,7 +427,7 @@ public class MaintenanceServiceImpl implements MaintenanceService {
                     "Completing maintenance schedule " + id
             );
         } catch (ExternalServiceUnavailableException ex) {
-            recordPendingSyncFailure(id, vehicleId, ex.getMessage());
+            recordPendingSyncFailure(id, vehicleId, MaintenanceStatus.COMPLETE_REQUESTED, ex.getMessage());
             throw new ExternalServiceUnavailableException(
                     "Vehicle Service timed out or unavailable while completing maintenance " + id
                             + ". Schedule preserved in COMPLETE_REQUESTED for automatic reconciliation.",
@@ -669,14 +652,20 @@ public class MaintenanceServiceImpl implements MaintenanceService {
                 .toList();
     }
 
-    private void recordPendingSyncFailure(UUID scheduleId, UUID vehicleId, String errorMessage) {
+    private void recordPendingSyncFailure(
+            UUID scheduleId,
+            UUID vehicleId,
+            MaintenanceStatus expectedPendingStatus,
+            String errorMessage) {
         transactionTemplate.executeWithoutResult(status -> {
             vehicleLockService.acquireLock(vehicleId);
             maintenanceRepository.findById(scheduleId).ifPresent(schedule -> {
-                schedule.setSyncRetryCount(schedule.getSyncRetryCount() + 1);
-                schedule.setNextSyncAttemptAt(Instant.now(clock).plusSeconds(retryDelaySeconds));
-                schedule.setLastSyncError(truncateError(errorMessage));
-                maintenanceRepository.saveAndFlush(schedule);
+                if (schedule.getStatus() == expectedPendingStatus) {
+                    schedule.setSyncRetryCount(schedule.getSyncRetryCount() + 1);
+                    schedule.setNextSyncAttemptAt(Instant.now(clock).plusSeconds(retryDelaySeconds));
+                    schedule.setLastSyncError(truncateError(errorMessage));
+                    maintenanceRepository.saveAndFlush(schedule);
+                }
             });
         });
     }
@@ -751,15 +740,21 @@ public class MaintenanceServiceImpl implements MaintenanceService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
-    private String buildBookingConflictMessage(UUID vehicleId, ExternalBookingConflictResponse response) {
-        String codes = response.getConflictingBookings().stream()
-                .map(ExternalBookingConflictResponse.ConflictingBookingSummary::getBookingCode)
-                .filter(c -> c != null && !c.isBlank())
-                .collect(Collectors.joining(", "));
-        if (codes.isBlank()) {
-            return "Vehicle " + vehicleId + " has conflicting rental bookings during the requested maintenance window";
+    private void validateVehicleSchedulable(UUID vehicleId) {
+        ExternalVehicleResponse vehicle = vehicleClient.getVehicleById(vehicleId);
+        String rawStatus = vehicle.getStatus();
+        String status = rawStatus == null ? "" : rawStatus.trim().toUpperCase(Locale.ROOT);
+        if (VEHICLE_STATUS_DECOMMISSIONED.equals(status)) {
+            throw BusinessException.conflict("Cannot schedule maintenance for a DECOMMISSIONED vehicle: " + vehicleId);
         }
-        return "Vehicle " + vehicleId + " has conflicting rental bookings (" + codes + ")";
+        if ("RESERVED".equals(status) || "RENTED".equals(status)) {
+            throw BusinessException.conflict(
+                    "Cannot schedule maintenance while vehicle " + vehicleId + " is " + status);
+        }
+        if (!SCHEDULABLE_VEHICLE_STATUSES.contains(status)) {
+            throw BusinessException.conflict(
+                    "Vehicle " + vehicleId + " is in non-schedulable status: " + status);
+        }
     }
 
     private void validateHalfOpenInterval(Instant startAt, Instant endAt) {

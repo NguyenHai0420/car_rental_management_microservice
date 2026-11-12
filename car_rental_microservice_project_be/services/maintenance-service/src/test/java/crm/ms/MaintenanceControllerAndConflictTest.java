@@ -1,6 +1,5 @@
 package crm.ms;
 
-import crm.ms.client.BookingClient;
 import crm.ms.client.VehicleClient;
 import crm.ms.controller.MaintenanceController;
 import crm.ms.dto.MaintenanceConflictResponse;
@@ -64,8 +63,6 @@ class MaintenanceControllerAndConflictTest {
     @Mock
     private VehicleClient vehicleClient;
     @Mock
-    private BookingClient bookingClient;
-    @Mock
     private PlatformTransactionManager transactionManager;
     @Mock
     private MaintenanceService mockedMaintenanceService;
@@ -84,7 +81,6 @@ class MaintenanceControllerAndConflictTest {
                 checklistRepository,
                 vehicleLockService,
                 vehicleClient,
-                bookingClient,
                 mapper,
                 transactionManager,
                 clock,

@@ -13,9 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
-import org.springframework.web.client.RestClientResponseException;
 
 import java.util.Map;
 import java.util.UUID;
@@ -69,22 +67,19 @@ public class RestVehicleClient implements VehicleClient {
 
     @Override
     public ExternalVehicleResponse getVehicleById(UUID vehicleId) {
-        try {
-            RestClient.RequestHeadersSpec<?> spec = restClient.get()
-                    .uri("/api/v1/vehicles/{id}", vehicleId)
-                    .accept(MediaType.APPLICATION_JSON);
-            applyInternalHeaders(spec);
+        RestClient.RequestHeadersSpec<?> spec = restClient.get()
+                .uri("/api/v1/vehicles/{id}", vehicleId)
+                .accept(MediaType.APPLICATION_JSON);
+        applyInternalHeaders(spec);
 
-            String rawBody = spec.retrieve().body(String.class);
-            return unwrapVehicleResponse(rawBody);
-        } catch (RestClientResponseException ex) {
-            log.warn("Vehicle Service HTTP {} on GET vehicleId={}", ex.getStatusCode().value(), vehicleId);
-            throw InternalClientHeaders.mapDownstreamException(SERVICE_LABEL, "vehicle", vehicleId, ex, objectMapper);
-        } catch (ResourceAccessException ex) {
-            log.error("Vehicle Service timeout/network error on GET vehicleId={}: {}", vehicleId, ex.getMessage());
-            throw new ExternalServiceUnavailableException(
-                    "Vehicle Service is unreachable or timed out while fetching vehicle " + vehicleId, ex);
-        }
+        String rawBody = InternalClientHeaders.executeRequest(
+                () -> spec.retrieve().body(String.class),
+                SERVICE_LABEL,
+                "fetching vehicle " + vehicleId,
+                log,
+                ex -> InternalClientHeaders.mapDownstreamException(SERVICE_LABEL, "vehicle", vehicleId, ex, objectMapper)
+        );
+        return unwrapVehicleResponse(rawBody);
     }
 
     @Override
@@ -119,24 +114,19 @@ public class RestVehicleClient implements VehicleClient {
 
     @Override
     public ExternalVehicleOperationResponse getOperationStatus(UUID vehicleId, UUID operationId) {
-        try {
-            RestClient.RequestHeadersSpec<?> spec = restClient.get()
-                    .uri("/api/v1/vehicles/{id}/operations/{operationId}", vehicleId, operationId)
-                    .accept(MediaType.APPLICATION_JSON);
-            applyInternalHeaders(spec);
+        RestClient.RequestHeadersSpec<?> spec = restClient.get()
+                .uri("/api/v1/vehicles/{id}/operations/{operationId}", vehicleId, operationId)
+                .accept(MediaType.APPLICATION_JSON);
+        applyInternalHeaders(spec);
 
-            String rawBody = spec.retrieve().body(String.class);
-            return unwrapOperationResponse(rawBody);
-        } catch (RestClientResponseException ex) {
-            log.warn("Vehicle Service HTTP {} on GET operationId={} for vehicleId={}",
-                    ex.getStatusCode().value(), operationId, vehicleId);
-            throw InternalClientHeaders.mapOperationLookupException(vehicleId, operationId, ex, objectMapper);
-        } catch (ResourceAccessException ex) {
-            log.error("Vehicle Service timeout/network error checking operationId={} for vehicleId={}: {}",
-                    operationId, vehicleId, ex.getMessage());
-            throw new ExternalServiceUnavailableException(
-                    "Vehicle Service is unreachable or timed out while verifying operation " + operationId, ex);
-        }
+        String rawBody = InternalClientHeaders.executeRequest(
+                () -> spec.retrieve().body(String.class),
+                SERVICE_LABEL,
+                "verifying operation " + operationId + " for vehicle " + vehicleId,
+                log,
+                ex -> InternalClientHeaders.mapOperationLookupException(vehicleId, operationId, ex, objectMapper)
+        );
+        return unwrapOperationResponse(rawBody);
     }
 
     private ExternalVehicleResponse postMaintenanceLifecycleAction(
@@ -150,26 +140,21 @@ public class RestVehicleClient implements VehicleClient {
                 .reason(reason)
                 .build();
 
-        try {
-            RestClient.RequestBodySpec spec = restClient.post()
-                    .uri(uriPath, vehicleId)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .accept(MediaType.APPLICATION_JSON)
-                    .header(HEADER_IDEMPOTENCY_KEY, operationId.toString());
-            applyInternalHeaders(spec);
+        RestClient.RequestBodySpec spec = restClient.post()
+                .uri(uriPath, vehicleId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON)
+                .header(HEADER_IDEMPOTENCY_KEY, operationId.toString());
+        applyInternalHeaders(spec);
 
-            String rawBody = spec.body(payload).retrieve().body(String.class);
-            return unwrapVehicleResponse(rawBody);
-        } catch (RestClientResponseException ex) {
-            log.warn("Vehicle Service HTTP {} on POST {} vehicleId={} operationId={}",
-                    ex.getStatusCode().value(), uriPath, vehicleId, operationId);
-            throw InternalClientHeaders.mapDownstreamException(SERVICE_LABEL, "vehicle", vehicleId, ex, objectMapper);
-        } catch (ResourceAccessException ex) {
-            log.error("Vehicle Service timeout/network error on POST {} vehicleId={} operationId={}: {}",
-                    uriPath, vehicleId, operationId, ex.getMessage());
-            throw new ExternalServiceUnavailableException(
-                    "Vehicle Service is unreachable or timed out while executing " + uriPath + " for " + vehicleId, ex);
-        }
+        String rawBody = InternalClientHeaders.executeRequest(
+                () -> spec.body(payload).retrieve().body(String.class),
+                SERVICE_LABEL,
+                "executing " + uriPath + " for vehicle " + vehicleId + " operationId=" + operationId,
+                log,
+                ex -> InternalClientHeaders.mapDownstreamException(SERVICE_LABEL, "vehicle", vehicleId, ex, objectMapper)
+        );
+        return unwrapVehicleResponse(rawBody);
     }
 
     private void applyInternalHeaders(RestClient.RequestHeadersSpec<?> spec) {
@@ -183,6 +168,9 @@ public class RestVehicleClient implements VehicleClient {
         try {
             JsonNode root = objectMapper.readTree(rawBody);
             JsonNode target = root.has("data") && !root.get("data").isNull() ? root.get("data") : root;
+            if ("PROCESSING".equalsIgnoreCase(target.path("outcome").asText(""))) {
+                throw new ExternalServiceUnavailableException("Vehicle Service operation is still processing");
+            }
             ExternalVehicleResponse response = objectMapper.treeToValue(target, ExternalVehicleResponse.class);
             if (response == null || response.getStatus() == null || response.getStatus().isBlank()) {
                 throw new ExternalServiceUnavailableException("Vehicle Service response missing vehicle status field");
