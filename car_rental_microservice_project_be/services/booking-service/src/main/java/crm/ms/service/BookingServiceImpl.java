@@ -43,7 +43,7 @@ public class BookingServiceImpl implements BookingService {
     private final NotificationClient notificationClient;
     private final BookingMapper bookingMapper;
 
-    @Value("${booking.deposit-rate:0.30}")
+    @Value("${booking.deposit-rate:1.00}")
     private BigDecimal depositRate;
 
     @Value("${booking.mock-external-services:false}")
@@ -143,7 +143,7 @@ public class BookingServiceImpl implements BookingService {
                     .build());
         }
 
-        recordStatusHistory(booking, null, BookingStatus.PENDING, "Khởi tạo đơn đặt xe, chờ thanh toán cọc", keycloakUserId);
+        recordStatusHistory(booking, null, BookingStatus.PENDING, "Khởi tạo đơn đặt xe, chờ thanh toán toàn bộ chi phí thuê xe", keycloakUserId);
         Booking saved = bookingRepository.saveAndFlush(booking);
 
         try {
@@ -164,7 +164,7 @@ public class BookingServiceImpl implements BookingService {
             throw new BusinessException(1, 400, "Chỉ có thể xác nhận đơn ở trạng thái PENDING (hiện tại: " + booking.getStatus() + ")");
         }
 
-        String reason = "Đã xác nhận thanh toán tiền cọc thành công" + (paymentCode != null ? " (Mã GD: " + paymentCode + ")" : "");
+        String reason = "Đã xác nhận thanh toán toàn bộ chi phí thuê xe thành công" + (paymentCode != null ? " (Mã GD: " + paymentCode + ")" : "");
         booking.setStatus(BookingStatus.CONFIRMED);
         booking.setUpdatedBy(actor != null ? actor : "system");
 
@@ -303,6 +303,29 @@ public class BookingServiceImpl implements BookingService {
         }
 
         return bookingMapper.fromEntity(saved);
+    }
+
+    @Override
+    @Transactional
+    public BookingResponse completeBooking(UUID bookingId, String notes, String actorUsername) {
+        Booking booking = findActiveBooking(bookingId);
+        if (booking.getStatus() != BookingStatus.RETURNED) {
+            throw new BusinessException(1, 400, "Chỉ có thể hoàn tất chuyến đi khi đơn ở trạng thái RETURNED (hiện tại: " + booking.getStatus() + ")");
+        }
+
+        BookingStatus oldStatus = booking.getStatus();
+        booking.setStatus(BookingStatus.COMPLETED);
+        booking.setUpdatedBy(actorUsername);
+        if (notes != null && !notes.isBlank()) {
+            booking.setNotes(appendNote(booking.getNotes(), "[Hoàn tất] " + notes));
+        }
+
+        recordStatusHistory(booking, oldStatus, BookingStatus.COMPLETED,
+                "Chuyến đi đã hoàn tất thành công", actorUsername);
+        Booking completedSaved = bookingRepository.saveAndFlush(booking);
+
+        log.info("Completed booking {} by actor={}", completedSaved.getBookingCode(), actorUsername);
+        return bookingMapper.fromEntity(completedSaved);
     }
 
     private List<AvailableVehicleResponse> fetchVehiclesFromServiceOrMock() {

@@ -33,5 +33,7 @@ public interface BookingService {
 
     BookingResponse returnVehicle(UUID bookingId, ReturnBookingRequest request, String actorUsername);
 
+    BookingResponse completeBooking(UUID bookingId, String notes, String actorUsername);
+
     BookingResponse confirmBooking(UUID bookingId, String paymentCode, String actor);
 }

@@ -23,4 +23,5 @@ public interface PaymentService {
     // Giai đoạn 5: Hoàn cọc sau khi kiểm tra xe hoàn tất
     PaymentResponse processDepositRefund(UUID paymentId, RefundDepositRequest request);
     PaymentResponse processDepositRefundByBookingId(UUID bookingId, RefundDepositRequest request);
+    void notifyBookingConfirmed(UUID bookingId, String paymentCode);
 }

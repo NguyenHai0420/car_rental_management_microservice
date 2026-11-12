@@ -159,35 +159,42 @@ public class PaymentController {
      */
     @PostMapping("/{id}/simulate-success")
     public ResponseEntity<ResponseApi> simulateSuccess(@PathVariable UUID id) {
-        log.info("Simulating payment success for paymentId={}", id);
+        log.info("Simulating full payment success for paymentId={}", id);
         Payment payment = paymentRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(1, 404, "Không tìm thấy hóa đơn: " + id));
 
-        BigDecimal depositToPay = (payment.getDepositRequired() != null && payment.getDepositRequired().compareTo(BigDecimal.ZERO) > 0)
-                ? payment.getDepositRequired()
-                : new BigDecimal("200000.00");
+        BigDecimal amountToPay = (payment.getTotalAmount() != null && payment.getTotalAmount().compareTo(BigDecimal.ZERO) > 0)
+                ? payment.getTotalAmount()
+                : (payment.getDepositRequired() != null ? payment.getDepositRequired() : new BigDecimal("500000.00"));
 
-        payment.setDepositPaid(payment.getDepositPaid().add(depositToPay));
-        payment.setStatus(PaymentStatus.DEPOSIT_PAID);
+        payment.setAmountPaid(amountToPay);
+        payment.setDepositPaid(payment.getDepositRequired() != null ? payment.getDepositRequired() : BigDecimal.ZERO);
+        payment.setAmountDue(BigDecimal.ZERO);
+        payment.setStatus(PaymentStatus.FULLY_PAID);
+        payment.setPaidAt(LocalDateTime.now());
 
         PaymentTransaction txn = PaymentTransaction.builder()
                 .payment(payment)
-                .txnType(TransactionType.DEPOSIT_CHARGE)
+                .txnType(TransactionType.CHARGE)
                 .txnMethod(TransactionMethod.PAYOS)
-                .amount(depositToPay)
+                .amount(amountToPay)
                 .currency(payment.getCurrency())
                 .status(TransactionStatus.SUCCESS)
                 .gatewayTxnId("VIETINBANK-" + System.currentTimeMillis())
-                .gatewayResponse("Chuyển khoản thành công vào STK 0376359204 - HOANG TU UYEN")
+                .gatewayResponse("Chuyển khoản thanh toán toàn bộ chi phí vào STK 0376359204 - HOANG TU UYEN")
                 .processedAt(LocalDateTime.now())
                 .build();
 
         paymentTransactionRepository.save(txn);
         Payment saved = paymentRepository.save(payment);
 
+        if (saved.getBookingId() != null) {
+            paymentService.notifyBookingConfirmed(saved.getBookingId(), saved.getPaymentCode());
+        }
+
         return ResponseEntity.ok(ResponseApi.builder()
                 .code(HttpStatus.OK)
-                .message("Mô phỏng chuyển khoản thành công vào tài khoản VietinBank!")
+                .message("Mô phỏng thanh toán toàn bộ chi phí thuê xe thành công vào tài khoản VietinBank!")
                 .data(paymentMapper.toResponse(saved))
                 .build());
     }

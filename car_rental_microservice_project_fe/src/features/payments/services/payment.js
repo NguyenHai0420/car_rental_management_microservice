@@ -100,4 +100,8 @@ export const paymentService = {
     const response = await apiClient.post(`/api/v1/payments/${paymentId}/simulate-success`);
     return response.data?.data;
   },
+
+  simulateSuccess: async (paymentId) => {
+    return paymentService.simulatePaymentSuccess(paymentId);
+  },
 };

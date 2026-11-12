@@ -23,7 +23,7 @@ import {
 const { Text } = Typography
 
 const BOOKING_STEPS = [
-  { title: 'Chờ cọc' },
+  { title: 'Chờ thanh toán' },
   { title: 'Đã xác nhận' },
   { title: 'Đang thuê' },
   { title: 'Đã trả xe' },
@@ -49,8 +49,8 @@ export function RentalHistoryTable({ rentals = [], loading = false }) {
       console.error('Failed to fetch booking detail:', err)
       setDetailError(
         err.response?.data?.message ||
-          err.message ||
-          'Không thể tải chi tiết đơn đặt xe từ Booking Service'
+        err.message ||
+        'Không thể tải chi tiết đơn đặt xe từ Booking Service'
       )
     } finally {
       setDetailLoading(false)
@@ -328,10 +328,10 @@ export function RentalHistoryTable({ rentals = [], loading = false }) {
                 },
                 {
                   key: 'deposit',
-                  label: 'Tiền cọc yêu cầu',
+                  label: 'Tổng tiền thanh toán',
                   children: (
-                    <Text strong>
-                      {formatVnd(selectedBooking.depositRequired, selectedBooking.currency)}
+                    <Text strong style={{ color: '#1677ff' }}>
+                      {formatVnd(selectedBooking.estimatedTotal, selectedBooking.currency)}
                     </Text>
                   ),
                 },

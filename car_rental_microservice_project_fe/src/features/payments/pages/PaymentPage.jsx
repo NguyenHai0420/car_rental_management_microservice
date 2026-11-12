@@ -4,6 +4,7 @@ import { SiteHeader } from "../../home/SiteHeader";
 import { SiteFooter } from "../../home/SiteFooter";
 import { usePayment } from "../hooks/payment";
 import { paymentService } from "../services/payment";
+import { bookingService } from "../../bookings/services/booking";
 import { PaymentForm } from "../components/PaymentForm";
 
 function readSavedOrder() {
@@ -40,7 +41,58 @@ export const PaymentPage = ({ bookingId: propBookingId, customOrder: propOrder }
         }
       })
       .catch(() => {
-        // Giữ null để hiển thị thông báo lỗi hoặc trạng thái chưa có hóa đơn
+        // Nếu chưa có hóa đơn trên payment-service, tự động lấy thông tin từ booking-service để tạo
+        bookingService
+          .getBookingById(currentBookingId)
+          .then(async (booking) => {
+            if (!active || !booking) return;
+            const total = Number(booking.estimatedTotal || 0);
+            const subtotal = Math.round(total / 1.1);
+            const tax = total - subtotal;
+            try {
+              const createdPayment = await paymentService.createPayment({
+                bookingId: booking.id,
+                customerId: booking.customerId || "00000000-0000-0000-0000-000000000001",
+                subtotal,
+                taxAmount: tax,
+                totalAmount: total,
+                depositRequired: 0,
+                currency: booking.currency || "VND",
+                notes: booking.vehicleInfo || `Đơn thuê xe ${booking.bookingCode}`,
+                items: [
+                  {
+                    itemType: "RENTAL",
+                    description: `Chi phí thuê xe trọn gói: ${booking.vehicleInfo || booking.bookingCode}`,
+                    quantity: 1,
+                    unitPrice: total,
+                    amount: total,
+                  },
+                ],
+              });
+              if (active && createdPayment) {
+                setFetchedBooking({ bookingId: currentBookingId, data: createdPayment });
+              }
+            } catch {
+              if (active) {
+                setFetchedBooking({
+                  bookingId: currentBookingId,
+                  data: {
+                    id: `pay-${booking.id.slice(0, 8)}`,
+                    bookingId: booking.id,
+                    paymentCode: `PAY-${booking.bookingCode.replace(/[^a-zA-Z0-9]/g, "")}`,
+                    vehicleName: booking.vehicleInfo,
+                    totalAmount: total,
+                    rentalAmount: total,
+                    subtotal,
+                    taxAmount: tax,
+                    depositRequired: 0,
+                    status: "PENDING",
+                  },
+                });
+              }
+            }
+          })
+          .catch(() => {});
       });
 
     return () => {
@@ -96,8 +148,8 @@ export const PaymentPage = ({ bookingId: propBookingId, customOrder: propOrder }
               <span className="order-pill">
                 🚘 Đang thanh toán: {activePayment.vehicleName || `Đơn #${activePayment.paymentCode}`}
               </span>
-              <Link to="/pricing" style={{ fontSize: "13px", fontWeight: 700 }}>
-                ← Đổi xe / tính lại giá
+              <Link to="/bookings" style={{ fontSize: "13px", fontWeight: 700 }}>
+                ← Quay lại đơn thuê của tôi
               </Link>
               {activePayment.status !== "FULLY_PAID" && activePayment.status !== "DEPOSIT_PAID" && (
                 <button
@@ -135,12 +187,12 @@ export const PaymentPage = ({ bookingId: propBookingId, customOrder: propOrder }
                 <p className="eyebrow">CHƯA CÓ ĐƠN ĐẶT XE</p>
                 <h2 style={{ fontSize: "22px", marginTop: "6px" }}>Chưa có hóa đơn cần thanh toán</h2>
                 <p className="hint" style={{ fontSize: "14px", marginTop: "8px" }}>
-                  Bạn chưa chọn xe để đặt. Vui lòng chọn xe từ Trang chủ hoặc vào mục Tính giá &amp; Thuê xe để tạo hóa đơn thanh toán VietQR mới.
+                  Bạn chưa có đơn đặt xe cần thanh toán. Vui lòng chọn xe từ Trang chủ để tạo đơn đặt xe mới.
                 </p>
               </div>
               <div className="result-actions">
-                <Link to="/pricing" className="btn btn-danger btn-lg">
-                  🚗 Chọn xe &amp; Tính giá ngay →
+                <Link to="/" className="btn btn-danger btn-lg">
+                  🚗 Khám phá xe tại Trang chủ →
                 </Link>
                 <Link to="/payment/history" className="btn btn-primary btn-lg">
                   📜 Xem lịch sử thanh toán
