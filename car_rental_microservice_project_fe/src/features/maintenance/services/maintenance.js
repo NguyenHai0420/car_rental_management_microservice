@@ -1,5 +1,5 @@
 import apiClient from '../../../services/axios-client.js'
-import { unwrapApiData } from '../../../services/api-helpers.js'
+import { extractApiError, unwrapApiData } from '../../../services/api-helpers.js'
 import { vehicleStatuses } from '../../vehicles/vehicle-fields.js'
 
 const BASE = '/api/v1/maintenances'
@@ -128,6 +128,73 @@ export const maintenanceService = {
       params,
     })
     return response.data?.data ?? response.data
+  },
+
+  async checkVehicleHoldConflicts(vehicleId, params) {
+    const cleanParams = Object.fromEntries(
+      Object.entries(params || {}).filter(([, value]) => value !== undefined && value !== null && value !== '')
+    )
+    const response = await apiClient.get(`/api/v1/vehicles/${encodeURIComponent(vehicleId)}/conflicts`, {
+      params: cleanParams,
+    })
+    return unwrapApiData(response)
+  },
+
+  /** Query both maintenance schedules and vehicle-level holds (booking/maintenance) in one combined view. */
+  async checkAllConflicts(vehicleId, { startAt, endAt, excludeScheduleId } = {}) {
+    const [maintRes, vehicleRes] = await Promise.allSettled([
+      maintenanceService.checkConflicts(vehicleId, {
+        startAt,
+        endAt,
+        ...(excludeScheduleId ? { excludeScheduleId } : {}),
+      }),
+      maintenanceService.checkVehicleHoldConflicts(vehicleId, {
+        from: startAt,
+        to: endAt,
+        ...(excludeScheduleId ? { excludeOwnerType: 'MAINTENANCE', excludeOwnerId: excludeScheduleId } : {}),
+      }),
+    ])
+
+    if (maintRes.status === 'rejected' && vehicleRes.status === 'rejected') {
+      throw maintRes.reason
+    }
+
+    const maintData = maintRes.status === 'fulfilled' ? maintRes.value || {} : {}
+    const vehicleData = vehicleRes.status === 'fulfilled' ? vehicleRes.value || {} : {}
+
+    const schedules = maintData.conflictingSchedules || []
+    const scheduleIds = new Set(schedules.map((s) => String(s.id)))
+    const rawHolds = vehicleData.conflictingHolds || []
+    const holds = rawHolds.filter(
+      (h) => !(h.ownerType === 'MAINTENANCE' && scheduleIds.has(String(h.ownerId)))
+    )
+
+    const warnings = []
+    if (maintRes.status === 'rejected') {
+      warnings.push(`Không kiểm tra được lịch bên bảo dưỡng (${extractApiError(maintRes.reason)}).`)
+    }
+    if (vehicleRes.status === 'rejected') {
+      warnings.push(`Không kiểm tra được lịch giữ xe bên Quản lý xe (${extractApiError(vehicleRes.reason)}).`)
+    }
+
+    const vehicleStatus = vehicleData.vehicleStatus || null
+    const hasConflict =
+      Boolean(maintData.hasConflict) ||
+      Boolean(vehicleData.hasConflict) ||
+      schedules.length > 0 ||
+      holds.length > 0 ||
+      vehicleStatus === 'DECOMMISSIONED'
+
+    return {
+      vehicleId,
+      requestedStartAt: maintData.requestedStartAt || vehicleData.from || startAt,
+      requestedEndAt: maintData.requestedEndAt || vehicleData.to || endAt,
+      vehicleStatus,
+      hasConflict,
+      conflictingSchedules: schedules,
+      conflictingHolds: holds,
+      partialWarning: warnings.length > 0 ? warnings.join(' ') : null,
+    }
   },
 
   async listServiceRecords(scheduleId) {

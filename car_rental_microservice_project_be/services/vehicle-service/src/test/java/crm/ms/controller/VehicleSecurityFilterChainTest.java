@@ -71,6 +71,13 @@ class VehicleSecurityFilterChainTest {
                         .issuedAt(Instant.now())
                         .expiresAt(Instant.now().plusSeconds(300))
                         .build();
+                case "owner-token" -> Jwt.withTokenValue(token)
+                        .header("alg", "none")
+                        .subject("owner-user-1")
+                        .claim("realm_access", Map.of("roles", List.of("VEHICLE_OWNER")))
+                        .issuedAt(Instant.now())
+                        .expiresAt(Instant.now().plusSeconds(300))
+                        .build();
                 case "customer-token" -> Jwt.withTokenValue(token)
                         .header("alg", "none")
                         .subject("customer-user-1")
@@ -182,6 +189,21 @@ class VehicleSecurityFilterChainTest {
                         .contentType(APPLICATION_JSON)
                         .content(json.createObjectNode().put("status", "IN_MAINTENANCE").toString()))
                 .andExpect(status().isConflict());
+
+        // VEHICLE_OWNER (owner1) can list fleet vehicles & check conflicts for maintenance operations
+        mvc.perform(get(BASE)
+                        .header("Authorization", "Bearer owner-token")
+                        .header("X-User-ID", "owner-user-1")
+                        .header("X-User-Roles", "VEHICLE_OWNER"))
+                .andExpect(status().isOk());
+
+        mvc.perform(get(BASE + "/" + vehicleId + "/conflicts")
+                        .param("from", "2026-11-20T01:00:00Z")
+                        .param("to", "2026-11-20T10:00:00Z")
+                        .header("Authorization", "Bearer owner-token")
+                        .header("X-User-ID", "owner-user-1")
+                        .header("X-User-Roles", "VEHICLE_OWNER"))
+                .andExpect(status().isOk());
     }
 
     private UUID createSampleVehicleAsStaff() throws Exception {

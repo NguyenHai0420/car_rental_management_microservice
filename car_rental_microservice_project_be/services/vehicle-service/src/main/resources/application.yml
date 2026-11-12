@@ -45,7 +45,7 @@ vehicle:
     internal-token: ${VEHICLE_INTERNAL_TOKEN:}
 
 media:
-  management-roles: ${VEHICLE_MEDIA_MANAGEMENT_ROLES:ADMIN,STAFF}
+  management-roles: ${VEHICLE_MEDIA_MANAGEMENT_ROLES:ADMIN,STAFF,VEHICLE_OWNER}
   storage:
     image-bucket: ${VEHICLE_IMAGE_BUCKET:${MINIO_IMAGE_BUCKET:vehicle-images}}
     document-bucket: ${VEHICLE_DOCUMENT_BUCKET:${MINIO_DOCUMENT_BUCKET:vehicle-documents}}

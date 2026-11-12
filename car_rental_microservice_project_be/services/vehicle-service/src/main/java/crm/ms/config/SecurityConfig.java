@@ -42,13 +42,13 @@ public class SecurityConfig {
             HttpSecurity http,
             VehicleInternalAuthFilter vehicleInternalAuthFilter,
             ObjectMapper objectMapper,
-            @Value("${media.management-roles:ADMIN,STAFF}") String mediaRoles) throws Exception {
+            @Value("${media.management-roles:ADMIN,STAFF,VEHICLE_OWNER}") String mediaRoles) throws Exception {
         String[] resolvedMediaRoles = Arrays.stream(mediaRoles.split(","))
                 .map(VehicleAccessPolicy::normalizeRoleName)
                 .filter(role -> !role.isBlank())
                 .toArray(String[]::new);
         if (resolvedMediaRoles.length == 0) {
-            resolvedMediaRoles = new String[]{"ADMIN", "STAFF"};
+            resolvedMediaRoles = new String[]{"ADMIN", "STAFF", "VEHICLE_OWNER"};
         }
         String[] mediaAuthorities = resolvedMediaRoles;
 
@@ -71,7 +71,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET,
                                 "/api/v1/vehicles/*/operations/*").hasRole("INTERNAL_SERVICE")
                         .requestMatchers(HttpMethod.GET,
-                                "/api/v1/vehicles/*/conflicts").hasAnyRole("INTERNAL_SERVICE", "ADMIN", "STAFF")
+                                "/api/v1/vehicles/*/conflicts").hasAnyRole("INTERNAL_SERVICE", "ADMIN", "STAFF", "VEHICLE_OWNER")
                         .requestMatchers(HttpMethod.GET,
                                 "/api/v1/vehicles/*/availability").authenticated()
                         .requestMatchers(HttpMethod.PATCH,
@@ -87,10 +87,10 @@ public class SecurityConfig {
                                 "/api/v1/vehicles/*/documents/*/url").hasAnyRole(mediaAuthorities)
                         .requestMatchers(HttpMethod.GET,
                                 "/api/v1/vehicles/categories",
-                                "/api/v1/vehicles/models").hasAnyRole("ADMIN", "STAFF")
+                                "/api/v1/vehicles/models").hasAnyRole("ADMIN", "STAFF", "VEHICLE_OWNER")
                         .requestMatchers(HttpMethod.GET,
-                                "/api/v1/vehicles/*").hasAnyRole("INTERNAL_SERVICE", "ADMIN", "STAFF")
-                        .requestMatchers("/api/v1/vehicles/**").hasAnyRole("ADMIN", "STAFF")
+                                "/api/v1/vehicles/*").hasAnyRole("INTERNAL_SERVICE", "ADMIN", "STAFF", "VEHICLE_OWNER")
+                        .requestMatchers("/api/v1/vehicles/**").hasAnyRole("ADMIN", "STAFF", "VEHICLE_OWNER")
                         .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2

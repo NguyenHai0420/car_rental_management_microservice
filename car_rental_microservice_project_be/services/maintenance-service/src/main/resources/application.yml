@@ -61,7 +61,7 @@ maintenance:
     require-gateway-secret: ${MAINTENANCE_REQUIRE_GATEWAY_SECRET:true}
     gateway-secret: ${MAINTENANCE_GATEWAY_SECRET:}
     internal-token: ${MAINTENANCE_INTERNAL_TOKEN:}
-    allowed-roles: ${MAINTENANCE_ALLOWED_ROLES:ADMIN,STAFF}
+    allowed-roles: ${MAINTENANCE_ALLOWED_ROLES:ADMIN,STAFF,VEHICLE_OWNER}
 
 management:
   endpoints:

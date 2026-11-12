@@ -25,9 +25,12 @@ import {
   CloseCircleOutlined,
   PlayCircleOutlined,
   PlusOutlined,
+  SearchOutlined,
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
-import { extractApiError, formatCurrency, formatDateTime } from '../../../services/api-helpers.js'
+import { formatCurrency, formatDateTime } from '../../../services/api-helpers.js'
+import { ConflictSummaryAlert, ErrorAlertBanner } from '../components/ConflictSummaryAlert.jsx'
+import { formatMaintenanceError, isConflictError } from '../services/maintenanceErrors.js'
 import {
   INSPECTION_RESULT_META,
   INSPECTION_RESULT_OPTIONS,
@@ -41,12 +44,18 @@ import {
 
 const { Text } = Typography
 
-export function MaintenanceDetailDrawer({ schedule, vehicleLabel, open, onClose, onUpdated }) {
+export function MaintenanceDetailDrawer({ schedule, vehicleLabel, inspectorDefault = '', open, onClose, onUpdated }) {
   const { message } = App.useApp()
   const [records, setRecords] = useState([])
   const [checklists, setChecklists] = useState([])
   const [loadingSub, setLoadingSub] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
+  const [checkingEditConflict, setCheckingEditConflict] = useState(false)
+  const [drawerError, setDrawerError] = useState(null)
+  const [editError, setEditError] = useState(null)
+  const [editConflictResult, setEditConflictResult] = useState(null)
+  const [subError, setSubError] = useState(null)
+  const [modalError, setModalError] = useState(null)
   const [modalMode, setModalMode] = useState(null)
   const [recordForm] = Form.useForm()
   const [checklistForm] = Form.useForm()
@@ -70,7 +79,11 @@ export function MaintenanceDetailDrawer({ schedule, vehicleLabel, open, onClose,
         setRecords(recList)
         setChecklists(chkList)
       } catch (err) {
-        if (active) message.error(extractApiError(err, 'Không tải được biên bản và danh mục kiểm định.'))
+        if (active) {
+          const parsed = formatMaintenanceError(err, 'Không tải được biên bản và danh mục kiểm định.')
+          setDrawerError(parsed)
+          message.error(parsed.description || parsed.title)
+        }
       } finally {
         if (active) setLoadingSub(false)
       }
@@ -109,18 +122,22 @@ export function MaintenanceDetailDrawer({ schedule, vehicleLabel, open, onClose,
 
   const handleStart = async () => {
     setActionLoading(true)
+    setDrawerError(null)
     try {
       const updated = await maintenanceService.startMaintenance(schedule.id)
       message.success('Đã bắt đầu bảo dưỡng và đồng bộ trạng thái xe.')
       refreshParent(updated)
     } catch (err) {
-      message.error(extractApiError(err, 'Không thể bắt đầu bảo dưỡng.'))
+      const parsed = formatMaintenanceError(err, 'Không thể bắt đầu bảo dưỡng.')
+      setDrawerError(parsed)
+      message.error(parsed.description || parsed.title)
     } finally {
       setActionLoading(false)
     }
   }
 
   const handleModalSubmit = async () => {
+    setModalError(null)
     try {
       const values = await actionForm.validateFields()
       setActionLoading(true)
@@ -133,32 +150,108 @@ export function MaintenanceDetailDrawer({ schedule, vehicleLabel, open, onClose,
         message.success('Đã hủy lịch bảo dưỡng.')
       }
       setModalMode(null)
+      setModalError(null)
       actionForm.resetFields()
       if (updated) refreshParent(updated)
     } catch (err) {
       if (err?.errorFields) return
-      message.error(extractApiError(err, 'Thao tác thất bại.'))
+      const parsed = formatMaintenanceError(err, 'Thao tác thất bại.')
+      setModalError(parsed)
+      message.error(parsed.description || parsed.title)
     } finally {
       setActionLoading(false)
     }
   }
 
+  const handleCheckEditConflict = async () => {
+    setEditError(null)
+    try {
+      const values = await updateForm.validateFields(['scheduledStartAt', 'scheduledEndAt'])
+      if (!values.scheduledEndAt?.isAfter(values.scheduledStartAt)) {
+        const errObj = {
+          title: 'Khung thời gian không hợp lệ',
+          description: 'Thời gian kết thúc phải lớn hơn thời gian bắt đầu.',
+        }
+        setEditError(errObj)
+        setEditConflictResult(null)
+        message.error(errObj.description)
+        return
+      }
+      setCheckingEditConflict(true)
+      const data = await maintenanceService.checkAllConflicts(schedule.vehicleId, {
+        startAt: values.scheduledStartAt.toISOString(),
+        endAt: values.scheduledEndAt.toISOString(),
+        excludeScheduleId: schedule.id,
+      })
+      setEditConflictResult(data)
+      if (data.hasConflict) {
+        const total = (data.conflictingSchedules?.length || 0) + (data.conflictingHolds?.length || 0)
+        message.warning(
+          total > 0
+            ? `Phát hiện ${total} lịch / giữ chỗ bị trùng khung giờ mới.`
+            : 'Xe đang không khả dụng trong trạng thái hiện tại.'
+        )
+      } else {
+        message.success('Khung giờ mới hợp lệ, chưa phát hiện trùng lịch.')
+      }
+    } catch (err) {
+      if (err?.errorFields) return
+      const parsed = formatMaintenanceError(err, 'Kiểm tra trùng lịch thất bại.')
+      setEditError(parsed)
+      message.error(parsed.description || parsed.title)
+    } finally {
+      setCheckingEditConflict(false)
+    }
+  }
+
   const handleUpdateSchedule = async (values) => {
+    if (!values.scheduledEndAt?.isAfter(values.scheduledStartAt)) {
+      const errObj = {
+        title: 'Khung thời gian không hợp lệ',
+        description: 'Thời gian kết thúc phải lớn hơn thời gian bắt đầu.',
+      }
+      setEditError(errObj)
+      message.error(errObj.description)
+      return
+    }
+
+    const startAt = values.scheduledStartAt.toISOString()
+    const endAt = values.scheduledEndAt.toISOString()
+
     setActionLoading(true)
+    setEditError(null)
+    setDrawerError(null)
     try {
       const updated = await maintenanceService.updateSchedule(schedule.id, {
-        scheduledStartAt: values.scheduledStartAt.toISOString(),
-        scheduledEndAt: values.scheduledEndAt.toISOString(),
+        scheduledStartAt: startAt,
+        scheduledEndAt: endAt,
         scheduledAtKm: values.scheduledAtKm ?? null,
         estimatedCost: values.estimatedCost ?? null,
         assignedTo: values.assignedTo?.trim() || null,
         priority: values.priority,
         notes: values.notes?.trim() || null,
       })
+      setEditConflictResult(null)
       message.success('Đã cập nhật thông tin lịch bảo dưỡng.')
       refreshParent(updated)
     } catch (err) {
-      message.error(extractApiError(err, 'Cập nhật lịch thất bại.'))
+      const parsed = formatMaintenanceError(err, 'Cập nhật lịch thất bại.')
+      setEditError(parsed)
+      message.error(parsed.description || parsed.title)
+      if (isConflictError(err)) {
+        try {
+          const conflicts = await maintenanceService.checkAllConflicts(schedule.vehicleId, {
+            startAt,
+            endAt,
+            excludeScheduleId: schedule.id,
+          })
+          if (conflicts?.hasConflict) {
+            setEditConflictResult(conflicts)
+          }
+        } catch {
+          // Giữ nguyên lỗi cập nhật chính nếu truy vấn chi tiết phụ không thành công
+        }
+      }
     } finally {
       setActionLoading(false)
     }
@@ -166,6 +259,7 @@ export function MaintenanceDetailDrawer({ schedule, vehicleLabel, open, onClose,
 
   const handleAddRecord = async (values) => {
     setLoadingSub(true)
+    setSubError(null)
     try {
       await maintenanceService.addServiceRecord(schedule.id, {
         ...values,
@@ -177,7 +271,9 @@ export function MaintenanceDetailDrawer({ schedule, vehicleLabel, open, onClose,
       setRecords(list)
       message.success('Đã thêm biên bản công việc.')
     } catch (err) {
-      message.error(extractApiError(err, 'Thêm biên bản công việc thất bại.'))
+      const parsed = formatMaintenanceError(err, 'Thêm biên bản công việc thất bại.')
+      setSubError(parsed)
+      message.error(parsed.description || parsed.title)
     } finally {
       setLoadingSub(false)
     }
@@ -185,6 +281,7 @@ export function MaintenanceDetailDrawer({ schedule, vehicleLabel, open, onClose,
 
   const handleAddChecklist = async (values) => {
     setLoadingSub(true)
+    setSubError(null)
     try {
       await maintenanceService.addChecklistItem(schedule.id, values)
       checklistForm.resetFields()
@@ -192,7 +289,9 @@ export function MaintenanceDetailDrawer({ schedule, vehicleLabel, open, onClose,
       setChecklists(list)
       message.success('Đã thêm hạng mục kiểm định.')
     } catch (err) {
-      message.error(extractApiError(err, 'Thêm hạng mục kiểm định thất bại.'))
+      const parsed = formatMaintenanceError(err, 'Thêm hạng mục kiểm định thất bại.')
+      setSubError(parsed)
+      message.error(parsed.description || parsed.title)
     } finally {
       setLoadingSub(false)
     }
@@ -200,19 +299,22 @@ export function MaintenanceDetailDrawer({ schedule, vehicleLabel, open, onClose,
 
   const handleQuickChecklistResult = async (item, result) => {
     setLoadingSub(true)
+    setSubError(null)
     try {
       await maintenanceService.updateChecklistItem(schedule.id, item.id, {
         result,
         measuredValue: item.measuredValue,
         inspectorNotes: item.inspectorNotes,
-        inspectorName: item.inspectorName || 'admin',
+        inspectorName: item.inspectorName || inspectorDefault || undefined,
       })
       const list = await maintenanceService.listChecklists(schedule.id)
       setChecklists(list)
       const label = INSPECTION_RESULT_META[result]?.label || result
       message.success(`Đã cập nhật "${item.checkItem}" → ${label}`)
     } catch (err) {
-      message.error(extractApiError(err, 'Cập nhật đánh giá kiểm định thất bại.'))
+      const parsed = formatMaintenanceError(err, 'Cập nhật đánh giá kiểm định thất bại.')
+      setSubError(parsed)
+      message.error(parsed.description || parsed.title)
     } finally {
       setLoadingSub(false)
     }
@@ -221,6 +323,15 @@ export function MaintenanceDetailDrawer({ schedule, vehicleLabel, open, onClose,
   const canStartOrCancel = schedule.status === 'SCHEDULED' || schedule.status === 'OVERDUE'
   const canComplete = schedule.status === 'IN_PROGRESS'
   const isFinished = schedule.status === 'COMPLETED' || schedule.status === 'CANCELLED'
+
+  const handleClose = () => {
+    setDrawerError(null)
+    setEditError(null)
+    setEditConflictResult(null)
+    setSubError(null)
+    setModalError(null)
+    onClose?.()
+  }
 
   return (
     <Drawer
@@ -233,7 +344,7 @@ export function MaintenanceDetailDrawer({ schedule, vehicleLabel, open, onClose,
       }
       width={780}
       open={open}
-      onClose={onClose}
+      onClose={handleClose}
       focusable={{ trap: false }}
       extra={
         <Space wrap>
@@ -256,6 +367,7 @@ export function MaintenanceDetailDrawer({ schedule, vehicleLabel, open, onClose,
             disabled={!canComplete}
             loading={actionLoading}
             onClick={() => {
+              setModalError(null)
               actionForm.resetFields()
               setModalMode('complete')
             }}
@@ -268,6 +380,7 @@ export function MaintenanceDetailDrawer({ schedule, vehicleLabel, open, onClose,
             disabled={!canStartOrCancel}
             loading={actionLoading}
             onClick={() => {
+              setModalError(null)
               actionForm.resetFields()
               setModalMode('cancel')
             }}
@@ -277,6 +390,12 @@ export function MaintenanceDetailDrawer({ schedule, vehicleLabel, open, onClose,
         </Space>
       }
     >
+      <ErrorAlertBanner
+        error={drawerError}
+        onClose={() => setDrawerError(null)}
+        style={{ marginBottom: 16 }}
+      />
+
       <Tabs
         items={[
           {
@@ -373,9 +492,29 @@ export function MaintenanceDetailDrawer({ schedule, vehicleLabel, open, onClose,
                     <Form.Item label="Ghi chú" name="notes">
                       <Input.TextArea rows={2} />
                     </Form.Item>
-                    <Button type="primary" htmlType="submit" disabled={!canStartOrCancel} loading={actionLoading}>
-                      Lưu thay đổi
-                    </Button>
+                    <ErrorAlertBanner
+                      error={editError}
+                      onClose={() => setEditError(null)}
+                      style={{ marginBottom: 12 }}
+                    />
+                    <ConflictSummaryAlert
+                      conflictResult={editConflictResult}
+                      onClose={() => setEditConflictResult(null)}
+                      style={{ marginBottom: 12 }}
+                    />
+                    <Space wrap>
+                      <Button
+                        icon={<SearchOutlined />}
+                        disabled={!canStartOrCancel}
+                        loading={checkingEditConflict}
+                        onClick={handleCheckEditConflict}
+                      >
+                        Kiểm tra trùng lịch
+                      </Button>
+                      <Button type="primary" htmlType="submit" disabled={!canStartOrCancel} loading={actionLoading}>
+                        Lưu thay đổi
+                      </Button>
+                    </Space>
                   </Form>
                 </Card>
               </Space>
@@ -386,6 +525,7 @@ export function MaintenanceDetailDrawer({ schedule, vehicleLabel, open, onClose,
             label: `Biên bản dịch vụ (${records.length})`,
             children: (
               <Space direction="vertical" size={16} style={{ width: '100%' }}>
+                <ErrorAlertBanner error={subError} onClose={() => setSubError(null)} />
                 {!isFinished && (
                   <Card size="small" title="Thêm biên bản công việc đã thực hiện">
                     <Form
@@ -476,6 +616,7 @@ export function MaintenanceDetailDrawer({ schedule, vehicleLabel, open, onClose,
             label: `Kiểm định an toàn (${checklists.length})`,
             children: (
               <Space direction="vertical" size={16} style={{ width: '100%' }}>
+                <ErrorAlertBanner error={subError} onClose={() => setSubError(null)} />
                 {!isFinished && (
                   <Card size="small" title="Thêm hạng mục kiểm định">
                     <Form
@@ -572,8 +713,16 @@ export function MaintenanceDetailDrawer({ schedule, vehicleLabel, open, onClose,
         open={Boolean(modalMode)}
         confirmLoading={actionLoading}
         onOk={handleModalSubmit}
-        onCancel={() => setModalMode(null)}
+        onCancel={() => {
+          setModalMode(null)
+          setModalError(null)
+        }}
       >
+        <ErrorAlertBanner
+          error={modalError}
+          onClose={() => setModalError(null)}
+          style={{ marginBottom: 16 }}
+        />
         <Form form={actionForm} layout="vertical">
           {modalMode === 'complete' ? (
             <>

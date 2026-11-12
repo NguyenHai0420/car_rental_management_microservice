@@ -75,7 +75,7 @@ export default function App() {
         <Route
           path="/maintenance"
           element={
-            <PrivateRoute allowedRoles={['ADMIN', 'STAFF']}>
+            <PrivateRoute allowedRoles={['ADMIN', 'STAFF', 'VEHICLE_OWNER']}>
               <MaintenancePage />
             </PrivateRoute>
           }

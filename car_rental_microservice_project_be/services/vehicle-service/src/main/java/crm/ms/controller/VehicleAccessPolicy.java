@@ -21,12 +21,12 @@ import java.util.stream.Collectors;
 public class VehicleAccessPolicy {
     public static final String INTERNAL_TOKEN_HEADER = "X-Internal-Service-Token";
     public static final String SERVICE_NAME_HEADER = "X-Service-Name";
-    private static final Set<String> FLEET_ROLES = Set.of("ADMIN", "STAFF");
+    private static final Set<String> FLEET_ROLES = Set.of("ADMIN", "STAFF", "VEHICLE_OWNER");
     private static final Pattern SAFE_SERVICE_NAME = Pattern.compile("^[a-zA-Z0-9._-]{1,64}$");
     private final Set<String> mediaRoles;
     private final byte[] internalToken;
 
-    public VehicleAccessPolicy(@Value("${media.management-roles:ADMIN,STAFF}") String mediaRoles,
+    public VehicleAccessPolicy(@Value("${media.management-roles:ADMIN,STAFF,VEHICLE_OWNER}") String mediaRoles,
                                @Value("${vehicle.security.internal-token:}") String internalToken) {
         this.internalToken = internalToken.strip().getBytes(StandardCharsets.UTF_8);
         this.mediaRoles = Arrays.stream(mediaRoles.split(","))
@@ -47,7 +47,7 @@ public class VehicleAccessPolicy {
     }
 
     public String requireFleetManager(String userId, String roles) {
-        return requireRole(userId, roles, FLEET_ROLES, "ADMIN or STAFF role required");
+        return requireRole(userId, roles, FLEET_ROLES, "ADMIN, STAFF, or VEHICLE_OWNER role required");
     }
 
     /** True only when a token is configured and the caller sent exactly that token. */
