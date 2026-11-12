@@ -49,19 +49,25 @@ public class VehicleMediaServiceImpl implements VehicleMediaService {
     @Override
     @Transactional
     public VehicleImageResponse uploadImage(UUID vehicleId, MediaFile file, ImageType imageType,
-                                            boolean primary, int sortOrder, String createdBy) {
+                                            boolean primary, Integer sortOrder, String createdBy) {
         Vehicle vehicle = activeVehicle(vehicleId, true);
-        if (imageType == null || sortOrder < 0) throw invalid("Image type and non-negative sort order are required");
+        if (imageType == null) throw invalid("Image type is required");
+        if (sortOrder != null && sortOrder < 0) throw invalid("Sort order must not be negative");
         var validated = validator.validate(file, false);
         String key = objectKey(vehicleId, "images", validated.extension());
         return persistUpload(settings.imageBucket(), key, validated, () -> {
-            if (primary) {
+            List<VehicleImage> gallery = images.findByVehicleIdOrderBySortOrderAscCreatedAtAscIdAsc(vehicleId);
+            // New images go to the end of the gallery; the first image of a vehicle becomes its cover.
+            int position = sortOrder != null ? sortOrder : gallery.stream()
+                    .mapToInt(image -> image.getSortOrder() == null ? 0 : image.getSortOrder()).max().orElse(-1) + 1;
+            boolean cover = primary || gallery.stream().noneMatch(image -> Boolean.TRUE.equals(image.getIsPrimary()));
+            if (cover) {
                 // The vehicle row lock serializes primary-image changes for this aggregate.
                 images.findByVehicleIdAndIsPrimaryTrue(vehicleId).forEach(image -> image.setIsPrimary(false));
             }
             VehicleImage image = VehicleImage.builder().vehicle(vehicle).imageType(imageType)
                     .objectKey(key).contentType(validated.contentType()).fileName(validated.fileName())
-                    .fileSizeBytes(validated.size()).sortOrder(sortOrder).isPrimary(primary).createdBy(createdBy).build();
+                    .fileSizeBytes(validated.size()).sortOrder(position).isPrimary(cover).createdBy(createdBy).build();
             return imageResponse(images.saveAndFlush(image));
         });
     }
@@ -81,7 +87,40 @@ public class VehicleMediaServiceImpl implements VehicleMediaService {
                 .orElseThrow(() -> missing("Image"));
         images.delete(image);
         images.flush();
+        if (Boolean.TRUE.equals(image.getIsPrimary())) {
+            // Keep a cover while the vehicle still has images: promote the next one in display order.
+            images.findByVehicleIdOrderBySortOrderAscCreatedAtAscIdAsc(vehicleId).stream().findFirst()
+                    .ifPresent(next -> next.setIsPrimary(true));
+        }
         deleteAfterCommit(settings.imageBucket(), image.getObjectKey());
+    }
+
+    @Override
+    @Transactional
+    public List<VehicleImageResponse> setPrimaryImage(UUID vehicleId, UUID imageId) {
+        activeVehicle(vehicleId, true);
+        VehicleImage cover = images.findByIdAndVehicleId(imageId, vehicleId).orElseThrow(() -> missing("Image"));
+        images.findByVehicleIdAndIsPrimaryTrue(vehicleId).forEach(image -> image.setIsPrimary(false));
+        // Flush the unset first so a unique "one cover" index, if added later, never sees two covers.
+        images.flush();
+        cover.setIsPrimary(true);
+        images.flush();
+        return listImages(vehicleId);
+    }
+
+    @Override
+    @Transactional
+    public List<VehicleImageResponse> reorderImages(UUID vehicleId, List<UUID> imageIds) {
+        activeVehicle(vehicleId, true);
+        List<VehicleImage> gallery = images.findByVehicleIdOrderBySortOrderAscCreatedAtAscIdAsc(vehicleId);
+        var byId = new java.util.HashMap<UUID, VehicleImage>();
+        gallery.forEach(image -> byId.put(image.getId(), image));
+        if (imageIds == null || imageIds.size() != gallery.size() || !byId.keySet().equals(new java.util.HashSet<>(imageIds))) {
+            throw invalid("Image order must list every image of this vehicle exactly once");
+        }
+        for (int index = 0; index < imageIds.size(); index++) byId.get(imageIds.get(index)).setSortOrder(index);
+        images.flush();
+        return listImages(vehicleId);
     }
 
     @Override

@@ -17,18 +17,16 @@ import java.util.UUID;
 @FeignClient(name = "vehicle-service", configuration = FeignConfig.class)
 public interface VehicleClient {
 
-    @GetMapping("/api/v1/vehicles/{vehicleId}/availability")
-    FeignResponseWrapper<VehicleAvailabilityDto> checkAvailability(
-            @PathVariable("vehicleId") UUID vehicleId
-    );
+        @GetMapping("/api/v1/vehicles/{vehicleId}/availability")
+        FeignResponseWrapper<VehicleAvailabilityDto> checkAvailability(
+                        @PathVariable("vehicleId") UUID vehicleId);
 
-    @GetMapping("/api/v1/vehicles/available")
-    FeignResponseWrapper<List<AvailableVehicleResponse>> getAvailableVehicles();
+        @GetMapping("/api/v1/vehicles/available")
+        FeignResponseWrapper<List<AvailableVehicleResponse>> getAvailableVehicles();
 
-    @PatchMapping("/api/v1/vehicles/{vehicleId}/rental-status")
-    FeignResponseWrapper<Void> updateStatus(
-            @PathVariable("vehicleId") UUID vehicleId,
-            @RequestParam("status") String status,
-            @RequestParam(value = "mileageKm", required = false) BigDecimal mileageKm
-    );
+        @PatchMapping("/api/v1/vehicles/{vehicleId}/rental-status")
+        FeignResponseWrapper<Void> updateStatus(
+                        @PathVariable("vehicleId") UUID vehicleId,
+                        @RequestParam("status") String status,
+                        @RequestParam(value = "mileageKm", required = false) BigDecimal mileageKm);
 }

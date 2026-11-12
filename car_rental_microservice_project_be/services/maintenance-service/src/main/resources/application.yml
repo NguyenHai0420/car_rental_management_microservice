@@ -47,7 +47,7 @@ maintenance:
     service-name: ${MAINTENANCE_SERVICE_NAME:maintenance-service}
     vehicle-service:
       base-url: ${VEHICLE_SERVICE_URL:http://vehicle-service}
-      internal-token: ${VEHICLE_INTERNAL_TOKEN:}
+      internal-token: ${VEHICLE_INTERNAL_TOKEN:car-rental-internal-vehicle-token-dev}
     connect-timeout-ms: ${CLIENT_CONNECT_TIMEOUT_MS:3000}
     read-timeout-ms: ${CLIENT_READ_TIMEOUT_MS:5000}
   sync:
@@ -58,7 +58,7 @@ maintenance:
     retry-delay-seconds: ${MAINTENANCE_SYNC_RETRY_DELAY_SECONDS:30}
   security:
     enabled: ${MAINTENANCE_SECURITY_ENABLED:true}
-    require-gateway-secret: ${MAINTENANCE_REQUIRE_GATEWAY_SECRET:true}
+    require-gateway-secret: ${MAINTENANCE_REQUIRE_GATEWAY_SECRET:false}
     gateway-secret: ${MAINTENANCE_GATEWAY_SECRET:}
     internal-token: ${MAINTENANCE_INTERNAL_TOKEN:}
     allowed-roles: ${MAINTENANCE_ALLOWED_ROLES:ADMIN,STAFF,VEHICLE_OWNER}

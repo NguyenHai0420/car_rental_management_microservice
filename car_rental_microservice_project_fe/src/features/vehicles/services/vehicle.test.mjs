@@ -6,6 +6,7 @@ import {
   changeVehicleStatus, createVehicle, createVehicleCategory, createVehicleModel, deleteVehicle, deleteVehicleCategory, deleteVehicleModel, getVehicle,
   getVehicleDocumentUrl, listVehicleCategories, listVehicleModels, listVehicles, listVehicleStatusHistory,
   lookupVehicleByLicensePlate, updateVehicle, updateVehicleCategory, updateVehicleModel, uploadVehicleDocument, uploadVehicleImage, uploadVehicleImages, vehicleError,
+  setPrimaryVehicleImage, reorderVehicleImages,
 } from './vehicle.js'
 import { matchesSearch } from '../vehicle-fields.js'
 
@@ -55,21 +56,27 @@ test('image upload sends multipart boundary, metadata and bearer token through t
   assert.match(received.body, /name="sortOrder"\r\n\r\n3/)
 })
 
-test('multi-image upload sends one request per file, keeps going after a failure and only marks the first primary', async () => {
+test('multi-image upload sends one request per file, keeps going after a failure and lets the server order them', async () => {
   imageUploads.length = 0
   const png = (name) => new File([new Uint8Array([137, 80, 78, 71])], name, { type: 'image/png' })
   const seen = []
   const results = await uploadVehicleImages('vehicle-id', [png('a.png'), png('broken.png'), png('c.png')], 'EXTERIOR_SIDE',
-    { isPrimary: true, sortOrder: 2 }, (result, index) => seen.push(index))
+    (result, index) => seen.push(index))
   assert.deepEqual(seen, [0, 1, 2])
   assert.deepEqual(results.map((result) => Boolean(result.error)), [false, true, false])
   assert.equal(results[1].error.response.status, 400)
   assert.equal(imageUploads.length, 2)
-  assert.match(imageUploads[0], /name="isPrimary"\r\n\r\ntrue/)
-  assert.match(imageUploads[0], /name="sortOrder"\r\n\r\n2/)
   assert.match(imageUploads[1], /filename="c.png"/)
-  assert.match(imageUploads[1], /name="isPrimary"\r\n\r\nfalse/)
-  assert.match(imageUploads[1], /name="sortOrder"\r\n\r\n4/)
+  assert.doesNotMatch(imageUploads[1], /name="isPrimary"|name="sortOrder"/)
+})
+
+test('cover and gallery order changes use PUT on the image endpoints', async () => {
+  await setPrimaryVehicleImage('vehicle-id', 'image 2')
+  assert.equal(received.method, 'PUT')
+  assert.equal(received.path, '/api/v1/vehicles/vehicle-id/images/image%202/primary')
+  await reorderVehicleImages('vehicle-id', ['b', 'a'])
+  assert.equal(received.path, '/api/v1/vehicles/vehicle-id/images/order')
+  assert.deepEqual(JSON.parse(received.body), ['b', 'a'])
 })
 
 test('document upload sends optional metadata and requests a fresh URL separately', async () => {

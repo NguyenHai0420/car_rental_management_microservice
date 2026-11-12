@@ -109,7 +109,7 @@ public class MaintenanceAccessFilter extends OncePerRequestFilter {
             return;
         }
 
-        if (securityProperties.isRequireGatewaySecret()) {
+        if (securityProperties.isRequireGatewaySecret() && hasText(securityProperties.getGatewaySecret())) {
             String gatewaySecret = request.getHeader(HEADER_GATEWAY_SECRET);
             if (!constantTimeEquals(securityProperties.getGatewaySecret(), gatewaySecret)) {
                 SecurityContextHolder.clearContext();
@@ -132,9 +132,13 @@ public class MaintenanceAccessFilter extends OncePerRequestFilter {
 
         String userId = request.getHeader(HEADER_USER_ID);
         if (!hasText(userId)) {
-            SecurityContextHolder.clearContext();
-            writeError(response, HttpStatus.UNAUTHORIZED, "Authentication required");
-            return;
+            if (existingAuth instanceof JwtAuthenticationToken jwtAuth && hasText(jwtAuth.getToken().getSubject())) {
+                userId = jwtAuth.getToken().getSubject();
+            } else {
+                SecurityContextHolder.clearContext();
+                writeError(response, HttpStatus.UNAUTHORIZED, "Authentication required");
+                return;
+            }
         }
 
         if (existingAuth instanceof JwtAuthenticationToken jwtAuth) {

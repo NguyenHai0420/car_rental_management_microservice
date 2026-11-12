@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import {
   App,
   Button,
@@ -46,7 +45,6 @@ const getDefaultRange = () => [
 
 export function HomePage() {
   const { message } = App.useApp()
-  const navigate = useNavigate()
   const { authenticated, login } = useAuth()
   const showroom = useVehicleQuery(loadShowroom, showroomError)
 
@@ -55,7 +53,6 @@ export function HomePage() {
   const [term, setTerm] = useState('')
   const [dateRange, setDateRange] = useState(getDefaultRange)
   const [minSeats, setMinSeats] = useState(undefined)
-  const [locationFilter, setLocationFilter] = useState('')
   const [availabilityFilters, setAvailabilityFilters] = useState(null)
   const loadAvailability = useCallback((signal) => availabilityFilters
     ? bookingService.searchAvailableVehicles(availabilityFilters, signal)
@@ -107,18 +104,20 @@ export function HomePage() {
     return (cars ?? []).filter((car) => {
       if (brand && car.brand !== brand) return false
       if (category && car.categoryId !== category) return false
-      if (term.trim() && !matchesSearch(term, car.brand, car.modelName, car.categoryName)) return false
       if (minSeats && (!car.seatCount || car.seatCount < minSeats)) return false
-      if (locationFilter.trim()) {
-        const loc = (car.location || '').toLowerCase()
-        if (!loc.includes(locationFilter.trim().toLowerCase())) return false
+      if (term.trim()) {
+        const q = term.trim().toLowerCase()
+        const matchesName = matchesSearch(term, car.brand, car.modelName, car.categoryName)
+        const matchesLoc = (car.location || '').toLowerCase().includes(q)
+        const matchesPlate = (car.licensePlate || '').toLowerCase().includes(q)
+        if (!matchesName && !matchesLoc && !matchesPlate) return false
       }
       return true
     })
-  }, [cars, brand, category, term, minSeats, locationFilter])
+  }, [cars, brand, category, term, minSeats])
 
   const filtering = Boolean(
-    availabilityFilters || brand || category || term.trim() || minSeats || locationFilter.trim()
+    availabilityFilters || brand || category || term.trim() || minSeats
   )
   const sections = useMemo(() => group(filteredCars, (car) => car.brand), [filteredCars])
   const total = filteredCars.length
@@ -138,7 +137,6 @@ export function HomePage() {
     setCategory('')
     setTerm('')
     setMinSeats(undefined)
-    setLocationFilter('')
     setAvailabilityFilters(null)
   }
 
@@ -151,7 +149,7 @@ export function HomePage() {
       pickupDatetime: dateRange[0],
       returnDatetime: dateRange[1],
       minSeats,
-      location: locationFilter,
+      location: term,
     })
     document.getElementById('xe')?.scrollIntoView({ behavior: 'smooth' })
   }
@@ -221,27 +219,14 @@ export function HomePage() {
                   ]}
                 />
               </Col>
-              <Col xs={12} sm={8} lg={5}>
+              <Col xs={24} sm={16} lg={8}>
                 <div style={{ marginBottom: 6, fontWeight: 600, fontSize: 13, color: 'var(--title)' }}>
-                  <EnvironmentOutlined style={{ color: '#ff6a1a', marginRight: 6 }} /> Khu vực / Chi nhánh
+                  <EnvironmentOutlined style={{ color: '#ff6a1a', marginRight: 6 }} /> Khu vực / Chi nhánh hoặc tên xe
                 </div>
                 <Input
                   size="large"
                   allowClear
-                  placeholder="VD: Quận 1, Hoàng Mai, Cầu Giấy..."
-                  value={locationFilter}
-                  onChange={(e) => setLocationFilter(e.target.value)}
-                  onPressEnter={handleSearch}
-                />
-              </Col>
-              <Col xs={16} sm={8} lg={4}>
-                <div style={{ marginBottom: 6, fontWeight: 600, fontSize: 13, color: 'var(--title)' }}>
-                  <SearchOutlined style={{ color: '#ff6a1a', marginRight: 6 }} /> Tìm theo tên
-                </div>
-                <Input
-                  size="large"
-                  allowClear
-                  placeholder="Vios, Camry, VF 8..."
+                  placeholder="VD: Cầu Giấy, Hà Nội, Vios, Camry, VF 8..."
                   value={term}
                   onChange={(e) => {
                     setTerm(e.target.value)
@@ -250,7 +235,7 @@ export function HomePage() {
                   onPressEnter={handleSearch}
                 />
               </Col>
-              <Col xs={8} sm={24} lg={2}>
+              <Col xs={24} sm={8} lg={3}>
                 <Button
                   size="large"
                   type="primary"

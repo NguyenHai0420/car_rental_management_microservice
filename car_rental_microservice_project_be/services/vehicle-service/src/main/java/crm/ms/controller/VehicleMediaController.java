@@ -7,6 +7,7 @@ import crm.ms.exception.BusinessException;
 import crm.ms.service.VehicleMediaService;
 import crm.ms.service.storage.MediaFile;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -20,6 +21,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -34,7 +36,7 @@ public class VehicleMediaController {
     public ResponseEntity<ResponseApi> uploadImage(
             @PathVariable("vehicleId") UUID vehicleId, @RequestPart("file") MultipartFile file,
             @RequestParam("imageType") ImageType imageType, @RequestParam(value = "isPrimary", defaultValue = "false") boolean isPrimary,
-            @RequestParam(value = "sortOrder", defaultValue = "0") @Min(0) int sortOrder,
+            @RequestParam(value = "sortOrder", required = false) @Min(0) Integer sortOrder,
             @RequestHeader(value = "X-User-ID", required = false) String userId,
             @RequestHeader(value = "X-User-Roles", required = false) String roles) {
         String actor = access.requireMediaManager(userId, roles);
@@ -49,6 +51,24 @@ public class VehicleMediaController {
     @GetMapping("/images")
     public ResponseEntity<ResponseApi> images(@PathVariable("vehicleId") UUID vehicleId) {
         return response(HttpStatus.OK, "Vehicle images", media.listImages(vehicleId));
+    }
+
+    @PutMapping("/images/{imageId}/primary")
+    public ResponseEntity<ResponseApi> setPrimaryImage(
+            @PathVariable("vehicleId") UUID vehicleId, @PathVariable("imageId") UUID imageId,
+            @RequestHeader(value = "X-User-ID", required = false) String userId,
+            @RequestHeader(value = "X-User-Roles", required = false) String roles) {
+        access.requireMediaManager(userId, roles);
+        return response(HttpStatus.OK, "Primary image updated", media.setPrimaryImage(vehicleId, imageId));
+    }
+
+    @PutMapping("/images/order")
+    public ResponseEntity<ResponseApi> reorderImages(
+            @PathVariable("vehicleId") UUID vehicleId, @RequestBody @NotNull List<UUID> imageIds,
+            @RequestHeader(value = "X-User-ID", required = false) String userId,
+            @RequestHeader(value = "X-User-Roles", required = false) String roles) {
+        access.requireMediaManager(userId, roles);
+        return response(HttpStatus.OK, "Image order updated", media.reorderImages(vehicleId, imageIds));
     }
 
     @DeleteMapping("/images/{imageId}")

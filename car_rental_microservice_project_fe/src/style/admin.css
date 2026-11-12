@@ -78,6 +78,7 @@ a.fleet-button:hover { background: var(--brand-2); }
 .document-card { border: 1px solid var(--line); border-radius: var(--r-md); padding: 16px; display: flex; justify-content: space-between; gap: 16px; }
 .document-card h3 { margin-top: 0; } .document-card .badge { margin-top: 8px; }
 .document-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: start; }
+.image-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
 .gate { max-width: 480px; margin: 12vh auto; text-align: center; display: grid; gap: 14px; justify-items: center; }
 @media (max-width: 980px) {
   .admin { grid-template-columns: 1fr; }

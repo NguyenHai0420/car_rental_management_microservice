@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
+  Alert,
   App,
   Button,
   Card,
@@ -53,6 +54,23 @@ export function NotificationPage() {
   const [drawerItem, setDrawerItem] = useState(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [refreshingDetail, setRefreshingDetail] = useState(false)
+  const [serviceError, setServiceError] = useState(null)
+
+  const handleServiceError = useCallback((reason) => {
+    const status = reason?.response?.status
+    if (status === 500 || status === 502 || status === 503) {
+      setServiceError({
+        title: 'Chưa kết nối được Notification Service',
+        description:
+          'Dịch vụ thông báo & email (notification-service cổng 8086) chưa được khởi động hoặc ApiGateway không thể kết nối tới cổng này. Vui lòng bật notification-service và MySQL (cổng 3307).',
+      })
+    } else {
+      setServiceError({
+        title: 'Không tải được lịch sử thông báo',
+        description: extractApiError(reason, 'Lỗi kết nối tới máy chủ.'),
+      })
+    }
+  }, [])
 
   const loadData = useCallback(
     async (page = 0, size = 10, activeFilters = filters) => {
@@ -77,7 +95,9 @@ export function NotificationPage() {
             pageSize: pageData?.size ?? size,
             total: pageData?.totalElements ?? 0,
           })
+          setServiceError(null)
         } else {
+          handleServiceError(listRes.reason)
           message.error(extractApiError(listRes.reason, 'Không tải được lịch sử thông báo.'))
         }
 
@@ -88,7 +108,7 @@ export function NotificationPage() {
         setLoadingList(false)
       }
     },
-    [filters, message]
+    [filters, message, handleServiceError]
   )
 
   useEffect(() => {
@@ -110,7 +130,9 @@ export function NotificationPage() {
             pageSize: pageData?.size ?? 10,
             total: pageData?.totalElements ?? 0,
           })
+          setServiceError(null)
         } else {
+          handleServiceError(listRes.reason)
           message.error(extractApiError(listRes.reason, 'Không tải được lịch sử thông báo.'))
         }
         if (summaryRes.status === 'fulfilled' && summaryRes.value) {
@@ -125,7 +147,7 @@ export function NotificationPage() {
     return () => {
       active = false
     }
-  }, [message])
+  }, [message, handleServiceError])
 
   const openDetailDrawer = async (record) => {
     setDrawerItem(record)
@@ -313,6 +335,17 @@ export function NotificationPage() {
           </Button>
         </Space>
       </div>
+
+      {serviceError && (
+        <Alert
+          type="error"
+          showIcon
+          message={serviceError.title}
+          description={serviceError.description}
+          closable
+          onClose={() => setServiceError(null)}
+        />
+      )}
 
       <div className="stats" style={{ marginBottom: 0 }}>
         <button
