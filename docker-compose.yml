@@ -169,6 +169,7 @@ services:
     command: ["java", "-jar", "payment-service.jar"]
     environment:
       <<: *backend-env
+      SEPAY_API_TOKEN: ${SEPAY_API_TOKEN:-}
 
   maintenance-service:
     <<: *backend

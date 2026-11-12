@@ -1,5 +1,5 @@
 import dayjs from "dayjs";
-import apiClient from "../../../services/axios-client";
+import apiClient from "../../../services/axios-client.js";
 
 export const BOOKING_STATUS_CONFIG = {
   PENDING: {
@@ -68,7 +68,7 @@ export const bookingService = {
     categoryId,
     minSeats,
     location,
-  } = {}) {
+  } = {}, signal) {
     const params = {
       pickupDatetime: toIsoLocalDateTime(pickupDatetime),
       returnDatetime: toIsoLocalDateTime(returnDatetime),
@@ -78,6 +78,7 @@ export const bookingService = {
     };
     const response = await apiClient.get("/api/v1/bookings/available-vehicles", {
       params,
+      signal,
     });
     return response.data?.data || [];
   },

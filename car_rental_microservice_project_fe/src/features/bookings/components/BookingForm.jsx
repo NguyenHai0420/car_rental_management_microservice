@@ -28,7 +28,7 @@ export const BookingForm = ({
   onSubmit,
 }) => {
   const [form] = Form.useForm();
-  const watchedRange = Form.useWatch("dateRange", form);
+  const watchedRange = Form.useWatch("dateRange", { form, preserve: true });
 
   useEffect(() => {
     if (open && vehicle) {
@@ -86,7 +86,7 @@ export const BookingForm = ({
       destroyOnHidden
     >
       {vehicle && (
-        <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+        <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
           <Descriptions
             bordered
             size="small"

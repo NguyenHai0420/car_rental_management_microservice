@@ -6,9 +6,9 @@ import crm.ms.enums.Transmission;
 import java.math.BigDecimal;
 import java.util.UUID;
 
-/** Public card for the customer homepage: no VIN, plate or audit fields. */
+/** Public card for the customer homepage: includes vehicle details and license plate. */
 public record ShowroomVehicleResponse(
         UUID id, UUID categoryId, String categoryName, String brand, String modelName,
-        Integer manufactureYear, Integer seatCount, FuelType fuelType, Transmission transmission,
+        Integer manufactureYear, String licensePlate, Integer seatCount, FuelType fuelType, Transmission transmission,
         String color, String location, BigDecimal dailyRate, String imageUrl) {
 }

@@ -6,7 +6,7 @@ import { listVehicleImages } from '../vehicles/services/vehicle'
 import { formatPrice, fuelTypes, transmissions } from '../vehicles/vehicle-fields'
 import { CarPhoto } from './CarPhoto'
 
-export function VehicleDialog({ car, onClose }) {
+export function VehicleDialog({ car, onClose, onBook }) {
   const auth = useAuth()
   const navigate = useNavigate()
   const ref = useRef(null)
@@ -22,9 +22,15 @@ export function VehicleDialog({ car, onClose }) {
     if (!ref.current.open) ref.current.showModal()
   }, [])
 
-  const facts = [['Năm sản xuất', car.manufactureYear], ['Số chỗ', `${car.seatCount} chỗ`],
-    ['Hộp số', transmissions[car.transmission]], ['Nhiên liệu', fuelTypes[car.fuelType]],
-    ['Màu xe', car.color], ['Nhận xe tại', car.location]]
+  const facts = [
+    ...(car.licensePlate ? [['Biển số', car.licensePlate]] : []),
+    ['Năm sản xuất', car.manufactureYear],
+    ['Số chỗ', `${car.seatCount} chỗ`],
+    ['Hộp số', transmissions[car.transmission]],
+    ['Nhiên liệu', fuelTypes[car.fuelType]],
+    ['Màu xe', car.color],
+    ['Nhận xe tại', car.location],
+  ]
 
   return <dialog ref={ref} className="car-dialog" aria-labelledby="car-dialog-title" onClose={onClose}
     onClick={(event) => { if (event.target === ref.current) onClose() }}>
@@ -55,9 +61,13 @@ export function VehicleDialog({ car, onClose }) {
             className="btn btn-danger btn-lg w-100"
             onClick={() => {
               onClose()
-              navigate(`/bookings?vehicleId=${car.id}&action=book`, {
-                state: { vehicle: car },
-              })
+              if (onBook) {
+                onBook(car)
+              } else {
+                navigate(`/bookings?vehicleId=${car.id}&action=book`, {
+                  state: { vehicle: car },
+                })
+              }
             }}
           >
             <i className="bi bi-calendar-check me-2" aria-hidden="true" />

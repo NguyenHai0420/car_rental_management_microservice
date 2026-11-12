@@ -15,12 +15,14 @@ createRoot(document.getElementById('root')).render(
       modal={{ focusable: { trap: false } }}
       theme={{
         token: {
+          motion: !window.matchMedia('(prefers-reduced-motion: reduce)').matches,
           colorPrimary: '#ff6a1a',
           colorPrimaryHover: '#ff8a3d',
           colorPrimaryActive: '#e8480c',
           borderRadius: 8,
           colorLink: '#d4440c',
           colorLinkHover: '#ff6a1a',
+          controlHeightLG: 44,
         },
       }}
     >

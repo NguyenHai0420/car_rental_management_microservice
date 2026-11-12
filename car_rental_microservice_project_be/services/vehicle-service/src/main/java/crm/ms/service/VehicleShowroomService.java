@@ -45,7 +45,7 @@ public class VehicleShowroomService {
         return result.map(vehicle -> new ShowroomVehicleResponse(vehicle.getId(),
                 vehicle.getCategory().getId(), vehicle.getCategory().getName(),
                 vehicle.getModel().getBrand(), vehicle.getModel().getModelName(),
-                vehicle.getModel().getManufactureYear(), vehicle.getModel().getSeatCount(),
+                vehicle.getModel().getManufactureYear(), vehicle.getLicensePlate(), vehicle.getModel().getSeatCount(),
                 vehicle.getModel().getFuelType(), vehicle.getModel().getTransmission(),
                 vehicle.getColor(), vehicle.getLocation(), vehicle.getDailyRateSnapshot(), covers.get(vehicle.getId())));
     }

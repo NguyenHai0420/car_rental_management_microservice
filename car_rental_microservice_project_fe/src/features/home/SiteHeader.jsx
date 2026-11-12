@@ -75,30 +75,17 @@ export function SiteHeader() {
           <li className="nav-item"><Link className="nav-link text-nowrap" to="/pricing" aria-current={isPricing ? 'page' : undefined} onClick={() => setOpen(false)}>Tính giá &amp; Thuê xe</Link></li>
           <li className="nav-item"><Link className="nav-link text-nowrap" to="/payment" aria-current={isPayment ? 'page' : undefined} onClick={() => setOpen(false)}>Thanh toán</Link></li>
           <li className="nav-item"><Link className="nav-link text-nowrap" to="/payment/history" aria-current={isHistory ? 'page' : undefined} onClick={() => setOpen(false)}>Lịch sử thanh toán</Link></li>
-          {auth.authenticated ? (
-            <li className="nav-item">
-              <Link
-                className="nav-link text-nowrap"
-                to="/bookings?tab=my-bookings"
-                aria-current={isBookingActive ? 'page' : undefined}
-                onClick={() => setOpen(false)}
-              >
-                <i className="bi bi-clock-history me-1" aria-hidden="true" />
-                Đơn thuê của tôi
-              </Link>
-            </li>
-          ) : (
-            <li className="nav-item">
-              <Link
-                className="nav-link text-nowrap"
-                to="/bookings"
-                aria-current={isBookingActive ? 'page' : undefined}
-                onClick={() => setOpen(false)}
-              >
-                Thuê xe theo ngày
-              </Link>
-            </li>
-          )}
+          <li className="nav-item">
+            <Link
+              className="nav-link text-nowrap"
+              to={auth.authenticated ? '/bookings?tab=my-bookings' : '/#tim-xe'}
+              aria-current={isBookingActive ? 'page' : undefined}
+              onClick={(event) => auth.authenticated ? setOpen(false) : handleNavClick(event, '/#tim-xe')}
+            >
+              <i className="bi bi-clock-history me-1" aria-hidden="true" />
+              {auth.authenticated ? 'Đơn thuê của tôi' : 'Tìm & đặt xe'}
+            </Link>
+          </li>
           {auth.authenticated && (
             <li className="nav-item">
               <Link className="nav-link text-nowrap" to="/profile" aria-current={isProfileActive ? 'page' : undefined} onClick={() => setOpen(false)}>

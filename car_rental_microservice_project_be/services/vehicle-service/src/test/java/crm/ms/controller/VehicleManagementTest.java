@@ -155,6 +155,7 @@ class VehicleManagementTest {
                 .andExpect(jsonPath("$.data.content[0].id").value(shown.path("id").asText()))
                 .andExpect(jsonPath("$.data.content[0].categoryId").value(categoryId))
                 .andExpect(jsonPath("$.data.content[0].categoryName").value(shown.path("categoryName").asText()))
+                .andExpect(jsonPath("$.data.content[0].licensePlate").value(shown.path("licensePlate").asText()))
                 .andExpect(jsonPath("$.data.content[0].brand").value("Toyota"))
                 .andExpect(jsonPath("$.data.content[0].imageUrl").value("http://cdn/cover"))
                 .andExpect(jsonPath("$.data.content[0].sizeClass").doesNotHaveJsonPath())
