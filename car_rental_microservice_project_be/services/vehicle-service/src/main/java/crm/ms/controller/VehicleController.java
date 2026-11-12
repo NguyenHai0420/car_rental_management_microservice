@@ -84,12 +84,12 @@ public class VehicleController {
     }
 
     @PutMapping("/categories/{id}")
-    public ResponseEntity<ResponseApi> updateCategory(@PathVariable UUID id, @Valid @RequestBody VehicleCatalog.CategoryRequest request) {
+    public ResponseEntity<ResponseApi> updateCategory(@PathVariable("id") UUID id, @Valid @RequestBody VehicleCatalog.CategoryRequest request) {
         return response(HttpStatus.OK, "Vehicle category updated", catalog.updateCategory(id, request));
     }
 
     @DeleteMapping("/categories/{id}")
-    public ResponseEntity<ResponseApi> deleteCategory(@PathVariable UUID id) {
+    public ResponseEntity<ResponseApi> deleteCategory(@PathVariable("id") UUID id) {
         catalog.deleteCategory(id);
         return response(HttpStatus.OK, "Vehicle category deleted", null);
     }
@@ -105,12 +105,12 @@ public class VehicleController {
     }
 
     @PutMapping("/models/{id}")
-    public ResponseEntity<ResponseApi> updateModel(@PathVariable UUID id, @Valid @RequestBody VehicleCatalog.ModelRequest request) {
+    public ResponseEntity<ResponseApi> updateModel(@PathVariable("id") UUID id, @Valid @RequestBody VehicleCatalog.ModelRequest request) {
         return response(HttpStatus.OK, "Vehicle model updated", catalog.updateModel(id, request));
     }
 
     @DeleteMapping("/models/{id}")
-    public ResponseEntity<ResponseApi> deleteModel(@PathVariable UUID id) {
+    public ResponseEntity<ResponseApi> deleteModel(@PathVariable("id") UUID id) {
         catalog.deleteModel(id);
         return response(HttpStatus.OK, "Vehicle model deleted", null);
     }
