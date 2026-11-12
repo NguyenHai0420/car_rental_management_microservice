@@ -28,8 +28,7 @@ public class BookingCarController {
         private final BookingService bookingService;
 
         /**
-         * Tìm kiếm xe trống — gọi trực tiếp qua OpenFeign sang vehicle-service và lọc
-         * theo rental_slots.
+         * Tìm kiếm xe trống
          */
         @GetMapping("/available-vehicles")
         public ResponseEntity<ResponseApi> searchAvailableVehicles(
@@ -48,7 +47,7 @@ public class BookingCarController {
         }
 
         /**
-         * Tạo đơn đặt xe mới (Role: CUSTOMER, ADMIN).
+         * Tạo đơn đặt xe mới
          */
         @PostMapping
         @PreAuthorize("hasAnyRole('CUSTOMER', 'ADMIN')")
@@ -68,8 +67,7 @@ public class BookingCarController {
         }
 
         /**
-         * Xác nhận thanh toán (Role: CUSTOMER, ADMIN, VEHICLE_OWNER hoặc
-         * payment-service gọi).
+         * Xác nhận thanh toán
          */
         @PatchMapping("/{id}/confirm")
         @PreAuthorize("isAuthenticated()")
@@ -88,9 +86,6 @@ public class BookingCarController {
                                 .build());
         }
 
-        /**
-         * Endpoint nội bộ cho payment-service gọi trực tiếp khi cổng thanh toán xác nhận giao dịch thành công.
-         */
         @PatchMapping("/{id}/internal-confirm")
         public ResponseEntity<ResponseApi> internalConfirmBooking(
                         @PathVariable("id") UUID id,
@@ -104,7 +99,7 @@ public class BookingCarController {
         }
 
         /**
-         * Khách hàng xem danh sách đơn đặt xe của chính mình.
+         * Khách hàng xem danh sách đơn đặt xe của mình
          */
         @GetMapping("/my-bookings")
         @PreAuthorize("isAuthenticated()")
@@ -118,8 +113,7 @@ public class BookingCarController {
         }
 
         /**
-         * Customer-service reads the caller's history, or another customer's history
-         * for staff/admin.
+         * Lấy danh sách đơn đặt xe theo id người dùng.
          */
         @GetMapping("/by-user/{keycloakUserId}")
         @PreAuthorize("#keycloakUserId == authentication.name or hasAnyRole('ADMIN', 'STAFF')")
@@ -134,7 +128,7 @@ public class BookingCarController {
         }
 
         /**
-         * Quản lý toàn bộ danh sách đơn đặt xe (Role: ADMIN, VEHICLE_OWNER).
+         * Quản lý toàn bộ danh sách đơn đặt xe
          */
         @GetMapping
         @PreAuthorize("hasAnyRole('ADMIN', 'VEHICLE_OWNER')")
@@ -151,7 +145,7 @@ public class BookingCarController {
         }
 
         /**
-         * Xem chi tiết đơn đặt xe kèm lịch sử chuyển đổi trạng thái.
+         * Xem chi tiết đơn đặt xe
          */
         @GetMapping("/{id}")
         @PreAuthorize("isAuthenticated()")
@@ -169,8 +163,7 @@ public class BookingCarController {
         }
 
         /**
-         * Hủy đơn đặt xe (CUSTOMER chỉ hủy được đơn của mình; ADMIN/VEHICLE_OWNER hủy
-         * được mọi đơn hợp lệ).
+         * Hủy đơn đặt xe
          */
         @PatchMapping("/{id}/cancel")
         @PreAuthorize("hasAnyRole('CUSTOMER', 'VEHICLE_OWNER', 'ADMIN')")
@@ -189,7 +182,7 @@ public class BookingCarController {
         }
 
         /**
-         * Nhân viên / Chủ xe hoặc Khách hàng xác nhận nhận xe (CONFIRMED -> PICKED_UP).
+         * Xác nhận nhận xe
          */
         @PatchMapping("/{id}/pickup")
         @PreAuthorize("hasAnyRole('CUSTOMER', 'VEHICLE_OWNER', 'ADMIN')")
@@ -209,7 +202,7 @@ public class BookingCarController {
         }
 
         /**
-         * Nhân viên / Chủ xe hoặc Khách hàng xác nhận trả xe (PICKED_UP -> RETURNED).
+         * Xác nhận trả xe
          */
         @PatchMapping("/{id}/return")
         @PreAuthorize("hasAnyRole('CUSTOMER', 'VEHICLE_OWNER', 'ADMIN')")
@@ -229,7 +222,7 @@ public class BookingCarController {
         }
 
         /**
-         * Hoàn tất chuyến đi (RETURNED -> COMPLETED).
+         * Hoàn tất chuyến đi
          */
         @PatchMapping("/{id}/complete")
         @PreAuthorize("hasAnyRole('CUSTOMER', 'VEHICLE_OWNER', 'ADMIN')")
