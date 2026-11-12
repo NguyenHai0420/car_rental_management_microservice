@@ -147,6 +147,28 @@ class VehicleMaintenanceOperationTest {
         assertThat(statusOf(free)).isEqualTo(VehicleStatus.RESERVED);
     }
 
+    @Test
+    void concurrentSameIdempotencyKeyAcrossDifferentVehiclesRejectsWith422() throws Exception {
+        UUID vehicleA = newVehicle();
+        UUID vehicleB = newVehicle();
+        UUID maintenance = UUID.randomUUID();
+        UUID sharedKey = UUID.randomUUID();
+        var ready = new CyclicBarrier(2);
+        try (var pool = Executors.newFixedThreadPool(2)) {
+            var callA = pool.submit(() -> {
+                ready.await(5, TimeUnit.SECONDS);
+                return mvc.perform(internal(command(vehicleA, "start", sharedKey, maintenance))).andReturn();
+            });
+            var callB = pool.submit(() -> {
+                ready.await(5, TimeUnit.SECONDS);
+                return mvc.perform(internal(command(vehicleB, "start", sharedKey, maintenance))).andReturn();
+            });
+            int statusA = callA.get(10, TimeUnit.SECONDS).getResponse().getStatus();
+            int statusB = callB.get(10, TimeUnit.SECONDS).getResponse().getStatus();
+            assertThat(java.util.List.of(statusA, statusB)).containsExactlyInAnyOrder(200, 422);
+        }
+    }
+
     private MockHttpServletRequestBuilder command(UUID vehicle, String action, UUID operation, UUID maintenance) {
         return post(BASE + "/" + vehicle + "/maintenance/" + action).header("X-Idempotency-Key", operation.toString())
                 .header("X-Service-Name", "maintenance-service").contentType(APPLICATION_JSON).content(body(maintenance));

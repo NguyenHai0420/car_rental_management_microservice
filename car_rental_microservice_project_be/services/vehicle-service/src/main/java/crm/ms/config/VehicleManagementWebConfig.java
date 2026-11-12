@@ -23,8 +23,9 @@ public class VehicleManagementWebConfig implements WebMvcConfigurer {
             @Override
             public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
                 if (handler instanceof HandlerMethod method && VehicleController.class.isAssignableFrom(method.getBeanType())) {
-                    // Other services (maintenance-service) may read vehicles with the internal token, never write.
+                    // Other services (maintenance-service) may only read a single vehicle by id, never write or list.
                     if ("GET".equals(request.getMethod())
+                            && "get".equals(method.getMethod().getName())
                             && access.isInternalService(request.getHeader(VehicleAccessPolicy.INTERNAL_TOKEN_HEADER))) {
                         return true;
                     }

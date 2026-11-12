@@ -8,6 +8,7 @@ import crm.ms.client.RestVehicleClient;
 import crm.ms.client.dto.ExternalVehicleResponse;
 import crm.ms.config.CorrelationContextFilter;
 import crm.ms.config.MaintenanceClientProperties;
+import crm.ms.dto.CancelMaintenanceRequest;
 import crm.ms.dto.CompleteMaintenanceRequest;
 import crm.ms.dto.MaintenanceRequest;
 import crm.ms.dto.MaintenanceResponse;
@@ -65,6 +66,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -251,7 +253,7 @@ class MaintenanceOutboundClientAndSagaTest {
     }
 
     @Test
-    void createAndUpdateScheduleEnforceVehicleStatusWithoutCallingBooking_MOCK_TESTED() {
+    void createUpdateAndCancelCoordinateVehicleHoldsAndCompensateFailures_MOCK_TESTED() {
         RestVehicleClient vehicleClient = new RestVehicleClient(
                 buildRestClient(2000), objectMapper, "maintenance-service", "veh-secret");
         Clock fixedClock = Clock.systemUTC();
@@ -262,6 +264,7 @@ class MaintenanceOutboundClientAndSagaTest {
                 vehicleLockService, vehicleClient, mapper, noopTxManager(), fixedClock, 30L);
 
         UUID vehicleId = UUID.randomUUID();
+        UUID holdId = UUID.randomUUID();
         Instant start = Instant.parse("2026-11-20T08:00:00Z");
         Instant end = Instant.parse("2026-11-20T12:00:00Z");
 
@@ -271,36 +274,63 @@ class MaintenanceOutboundClientAndSagaTest {
         createReq.setScheduledEndAt(end);
         createReq.setPriority(Priority.MEDIUM);
 
-        // DECOMMISSIONED / RESERVED / RENTED must be blocked with 409 Conflict
-        for (String blockedStatus : List.of("DECOMMISSIONED", "RESERVED", "RENTED")) {
-            responder.set(req -> new StubReply(200, """
-                    {"code":"OK","data":{"id":"%s","status":"%s"}}
-                    """.formatted(vehicleId, blockedStatus)));
-            BusinessException ex = assertThrows(BusinessException.class,
-                    () -> maintenanceService.createSchedule(createReq));
-            assertEquals(409, ex.getCode());
-        }
+        // 1. Conflicting hold or DECOMMISSIONED/RESERVED/RENTED returns 409 before DB write
+        responder.set(req -> new StubReply(409, "{\"message\":\"Vehicle has conflicting BOOKING hold\"}"));
+        BusinessException conflictEx = assertThrows(BusinessException.class,
+                () -> maintenanceService.createSchedule(createReq));
+        assertEquals(409, conflictEx.getCode());
 
-        // AVAILABLE succeeds and only calls GET /api/v1/vehicles/{id}
+        // 2. Successful create: POST /holds (HELD) -> DB save -> POST /holds/{holdId}/confirm (CONFIRMED)
         capturedRequests.clear();
+        AtomicReference<MaintenanceSchedule> lastSavedSchedule = new AtomicReference<>();
         when(maintenanceRepository.findConflictingSchedules(any(), any(), any(), any(), any())).thenReturn(List.of());
         when(maintenanceRepository.saveAndFlush(any())).thenAnswer(inv -> {
             MaintenanceSchedule s = inv.getArgument(0);
             if (s.getId() == null) {
                 s.setId(UUID.randomUUID());
             }
+            lastSavedSchedule.set(s);
             return s;
         });
 
-        responder.set(req -> new StubReply(200, """
-                {"code":"OK","data":{"id":"%s","status":"AVAILABLE"}}
-                """.formatted(vehicleId)));
+        responder.set(req -> {
+            if (req.path().endsWith("/holds")) {
+                return new StubReply(200, """
+                        {"code":"OK","data":{"holdId":"%s","vehicleId":"%s","ownerType":"MAINTENANCE","status":"HELD"}}
+                        """.formatted(holdId, vehicleId));
+            }
+            return new StubReply(200, """
+                    {"code":"OK","data":{"holdId":"%s","vehicleId":"%s","ownerType":"MAINTENANCE","status":"CONFIRMED"}}
+                    """.formatted(holdId, vehicleId));
+        });
+
         MaintenanceResponse created = maintenanceService.createSchedule(createReq);
         assertEquals(MaintenanceStatus.SCHEDULED, created.getStatus());
-        assertEquals(1, capturedRequests.size());
-        assertEquals("/api/v1/vehicles/" + vehicleId, capturedRequests.get(0).path());
+        assertEquals(2, capturedRequests.size());
+        assertEquals("/api/v1/vehicles/" + vehicleId + "/holds", capturedRequests.get(0).path());
+        assertEquals("/api/v1/vehicles/" + vehicleId + "/holds/" + holdId + "/confirm", capturedRequests.get(1).path());
+        assertTrue(capturedRequests.get(1).body().contains(created.getId().toString()));
 
-        // updateSchedule also blocks RESERVED / RENTED / DECOMMISSIONED
+        // 3. Confirm failure after DB save rolls back schedule & compensates hold
+        capturedRequests.clear();
+        when(maintenanceRepository.findById(any())).thenAnswer(inv ->
+                Optional.ofNullable(lastSavedSchedule.get()).filter(s -> s.getId().equals(inv.getArgument(0))));
+        responder.set(req -> {
+            if (req.path().endsWith("/holds")) {
+                return new StubReply(200, """
+                        {"code":"OK","data":{"holdId":"%s","vehicleId":"%s","ownerType":"MAINTENANCE","status":"HELD"}}
+                        """.formatted(holdId, vehicleId));
+            }
+            if (req.path().endsWith("/confirm")) {
+                return new StubReply(503, "{\"message\":\"Vehicle unavailable during confirm\"}");
+            }
+            return new StubReply(200, "{\"code\":\"OK\",\"data\":{\"holdId\":\"" + holdId + "\",\"status\":\"RELEASED\"}}");
+        });
+        assertThrows(ExternalServiceUnavailableException.class, () -> maintenanceService.createSchedule(createReq));
+        verify(maintenanceRepository).delete(any(MaintenanceSchedule.class));
+        assertTrue(capturedRequests.stream().anyMatch(r -> r.path().endsWith("/holds/" + holdId + "/release")));
+
+        // 4. updateSchedule acquires reschedule hold excluding scheduleId -> DB update -> confirm swaps atomically
         MaintenanceSchedule existing = MaintenanceSchedule.builder()
                 .id(created.getId())
                 .vehicleId(vehicleId)
@@ -311,23 +341,36 @@ class MaintenanceOutboundClientAndSagaTest {
                 .build();
         when(maintenanceRepository.findById(created.getId())).thenReturn(Optional.of(existing));
 
+        UUID newHoldId = UUID.randomUUID();
+        capturedRequests.clear();
+        responder.set(req -> {
+            if (req.path().endsWith("/holds")) {
+                return new StubReply(200, """
+                        {"code":"OK","data":{"holdId":"%s","vehicleId":"%s","ownerType":"MAINTENANCE","status":"HELD"}}
+                        """.formatted(newHoldId, vehicleId));
+            }
+            return new StubReply(200, """
+                    {"code":"OK","data":{"holdId":"%s","vehicleId":"%s","ownerType":"MAINTENANCE","status":"CONFIRMED"}}
+                    """.formatted(newHoldId, vehicleId));
+        });
+
         UpdateMaintenanceRequest updateReq = new UpdateMaintenanceRequest();
         updateReq.setScheduledStartAt(start.plusSeconds(3600));
         updateReq.setScheduledEndAt(end.plusSeconds(3600));
-
-        responder.set(req -> new StubReply(200, """
-                {"code":"OK","data":{"id":"%s","status":"RESERVED"}}
-                """.formatted(vehicleId)));
-        BusinessException updateBlocked = assertThrows(BusinessException.class,
-                () -> maintenanceService.updateSchedule(created.getId(), updateReq));
-        assertEquals(409, updateBlocked.getCode());
-
-        // updateSchedule succeeds when vehicle is AVAILABLE or IN_MAINTENANCE
-        responder.set(req -> new StubReply(200, """
-                {"code":"OK","data":{"id":"%s","status":"IN_MAINTENANCE"}}
-                """.formatted(vehicleId)));
         MaintenanceResponse updated = maintenanceService.updateSchedule(created.getId(), updateReq);
         assertEquals(updateReq.getScheduledStartAt(), updated.getScheduledStartAt());
+        assertTrue(capturedRequests.get(0).body().contains(created.getId().toString()));
+        assertEquals("/api/v1/vehicles/" + vehicleId + "/holds/" + newHoldId + "/confirm", capturedRequests.get(1).path());
+
+        // 5. cancelSchedule releases owner holds on Vehicle Service
+        capturedRequests.clear();
+        CancelMaintenanceRequest cancelReq = new CancelMaintenanceRequest();
+        cancelReq.setCancellationReason("Customer rescheduled");
+        MaintenanceResponse cancelled = maintenanceService.cancelSchedule(created.getId(), cancelReq);
+        assertEquals(MaintenanceStatus.CANCELLED, cancelled.getStatus());
+        assertEquals("/api/v1/vehicles/" + vehicleId + "/holds/release", capturedRequests.get(0).path());
+        assertTrue(capturedRequests.get(0).query().contains("ownerType=MAINTENANCE"));
+        assertTrue(capturedRequests.get(0).query().contains("ownerId=" + created.getId()));
     }
 
     @Test
